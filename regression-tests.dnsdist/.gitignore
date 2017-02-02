@@ -1,9 +1,0 @@
-/.venv
-/*.xml
-/*.pid
-/*.pyc
-dnsdist_*.conf
-DNSCryptResolver*
-.dnsdist_history
-.history
-dnsdist.log
