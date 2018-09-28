@@ -756,12 +756,13 @@ void RNAME##RecordContent::unreport(void)                                       
                                                                                                    \
 RNAME##RecordContent::RNAME##RecordContent(const string& zoneData)                                 \
 {                                                                                                  \
+  RecordTextReader rtr(zoneData);                                                                  \
   try {                                                                                            \
-    RecordTextReader rtr(zoneData);                                                                \
     xfrPacket(rtr);                                                                                \
   }                                                                                                \
   catch(RecordTextException& rte) {                                                                \
-    throw MOADNSException("Parsing record content (try 'pdnsutil check-zone'): "+string(rte.what()));  \
+    throw MOADNSException("Parsing record content (try 'pdnsutil check-zone "+rtr.getZone()+"'): "+\
+      string(rte.what()));                                                                         \
   }                                                                                                \
 }                                                                                                  \
                                                                                                    \

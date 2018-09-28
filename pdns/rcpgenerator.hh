@@ -66,6 +66,10 @@ public:
     return d_string.substr(d_pos);
   }
 
+  const string getZone() const {
+    return d_zone.toString(".", false);
+  }
+
   bool eof();
 private:
   string d_string;
