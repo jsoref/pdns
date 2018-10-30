@@ -202,6 +202,24 @@ run() {
   travis_cmd "$1" --echo --assert
 }
 
+tasks=0
+run_parallel() {
+  local cmd="$1"
+  local task=$tasks
+  tasks=$(expr $tasks + 1)
+  travis_cmd "$cmd" --echo --assert 2>&1 > /tmp/task.$task &
+}
+
+wait_tasks() {
+  local task=0
+  while [ $task -lt $tasks ]; do
+    eval fg %$tasks
+    cat /tmp/task.$task && rm /tmp/task.$task
+    task=$(expr $task + 1)
+  done
+  tasks=0
+}
+
 install_auth() {
   # pkcs11 build requirements
   run "sudo apt-get -qq --no-install-recommends install \
@@ -492,58 +510,68 @@ test_auth() {
   #travis unbound is too old for this test (unbound 1.6.0 required)
   run "touch tests/ent-asterisk/fail.nsec"
 
-  run "./timestamp ./start-test-stop 5300 ldap-tree"
-  run "./timestamp ./start-test-stop 5300 ldap-simple"
-  run "./timestamp ./start-test-stop 5300 ldap-strict"
+  run_parallel "./timestamp ./start-test-stop 5300 ldap-tree"
+  run_parallel "./timestamp ./start-test-stop 5301 ldap-simple"
+  run_parallel "./timestamp ./start-test-stop 5302 ldap-strict"
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 bind-both"
-  run "./timestamp ./start-test-stop 5300 bind-dnssec-both"
-  run "./timestamp ./start-test-stop 5300 bind-dnssec-nsec3-both"
-  run "./timestamp ./start-test-stop 5300 bind-dnssec-nsec3-optout-both"
-  run "./timestamp ./start-test-stop 5300 bind-dnssec-nsec3-narrow"
-  run "./timestamp ./start-test-stop 5300 bind-hybrid-nsec3"
+  run_parallel "./timestamp ./start-test-stop 5310 bind-both"
+  run_parallel "./timestamp ./start-test-stop 5311 bind-dnssec-both"
+  run_parallel "./timestamp ./start-test-stop 5312 bind-dnssec-nsec3-both"
+  run_parallel "./timestamp ./start-test-stop 5313 bind-dnssec-nsec3-optout-both"
+  run_parallel "./timestamp ./start-test-stop 5314 bind-dnssec-nsec3-narrow"
+  run_parallel "./timestamp ./start-test-stop 5315 bind-hybrid-nsec3"
   #ecdsa - ./timestamp ./start-test-stop 5300 bind-dnssec-pkcs11
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 geoip"
-  run "./timestamp ./start-test-stop 5300 geoip-nsec3-narrow"
+  run_parallel "./timestamp ./start-test-stop 5320 geoip"
+  run_parallel "./timestamp ./start-test-stop 5321 geoip-nsec3-narrow"
   run "export geoipdatabase=../modules/geoipbackend/regression-tests/GeoLiteCity.mmdb"
-  run "./timestamp ./start-test-stop 5300 geoip"
+  run_parallel "./timestamp ./start-test-stop 5322 geoip"
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 gmysql-nodnssec-both"
-  run "./timestamp ./start-test-stop 5300 gmysql-both"
-  run "./timestamp ./start-test-stop 5300 gmysql-nsec3-both"
-  run "./timestamp ./start-test-stop 5300 gmysql-nsec3-optout-both"
-  run "./timestamp ./start-test-stop 5300 gmysql-nsec3-narrow"
+  run_parallel "./timestamp ./start-test-stop 5330 gmysql-nodnssec-both"
+  run_parallel "./timestamp ./start-test-stop 5331 gmysql-both"
+  run_parallel "./timestamp ./start-test-stop 5332 gmysql-nsec3-both"
+  run_parallel "./timestamp ./start-test-stop 5333 gmysql-nsec3-optout-both"
+  run_parallel "./timestamp ./start-test-stop 5334 gmysql-nsec3-narrow"
+  wait_tasks
+
 
   run "export GODBC_SQLITE3_DSN=pdns-sqlite3-1"
-  run "./timestamp ./start-test-stop 5300 godbc_sqlite3-nsec3"
+  run_parallel "./timestamp ./start-test-stop 5340 godbc_sqlite3-nsec3"
 
-  run "./timestamp ./start-test-stop 5300 gpgsql-nodnssec-both"
-  run "./timestamp ./start-test-stop 5300 gpgsql-both"
-  run "./timestamp ./start-test-stop 5300 gpgsql-nsec3-both"
-  run "./timestamp ./start-test-stop 5300 gpgsql-nsec3-optout-both"
-  run "./timestamp ./start-test-stop 5300 gpgsql-nsec3-narrow"
+  run_parallel "./timestamp ./start-test-stop 5341 gpgsql-nodnssec-both"
+  run_parallel "./timestamp ./start-test-stop 5342 gpgsql-both"
+  run_parallel "./timestamp ./start-test-stop 5343 gpgsql-nsec3-both"
+  run_parallel "./timestamp ./start-test-stop 5344 gpgsql-nsec3-optout-both"
+  run_parallel "./timestamp ./start-test-stop 5345 gpgsql-nsec3-narrow"
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 gsqlite3-nodnssec-both"
-  run "./timestamp ./start-test-stop 5300 gsqlite3-both"
-  run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-both"
-  run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-optout-both"
-  run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-narrow"
+  run_parallel "./timestamp ./start-test-stop 5350 gsqlite3-nodnssec-both"
+  run_parallel "./timestamp ./start-test-stop 5351 gsqlite3-both"
+  run_parallel "./timestamp ./start-test-stop 5352 gsqlite3-nsec3-both"
+  run_parallel "./timestamp ./start-test-stop 5353 gsqlite3-nsec3-optout-both"
+  run_parallel "./timestamp ./start-test-stop 5354 gsqlite3-nsec3-narrow"
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 mydns"
+  run_parallel "./timestamp ./start-test-stop 5356 mydns"
 
-  run "./timestamp ./start-test-stop 5300 opendbx-sqlite3"
+  run_parallel "./timestamp ./start-test-stop 5357 opendbx-sqlite3"
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 remotebackend-pipe"
-  run "./timestamp ./start-test-stop 5300 remotebackend-pipe-dnssec"
-  run "./timestamp ./start-test-stop 5300 remotebackend-unix"
-  run "./timestamp ./start-test-stop 5300 remotebackend-unix-dnssec"
-  run "./timestamp ./start-test-stop 5300 remotebackend-http"
-  run "./timestamp ./start-test-stop 5300 remotebackend-http-dnssec"
-  run "./timestamp ./start-test-stop 5300 remotebackend-zeromq"
-  run "./timestamp ./start-test-stop 5300 remotebackend-zeromq-dnssec"
+  run_parallel "./timestamp ./start-test-stop 5360 remotebackend-pipe"
+  run_parallel "./timestamp ./start-test-stop 5361 remotebackend-pipe-dnssec"
+  run_parallel "./timestamp ./start-test-stop 5362 remotebackend-unix"
+  run_parallel "./timestamp ./start-test-stop 5363 remotebackend-unix-dnssec"
+  run_parallel "./timestamp ./start-test-stop 5364 remotebackend-http"
+  run_parallel "./timestamp ./start-test-stop 5365 remotebackend-http-dnssec"
+  run_parallel "./timestamp ./start-test-stop 5366 remotebackend-zeromq"
+  run_parallel "./timestamp ./start-test-stop 5367 remotebackend-zeromq-dnssec"
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 tinydns"
+  run_parallel "./timestamp ./start-test-stop 5370 tinydns"
+  wait_tasks
 
   run "rm tests/ent-asterisk/fail.nsec"
 
@@ -553,33 +581,38 @@ test_auth() {
   run "cd ../../.."
 
   run "cd regression-tests.rootzone"
-  run "./timestamp ./start-test-stop 5300 bind-both"
-  run "./timestamp ./start-test-stop 5300 bind-dnssec-both"
-  run "./timestamp ./start-test-stop 5300 bind-dnssec-nsec3-both"
-  run "./timestamp ./start-test-stop 5300 bind-dnssec-nsec3-optout-both"
-  run "./timestamp ./start-test-stop 5300 bind-dnssec-nsec3-narrow"
-  run "./timestamp ./start-test-stop 5300 bind-hybrid-nsec3"
+  run_parallel "./timestamp ./start-test-stop 5300 bind-both"
+  run_parallel "./timestamp ./start-test-stop 5300 bind-dnssec-both"
+  run_parallel "./timestamp ./start-test-stop 5300 bind-dnssec-nsec3-both"
+  run_parallel "./timestamp ./start-test-stop 5300 bind-dnssec-nsec3-optout-both"
+  run_parallel "./timestamp ./start-test-stop 5300 bind-dnssec-nsec3-narrow"
+  run_parallel "./timestamp ./start-test-stop 5300 bind-hybrid-nsec3"
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 gmysql-nodnssec-both"
-  run "./timestamp ./start-test-stop 5300 gmysql-both"
-  run "./timestamp ./start-test-stop 5300 gmysql-nsec3-both"
-  run "./timestamp ./start-test-stop 5300 gmysql-nsec3-optout-both"
-  run "./timestamp ./start-test-stop 5300 gmysql-nsec3-narrow"
+  run_parallel "./timestamp ./start-test-stop 5300 gmysql-nodnssec-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gmysql-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gmysql-nsec3-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gmysql-nsec3-optout-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gmysql-nsec3-narrow"
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 gpgsql-nodnssec-both"
-  run "./timestamp ./start-test-stop 5300 gpgsql-both"
-  run "./timestamp ./start-test-stop 5300 gpgsql-nsec3-both"
-  run "./timestamp ./start-test-stop 5300 gpgsql-nsec3-optout-both"
-  run "./timestamp ./start-test-stop 5300 gpgsql-nsec3-narrow"
+  run_parallel "./timestamp ./start-test-stop 5300 gpgsql-nodnssec-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gpgsql-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gpgsql-nsec3-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gpgsql-nsec3-optout-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gpgsql-nsec3-narrow"
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 gsqlite3-nodnssec-both"
-  run "./timestamp ./start-test-stop 5300 gsqlite3-both"
-  run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-both"
-  run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-optout-both"
-  run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-narrow"
+  run_parallel "./timestamp ./start-test-stop 5300 gsqlite3-nodnssec-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gsqlite3-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-optout-both"
+  run_parallel "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-narrow"
+  wait_tasks
 
-  run "./timestamp ./start-test-stop 5300 lua2"
-  run "./timestamp ./start-test-stop 5300 lua2-dnssec"
+  run_parallel "./timestamp ./start-test-stop 5300 lua2"
+  run_parallel "./timestamp ./start-test-stop 5300 lua2-dnssec"
+  wait_tasks
 
   run "cd .."
 
