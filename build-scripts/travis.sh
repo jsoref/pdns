@@ -1,4 +1,5 @@
 #!/bin/bash
+set -m
 
 ## "upstream" travis functions
 ANSI_RED="\033[31;1m"
