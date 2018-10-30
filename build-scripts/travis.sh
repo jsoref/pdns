@@ -404,7 +404,7 @@ build_auth() {
     --disable-dependency-tracking \
     --disable-silent-rules"
   run "make -k dist"
-  run "make -k -j3"
+  run "make -k -j5"
   run "make -k install DESTDIR=/tmp/pdns-install-dir"
   run "find /tmp/pdns-install-dir -ls"
 }
@@ -420,7 +420,7 @@ build_ixfrdist() {
     --disable-dependency-tracking \
     --disable-silent-rules"
   run "cd pdns"
-  run "make -k -j3 ixfrdist"
+  run "make -k -j5 ixfrdist"
   run "cd .."
 }
 
@@ -442,7 +442,7 @@ build_recursor() {
     --enable-unit-tests \
     --enable-nod \
     --disable-silent-rules"
-  run "make -k -j3"
+  run "make -k -j5"
   run "make install"
   run "find $PDNS_RECURSOR_DIR -ls"
   run "cd ../../.."
@@ -465,7 +465,7 @@ build_dnsdist(){
     --enable-fstrm \
     --prefix=$HOME/dnsdist \
     --disable-silent-rules"
-  run "make -k -j3"
+  run "make -k -j5"
   run "./testrunner"
   run "make install"
   run "cd ../../.."
@@ -475,12 +475,12 @@ build_dnsdist(){
 }
 
 test_auth() {
-  run "make -j3 check || (cat pdns/test-suite.log; false)"
+  run "make -j5 check || (cat pdns/test-suite.log; false)"
   run "test -f pdns/test-suite.log && cat pdns/test-suite.log || true"
   run "test -f modules/remotebackend/test-suite.log && cat modules/remotebackend/test-suite.log || true"
 
-  #DNSName - make -k -j3 -C pdns $(grep '(EXEEXT):' pdns/Makefile | cut -f1 -d\$ | grep -E -v 'dnsdist|calidns')
-  run 'make -k -j3 -C pdns $(grep "(EXEEXT):" pdns/Makefile | cut -f1 -d\$)'
+  #DNSName - make -k -j5 -C pdns $(grep '(EXEEXT):' pdns/Makefile | cut -f1 -d\$ | grep -E -v 'dnsdist|calidns')
+  run 'make -k -j5 -C pdns $(grep "(EXEEXT):" pdns/Makefile | cut -f1 -d\$)'
 
   run "cd pdns"
   run "./pdnsutil test-algorithms"
@@ -612,7 +612,7 @@ test_recursor() {
   export DNSBULKTEST="/usr/bin/dnsbulktest"
   export RECCONTROL="${PDNS_RECURSOR_DIR}/bin/rec_control"
   run "cd pdns/recursordist/pdns-recursor-*"
-  run "make -j 3 check || (cat test-suite.log; false)"
+  run "make -j5 check || (cat test-suite.log; false)"
   run "cd ${TRAVIS_BUILD_DIR}"
   run "./build-scripts/test-recursor"
   export RECURSOR="${PDNSRECURSOR}"
