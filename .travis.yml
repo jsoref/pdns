@@ -58,7 +58,6 @@ addons:
       - lua-socket
       - moreutils
       - p11-kit
-      - pdns-tools
       - protobuf-compiler
       - ruby-json
       - rubygems-integration
