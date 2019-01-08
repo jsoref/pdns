@@ -67,6 +67,7 @@ addons:
       - socat
       - softhsm
       - unbound-host
+      - unixodbc-dev
       - validns
 
 before_script:
