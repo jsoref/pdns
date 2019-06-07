@@ -15,5 +15,15 @@ libluabackend_la_SOURCES = \
 	slave.cc \
 	supermaster.cc
 
+if !HAVE_LUA_HPP
+BUILT_SOURCES = lua.hpp
+nodist_libluabackend_la_SOURCES = lua.hpp
+CLEANFILES = lua.hpp
+endif
+
 libluabackend_la_LDFLAGS = -module -avoid-version
 libluabackend_la_LIBADD = $(LUA_LIBS)
+
+if !HAVE_LUA_HPP
+include ../../pdns/lua_hpp.mk
+endif
