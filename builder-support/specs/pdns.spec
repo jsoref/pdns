@@ -240,7 +240,7 @@ make install DESTDIR=%{buildroot}
 %{__install} -D -p %{SOURCE1} %{buildroot}%{_initrddir}/pdns
 %endif
 
-%{buildroot}/usr/sbin/pdns_server --no-config --config | sed \
+%{buildroot}/usr/sbin/pdns_server --config | sed \
   -e 's!# daemon=.*!daemon=no!' \
   -e 's!# guardian=.*!guardian=no!' \
   -e 's!# launch=.*!&\\nlaunch=!' \

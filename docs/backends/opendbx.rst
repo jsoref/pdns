@@ -92,7 +92,7 @@ Queries
 As with the :doc:`generic-sql`, queries
 are configurable. Note: If you change one of the SELECT statements must
 not change the order of the retrieved columns! To get the default
-queries, run ``pdns_server --no-config --launch=opendbx --config``. The
+queries, run ``pdns_server --launch=opendbx --config``. The
 following queries are configurable:
 
 -  ``opendbx-sql-list``: Select records which will be returned to

@@ -38,7 +38,7 @@ override_dh_auto_configure:
 override_dh_auto_install:
 	dh_auto_install -- STRIP_BINARIES=0
 	rm -f debian/tmp/etc/powerdns/recursor.conf-dist
-	./pdns_recursor --no-config --config | sed \
+	./pdns_recursor --config | sed \
 		-e 's!# config-dir=.*!config-dir=/etc/powerdns!' \
 		-e 's!# local-address=.*!local-address=127.0.0.1!' \
 		-e 's!# quiet=.*!quiet=yes!' \
