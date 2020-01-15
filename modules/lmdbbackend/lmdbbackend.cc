@@ -755,6 +755,22 @@ bool LMDBBackend::getDomainInfo(const DNSName &domain, DomainInfo &di, bool getS
   if(!(di.id=txn.get<0>(domain, di)))
     return false;
   di.backend = this;
+
+  di.serial = 0;
+
+  if(getSerial) {
+    try {
+      SOAData sd;
+      if(!getSOA(domain, sd))
+        g_log<<Logger::Notice<<"No serial for '"<<domain<<"' found - zone is missing?"<<endl;
+      else
+        di.serial = sd.serial;
+    }
+    catch(PDNSException &ae){
+      g_log<<Logger::Error<<"Error retrieving serial for '"<<domain<<"': "<<ae.reason<<endl;
+    }
+  }
+
   return true;
 }
 
