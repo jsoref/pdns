@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+if [ "${PDNS_DEBUG}" = "YES" ]; then
+  set -x
+fi
+
+. ./vars
+
+if [ -z "$PREFIX" ] 
+then
+    echo "config not found or PREFIX not set"
+    exit 1
+fi
+
+testsdir=.
+export testsdir
+
+nameserver=$PREFIX.9 port=53 ../regression-tests/runtests
+context=recursor ../regression-tests/toxml
+! grep . */diff

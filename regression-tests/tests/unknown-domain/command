@@ -1,0 +1,2 @@
+#!/bin/sh
+cleandig this.domain.is.not.in.powerdns A

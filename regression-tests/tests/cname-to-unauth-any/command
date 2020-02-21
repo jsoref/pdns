@@ -1,0 +1,2 @@
+#!/bin/sh
+cleandig unauth.example.com ANY dnssec tcp

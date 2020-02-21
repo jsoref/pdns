@@ -1,0 +1,2 @@
+#!/bin/sh
+cleandig loop1.example.com A

@@ -1,0 +1,20 @@
+Answer:
+;; ->>HEADER<<- opcode: UPDATE, status: NOTZONE, id: [id]
+;; flags: qr aa; ZONE: 1, PREREQ: 0, UPDATE: 0, ADDITIONAL: 0
+;; ZONE SECTION:
+;test.dyndns.			IN	SOA
+
+Answer:
+;; ->>HEADER<<- opcode: UPDATE, status: NOTAUTH, id: [id]
+;; flags: qr aa; ZONE: 1, PREREQ: 0, UPDATE: 0, ADDITIONAL: 0
+;; ZONE SECTION:
+;test2.dyndns.			IN	SOA
+
+Answer:
+;; ->>HEADER<<- opcode: UPDATE, status: NOTZONE, id: [id]
+;; flags: qr aa; ZONE: 1, PREREQ: 0, UPDATE: 0, ADDITIONAL: 0
+;; ZONE SECTION:
+;test.dyndns.			IN	SOA
+
+Rcode: 5 (Query Refused), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='test2.dyndns.', qtype=SOA

@@ -1,0 +1,34 @@
+#!/bin/sh
+
+getstdout ()
+{
+	if [ -e "${testsdir}/$t/stdout" ]
+	then
+		echo '    <system-out>'
+			cat ${testsdir}/$t/stdout | sed -e 's/&/\&amp;/g' -e 's/"/\&quot;/g' -e "s/'/\\&apos;/g" -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
+		echo '    </system-out>'
+	fi
+}
+
+[ -z "$context" ] && context="global"
+exec > testresults-${context}.xml
+echo '<?xml version="1.0"?>'
+NUMTESTS=$(cat failed_tests passed_tests | wc -l)
+NUMFAILED=$(cat failed_tests | wc -l)
+echo '<testsuite tests="'$NUMTESTS'" failures="'$NUMFAILED'" errors="'$NUMFAILED'" name="'$context'">'
+for t in $(cat failed_tests)
+do
+	echo '  <testcase name="'$t'" classname="'$context'" time="0">'
+	echo '    <error type="error" message="test failed">'
+	[ -e ${testsdir}/$t/diff ] && cat ${testsdir}/$t/diff | sed -e 's/&/\&amp;/g' -e 's/"/\&quot;/g' -e "s/'/\\&apos;/g" -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
+	echo '    </error>'
+	getstdout
+	echo '  </testcase>'
+done
+for t in $(cat passed_tests)
+do
+	echo '  <testcase name="'$t'" classname="'$context'" time="0">'
+	getstdout
+	echo '  </testcase>'
+done
+echo '</testsuite>'

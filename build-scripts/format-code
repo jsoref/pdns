@@ -1,0 +1,53 @@
+#!/bin/sh
+
+#
+# Reformat code, but do not touch if no changes.
+#
+
+if [ "$0" != "./build-scripts/format-code" -a "$0" != "build-scripts/format-code" ]; then
+    echo "Please run me from the root checkout dir"
+    exit 1
+fi
+
+if [ $# = 0 ]; then
+    echo usage: $0 file...
+    echo
+    echo format C++ files, does not touch non-regular files
+    exit 0
+fi
+if [ ! -e .clang-format ]; then
+    echo "No .clang-format file found in .";
+    exit 1
+fi
+
+verbose=0
+if [ -t 1 ]; then
+    verbose=1
+fi
+if [ x$CIRCLECI = xtrue ]; then
+    verbose=0
+fi
+
+for file in "${@}"; do
+    if [ -h "$file" -o ! -f "$file" ]; then
+        if [ $verbose = 1 ]; then
+            echo "$file: skipped, not a regular file or unreadable"
+        fi
+        continue
+    fi
+    tmp=$(mktemp "$file.XXXXXXXX")
+    if ! clang-format -style=file "$file" > "$tmp"; then
+        rm "$tmp"
+    else
+        if ! cmp -s "$file" "$tmp"; then
+            echo "$file: reformatted"
+            mv "$tmp" "$file"
+        else
+            if [ $verbose = 1 ]; then
+                echo "$file: already formatted to perfection"
+            fi
+            rm "$tmp"
+        fi
+    fi
+done
+

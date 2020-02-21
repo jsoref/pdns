@@ -1,0 +1,2 @@
+DNS employs label compression to fit big answers in a small packet. This
+test performs a query that without proper compression would not fit.

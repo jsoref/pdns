@@ -1,0 +1,2 @@
+#!/bin/sh
+$SDIG $nameserver $port $1 $2 recurse | LC_ALL=C sort

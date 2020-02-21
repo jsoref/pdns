@@ -1,0 +1,2 @@
+#!/bin/sh
+cleandig test.com AXFR showdetails | perl -ne 'print if /IN\tNSEC/'

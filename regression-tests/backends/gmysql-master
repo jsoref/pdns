@@ -1,0 +1,35 @@
+source ./backends/gsql-common
+
+case $context in
+	gmysql-nodnssec | gmysql | gmysql-nsec3 | gmysql-nsec3-optout | gmysql-nsec3-narrow)
+		[ -z "$GMYSQLDB" ] && GMYSQLDB=pdnstest
+		[ -z "$GMYSQLUSER" ] && GMYSQLUSER=root
+		[ -z "$GMYSQLHOST" ] && GMYSQLHOST=localhost
+		[ -z "$GMYSQLPASSWD" ] && GMYSQLPASSWD=''
+
+		mysqladmin --user="$GMYSQLUSER" --password="$GMYSQLPASSWD" --host="$GMYSQLHOST" --force drop "$GMYSQLDB" \
+			|| echo ignoring mysqladmin drop failure
+		mysqladmin --user="$GMYSQLUSER" --password="$GMYSQLPASSWD" --host="$GMYSQLHOST" create "$GMYSQLDB"
+		mysql --user="$GMYSQLUSER" --password="$GMYSQLPASSWD" --host="$GMYSQLHOST" \
+			"$GMYSQLDB" < ../modules/gmysqlbackend/schema.mysql.sql
+
+		tosql gmysql | sed -e "s/id ,'ns1.dnssec-parent.com/id ,'NS1.dnssec-parent.com/g" | mysql --user="$GMYSQLUSER" --password="$GMYSQLPASSWD" --host="$GMYSQLHOST" \
+			"$GMYSQLDB"
+
+		cat > pdns-gmysql.conf << __EOF__
+module-dir=./modules
+launch=gmysql
+gmysql-dbname=$GMYSQLDB
+gmysql-user=$GMYSQLUSER
+gmysql-host=$GMYSQLHOST
+gmysql-password=$GMYSQLPASSWD
+
+any-to-tcp=no
+__EOF__
+
+		gsql_master gmysql dyndns
+		;;
+
+	*)
+		nocontext=yes
+esac

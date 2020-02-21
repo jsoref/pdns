@@ -1,0 +1,45 @@
+#!/bin/sh
+
+set -e
+which drill >/dev/null 2>/dev/null || (echo "missing drill tool" >&2; exit 1)
+which unbound-host >/dev/null 2>/dev/null || (echo "missing unbound-host tool" >&2; exit 1)
+set +e
+
+if [ ! -e ${testsdir}/${testname}/use.drill ]
+then
+	if [ "$2" != "AXFR" ]
+	then
+		$SDIG $nameserver $port "$1" $2 $3 $4 $5 $6 $7 $8 $9 | LC_ALL=C sort
+	else
+		$SAXFR $nameserver $port "$1" $3 $4 | LC_ALL=C sort
+	fi
+fi
+$NSEC3DIG $nameserver $port "$1" $2 > ${testsdir}/${testname}/nsec3dig.out 2>&1
+if [ ! -e ${testsdir}/${testname}/skip-drill ]
+then
+	if [ ! -s trustedkeys ]
+	then
+		drill -a -p $port -o rd -D "$1" $2 @$nameserver > ${testsdir}/${testname}/drill.out 2>&1
+		echo RETVAL: $? >> ${testsdir}/${testname}/drill.out
+	else
+		drill -a -p $port -o rd -D -S -k trustedkeys "$1" $2 @$nameserver > ${testsdir}/${testname}/drillchase.out 2>&1
+		echo RETVAL: $? >> ${testsdir}/${testname}/drillchase.out
+		drill -a -p $port -o rd -D -k trustedkeys "$1" $2 @$nameserver > ${testsdir}/${testname}/drill.out 2>&1
+		echo RETVAL: $? >> ${testsdir}/${testname}/drill.out
+	fi
+fi
+if [ ! -e ${testsdir}/${testname}/skip-q ]
+then
+	/usr/lib/go/bin/q -tcp=true -short=true -rd=false -check -dnssec -port=$port @$nameserver $2 "$1" > ${testsdir}/${testname}/q.out 2>&1
+	echo RETVAL: $? >> ${testsdir}/${testname}/q.out
+fi
+if [ ! -e ${testsdir}/${testname}/skip-unboundhost ]
+then
+	unbound-host -v -C unbound-host.conf -t $2 "$1" > ${testsdir}/${testname}/unbound-host.out 2>&1
+	echo RETVAL: $? >> ${testsdir}/${testname}/unbound-host.out
+fi
+if [ -e ${testsdir}/${testname}/use.drill ]
+then
+	cat ${testsdir}/${testname}/drill.out | sed 's/ ;.*//'
+fi
+grep -iw bogus ${testsdir}/${testname}/*.out

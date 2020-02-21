@@ -1,0 +1,2 @@
+#!/bin/sh
+nsupdate "$@" | perl -pe 's/, id: +[0-9]+/, id: [id]/'

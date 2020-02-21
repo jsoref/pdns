@@ -1,0 +1,2 @@
+Rcode: 5 (Query Refused), RD: 0, QR: 1, TC: 0, AA: 0, opcode: 0
+Reply to question for qname='this.domain.is.not.in.powerdns.', qtype=A

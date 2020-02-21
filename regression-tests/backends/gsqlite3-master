@@ -1,0 +1,21 @@
+source ./backends/gsql-common
+
+case $context in
+	gsqlite3-nodnssec | gsqlite3 | gsqlite3-nsec3 | gsqlite3-nsec3-optout | gsqlite3-nsec3-narrow)
+		rm -f pdns.sqlite3
+		sqlite3 pdns.sqlite3 < ../modules/gsqlite3backend/schema.sqlite3.sql
+		tosql gsqlite | sqlite3 pdns.sqlite3
+		echo ANALYZE\; | sqlite3 pdns.sqlite3
+
+		cat > pdns-gsqlite3.conf << __EOF__
+module-dir=./modules
+launch=gsqlite3
+gsqlite3-database=pdns.sqlite3
+__EOF__
+
+		gsql_master gsqlite3 nodyndns
+		;;
+
+	*)
+		nocontext=yes
+esac

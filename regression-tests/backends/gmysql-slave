@@ -1,0 +1,67 @@
+	context=${context}-presigned-gmysql
+	[ -z "$GMYSQL2DB" ] && GMYSQL2DB=pdnstest2
+	[ -z "$GMYSQL2USER" ] && GMYSQL2USER=root
+	[ -z "$GMYSQL2HOST" ] && GMYSQL2HOST=localhost
+	[ -z "$GMYSQL2PASSWD" ] && GMYSQL2PASSWD=''
+
+	mysqladmin --user="$GMYSQL2USER" --password="$GMYSQL2PASSWD" --host="$GMYSQL2HOST" \
+		--force drop "$GMYSQL2DB" || echo ignoring mysqladmin drop failure
+	mysqladmin --user="$GMYSQL2USER" --password="$GMYSQL2PASSWD" --host="$GMYSQL2HOST" \
+		create "$GMYSQL2DB"
+	mysql --user="$GMYSQL2USER" --password="$GMYSQL2PASSWD" --host="$GMYSQL2HOST" \
+		"$GMYSQL2DB" < ../modules/gmysqlbackend/schema.mysql.sql
+
+	cat > pdns-gmysql2.conf << __EOF__
+module-dir=./modules
+launch=gmysql
+gmysql-dbname=$GMYSQL2DB
+gmysql-user=$GMYSQL2USER
+gmysql-host=$GMYSQL2HOST
+gmysql-password=$GMYSQL2PASSWD
+__EOF__
+
+	if [[ $context != *nodnssec* ]]
+	then
+		echo "gmysql-dnssec" >> pdns-gmysql2.conf
+	fi
+
+	for zone in $(grep 'zone ' named.conf  | cut -f2 -d\" | perl -e 'print reverse <STDIN>')
+	do
+		mysql --user="$GMYSQL2USER" --password="$GMYSQL2PASSWD" --host="$GMYSQL2HOST" \
+			"$GMYSQL2DB" -e "INSERT INTO domains (name, type, master) VALUES('$zone','SLAVE','127.0.0.1:$port')"
+		if [ "$zone" = "tsig.com" ]; then
+			$PDNSUTIL --config-dir=. --config-name=gmysql2 import-tsig-key test $ALGORITHM $KEY
+			$PDNSUTIL --config-dir=. --config-name=gmysql2 activate-tsig-key tsig.com test slave
+		fi
+		if [ "$zone" = "stest.com" ]; then
+			if [[ $skipreasons != *nolua* ]]; then
+				$PDNSUTIL --config-dir=. --config-name=gmysql2 set-meta stest.com AXFR-SOURCE 127.0.0.2
+			fi
+		fi
+	done
+
+	port=$((port+100))
+
+	$RUNWRAPPER $PDNS2 --daemon=no --local-port=$port --config-dir=. \
+		--config-name=gmysql2 --socket-dir=./ --no-shuffle \
+		--slave --retrieval-threads=4 \
+		--slave-cycle-interval=300 --dname-processing &
+
+	echo 'waiting for zones to be slaved'
+	loopcount=0
+	while [ $loopcount -lt 30 ]
+	do
+		sleep 5
+		todo=$(mysql --user="$GMYSQL2USER" --password="$GMYSQL2PASSWD" --host="$GMYSQl2HOST" \
+			"$GMYSQL2DB" -ss -e 'SELECT COUNT(id) FROM domains WHERE last_check IS NULL')
+		if [ $todo = 0 ]
+		then
+			break
+		fi
+		let loopcount=loopcount+1
+	done
+	if [ $todo -ne 0 ]
+	then
+		echo "AXFR FAILED" >> failed_tests
+		exit
+	fi
