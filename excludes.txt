@@ -1,9 +1,11 @@
+^pdns/dnsdistdist/src_js/
 (?:^|/)go\.mod$
 (?:^|/)go\.sum$
 (?:^|/)package-lock\.json$
 SUMS$
 \.DS_Store$
 \.ai$
+\.asc$
 \.bmp$
 \.cer$
 \.class$
