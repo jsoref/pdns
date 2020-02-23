@@ -38,7 +38,7 @@ To access the API, the `apikey` must be set in the :func:`webserver` function.
 Use the API, this key will need to be sent to dnsdist in the ``X-API-Key`` request header.
 An HTTP 401 response is returned when a wrong or no API key is received.
 A 404 response is generated is the requested endpoint does not exist.
-And a 405 response is returned when the HTTP methos is not allowed.
+And a 405 response is returned when the HTTP method is not allowed.
 
 URL Endpoints
 ~~~~~~~~~~~~~
