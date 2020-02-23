@@ -1411,7 +1411,7 @@ record if the received request had one, which is the case by default and can be 
 
 We must, however, provide a responder's maximum payload size in this record, and we can't easily know the
 maximum payload size of the actual backend so we need to provide one. The default value is 1500 and can be
-overriden using :func:`setPayloadSizeOnSelfGeneratedAnswers`.
+overridden using :func:`setPayloadSizeOnSelfGeneratedAnswers`.
 
 .. function:: setAddEDNSToSelfGeneratedResponses(add)
 
