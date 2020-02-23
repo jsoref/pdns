@@ -51,6 +51,7 @@ SUMS$
 \.yml$
 \.zip$
 ^excludes\.txt$
+^modules/remotebackend/example\.rb$
 ^pdns/dnsdistdist/src_js/
 ^pdns/recursordist/html/js/
 ^whitelist\.txt$
