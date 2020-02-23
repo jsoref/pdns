@@ -413,7 +413,7 @@ For Rules related to responses:
 
   Move the last response rule to the first position.
 
-Functions for manipulating Cache Hit Respone Rules:
+Functions for manipulating Cache Hit Response Rules:
 
 .. function:: addCacheHitResponseAction(DNSRule, action [, options])
 
