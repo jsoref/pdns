@@ -37,7 +37,7 @@ Functions and methods of a ``DNSName``
 
   .. method:: DNSName:canonCompare(name) -> bool
 
-    Performs a comparaison of DNS names in canonical order.
+    Performs a comparison of DNS names in canonical order.
     Returns true if the DNSName comes before ``name``.
     See https://tools.ietf.org/html/rfc4034#section-6
 
@@ -92,7 +92,7 @@ Functions and methods of a ``DNSName``
 
   .. method:: DNSName::equal(name) -> bool
 
-    Perform a comparaison of the DNSName to the given ``name``.
+    Perform a comparison of the DNSName to the given ``name``.
     You can also compare directly two DNSName objects using
     the ``==`` operator
 
