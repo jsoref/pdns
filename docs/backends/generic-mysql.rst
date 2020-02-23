@@ -130,7 +130,7 @@ Use the InnoDB READ-COMMITTED transaction isolation level. Default: yes.
 ^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.2.1
 
-Send the CLIENT_SSL capabily flag to the server. SSL suppport is announced by the server via CLIENT_SSL and is enabled if the client returns the same capability. Default: no.
+Send the CLIENT_SSL capability flag to the server. SSL suppport is announced by the server via CLIENT_SSL and is enabled if the client returns the same capability. Default: no.
 
 .. _setting-gmysql-timeout:
 
