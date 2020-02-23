@@ -384,7 +384,7 @@ BOOST_AUTO_TEST_CASE(test_dnssec_no_ds_on_referral_insecure)
       else {
         addRecordToLW(res, "com.", QType::SOA, "a.gtld-servers.com. hostmastercom. 2017032301 10800 3600 604800 3600", DNSResourceRecord::AUTHORITY, 3600);
         addRRSIG(keys, res->d_records, DNSName("com."), 300);
-        addNSECRecordToLW(domain, DNSName("powerdnt.com."), {QType::NS}, 600, res->d_records);
+        addNSECRecordToLW(domain, DNSName("powerdns1.com."), {QType::NS}, 600, res->d_records);
       }
       addRRSIG(keys, res->d_records, auth, 300);
       return 1;
