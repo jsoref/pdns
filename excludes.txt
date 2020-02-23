@@ -3,6 +3,7 @@
 (?:^|/)go\.sum$
 (?:^|/)m4/
 (?:^|/)package-lock\.json$
+/expected_result$
 SUMS$
 \.DS_Store$
 \.ai$
