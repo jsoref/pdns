@@ -2551,7 +2551,7 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
       isCNAMEAnswer = false;
     }
 
-    /* if we have a positive answer synthetized from a wildcard,
+    /* if we have a positive answer synthesized from a wildcard,
        we need to store the corresponding NSEC/NSEC3 records proving
        that the exact name did not exist in the negative cache */
     if(gatherWildcardProof) {
@@ -2570,7 +2570,7 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
       if (rrsig) {
         /* As illustrated in rfc4035's Appendix B.6, the RRSIG label
            count can be lower than the name's label count if it was
-           synthetized from the wildcard. Note that the difference might
+           synthesized from the wildcard. Note that the difference might
            be > 1. */
         if (rec.d_name == qname && isWildcardExpanded(labelCount, rrsig)) {
           gatherWildcardProof = true;
@@ -2580,11 +2580,11 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
                We still want to gather the corresponding NSEC/NSEC3 records
                to pass them to our client in case it wants to validate by itself.
             */
-            LOG(prefix<<qname<<": RRSIG indicates the name was synthetized from a wildcard, we need a wildcard proof"<<endl);
+            LOG(prefix<<qname<<": RRSIG indicates the name was synthesized from a wildcard, we need a wildcard proof"<<endl);
             needWildcardProof = true;
           }
           else {
-            LOG(prefix<<qname<<": RRSIG indicates the name was synthetized from a wildcard expanded onto itself, we need to gather wildcard proof"<<endl);
+            LOG(prefix<<qname<<": RRSIG indicates the name was synthesized from a wildcard expanded onto itself, we need to gather wildcard proof"<<endl);
           }
           wildcardLabelsCount = rrsig->d_labels;
         }
@@ -2991,7 +2991,7 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
         }
       }
     }
-    /* if we have a positive answer synthetized from a wildcard, we need to
+    /* if we have a positive answer synthesized from a wildcard, we need to
        return the corresponding NSEC/NSEC3 records from the AUTHORITY section
        proving that the exact name did not exist */
     else if(gatherWildcardProof && (rec.d_type==QType::RRSIG || rec.d_type==QType::NSEC || rec.d_type==QType::NSEC3) && rec.d_place==DNSResourceRecord::AUTHORITY) {
@@ -3009,7 +3009,7 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
       done=true;
 
       if (state == Secure && needWildcardProof) {
-        /* We have a positive answer synthetized from a wildcard, we need to check that we have
+        /* We have a positive answer synthesized from a wildcard, we need to check that we have
            proof that the exact name doesn't exist so the wildcard can be used,
            as described in section 5.3.4 of RFC 4035 and 5.3 of RFC 7129.
         */

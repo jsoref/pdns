@@ -751,7 +751,7 @@ Changelogs for 4.1.x
     :pullreq: 5912
 
     Fix going Insecure on NSEC3 hashes with too many iterations, since
-    we could have gone Bogus on a positive answer synthetized from a
+    we could have gone Bogus on a positive answer synthesized from a
     wildcard if the corresponding NSEC3 had more iterations that we were
     willing to accept, while the correct result is Insecure.
 
