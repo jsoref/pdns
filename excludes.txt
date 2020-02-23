@@ -25,7 +25,7 @@ SUMS$
 \.jar$
 \.jpeg$
 \.jpg$
-\.key$
+\.keys?$
 \.lib$
 \.lock$
 \.map$
