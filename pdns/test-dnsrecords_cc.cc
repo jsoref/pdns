@@ -233,8 +233,8 @@ BOOST_AUTO_TEST_CASE(test_record_types) {
       }
       recData = rec->serialize(DNSName("rec.test"));
 
-      std::shared_ptr<DNSRecordContent> rec2 = DNSRecordContent::unserialize(DNSName("rec.test"),q.getCode(),recData);
-      BOOST_CHECK_MESSAGE(rec2 != NULL, "unserialize(rec.test, " << q.getCode() << ", recData) should not return NULL");
+      std::shared_ptr<DNSRecordContent> rec2 = DNSRecordContent::deserialize(DNSName("rec.test"),q.getCode(),recData);
+      BOOST_CHECK_MESSAGE(rec2 != NULL, "deserialize(rec.test, " << q.getCode() << ", recData) should not return NULL");
       if (rec2 == NULL) continue;
       // now verify the zone representation (here it can be different!)
       REC_CHECK_EQUAL(rec2->getZoneRepresentation(), zoneval);
