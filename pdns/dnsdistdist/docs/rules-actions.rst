@@ -255,7 +255,7 @@ Rule Generators
   .. deprecated:: 1.2.0
 
   Send at most ``limit`` queries/s for this pool, letting the subsequent rules apply otherwise.
-  This function is deprecated as of 1.2.0 and will be removed in 1.3.0, as it is only a convience function for the following syntax::
+  This function is deprecated as of 1.2.0 and will be removed in 1.3.0, as it is only a convenience function for the following syntax::
 
     addAction("192.0.2.0/24", QPSPoolAction(15, "myPool")
 

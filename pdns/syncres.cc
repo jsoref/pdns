@@ -1367,7 +1367,7 @@ static void reapRecordsFromNegCacheEntryForValidation(tcache_t& tcache, const ve
 }
 
 /*!
- * Convience function to push the records from records into ret with a new TTL
+ * Convenience function to push the records from records into ret with a new TTL
  *
  * \param records DNSRecords that need to go into ret
  * \param ttl     The new TTL for these records
