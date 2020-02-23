@@ -1,6 +1,7 @@
 (?:^|/)ext/
 (?:^|/)go\.mod$
 (?:^|/)go\.sum$
+(?:^|/)m4/
 (?:^|/)package-lock\.json$
 SUMS$
 \.DS_Store$
