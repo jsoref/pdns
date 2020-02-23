@@ -26,7 +26,7 @@ namespace {
 // CASE_L can be used where this is not the case. See LOC below for a good example why this might happen
 
 /*   (CASE_S(QType::NAME, "zone format", "line format")) */
-/*   (CASE_L(QType::NAME, "zone format", "canonic zone format", "line format")) */
+/*   (CASE_L(QType::NAME, "zone format", "canonical zone format", "line format")) */
 
 #define _CASE_L(type, inval, zoneval, lineval, broken) case_t(type, BINARY(inval), BINARY(zoneval), BINARY(lineval), broken)
 #define CASE_L(type, inval, zoneval, lineval) _CASE_L(type, inval, zoneval, lineval, broken_marker::WORKING)
