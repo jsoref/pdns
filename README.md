@@ -229,3 +229,9 @@ For MySQL support, run `brew install mariadb` and add `--with-modules="gmysql"` 
 Linux notes
 -----------
 None really.
+
+Misspellings
+------------
+teh quick braun fox jumps over the lazy dog
+
+This should be found by https://github.com/marketplace/actions/spell-checking
