@@ -429,7 +429,7 @@ Tree mode requires each component to be a dc element of its own:
     associateddomain:1.0.1.10.in-addr.arpa
 
 To use this kind of record, add the dnsdomain2 schema to the
-configuration of ther LDAP server.
+configuration of the LDAP server.
 
 **CAUTION:** ``ldap-method=strict`` can not be used if zone transfers
 (AXFR) are needed to other name servers. Distributing zones can only be
