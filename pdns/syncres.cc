@@ -1447,7 +1447,7 @@ bool SyncRes::doCacheCheck(const DNSName &qname, const DNSName& authname, bool w
     prefix.append(depth, ' ');
   }
 
-  // sqname and sqtype are used contain 'higher' names if we have them (e.g. powerdns.com|SOA when we find a negative entry for doesnotexists.powerdns.com|A)
+  // sqname and sqtype are used contain 'higher' names if we have them (e.g. powerdns.com|SOA when we find a negative entry for doesnotexist.powerdns.com|A)
   DNSName sqname(qname);
   QType sqt(qtype);
   uint32_t sttl=0;
