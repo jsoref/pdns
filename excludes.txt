@@ -56,3 +56,4 @@ SUMS$
 ^pdns/dnsdistdist/src_js/
 ^pdns/recursordist/html/js/
 ^whitelist\.txt$
+pdns/test-dnsrecords_cc\.cc$
