@@ -33,6 +33,7 @@ SUMS$
 \.min\..
 \.mp3$
 \.mp4$
+\.nsec3(?:-optout|)$
 \.otf$
 \.pdf$
 \.pem$
