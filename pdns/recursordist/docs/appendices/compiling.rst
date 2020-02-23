@@ -72,6 +72,6 @@ To disable building this functionality, use ``--without-protobuf``.
 systemd notify support
 ^^^^^^^^^^^^^^^^^^^^^^
 
-During configure, ``configure`` will attempt to detect the availibility of `systemd or systemd-daemon <https://freedesktop.org/wiki/Software/systemd/>`_ headers.
+During configure, ``configure`` will attempt to detect the availability of `systemd or systemd-daemon <https://freedesktop.org/wiki/Software/systemd/>`_ headers.
 To force the use of systemd (and failing configure if the headers do not exist), use ``--enable-systemd``.
 To set the directory where the unit files should be installed, use ``--with-systemd=/path/to/unit/dir``.
