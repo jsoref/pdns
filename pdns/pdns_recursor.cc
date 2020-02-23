@@ -1067,7 +1067,7 @@ static bool nodCheckNewDomain(const DNSName& dname)
   bool ret = false;
   // First check the (sub)domain isn't whitelisted for NOD purposes
   if (!g_nodDomainWL.check(dname)) {
-    // Now check the NODDB (note this is probablistic so can have FNs/FPs)
+    // Now check the NODDB (note this is probabilistic so can have FNs/FPs)
     if (t_nodDBp && t_nodDBp->isNewDomain(dname)) {
       if (g_nodLog) {
         // This should probably log to a dedicated log file
