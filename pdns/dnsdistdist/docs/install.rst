@@ -12,7 +12,7 @@ Installing from Packages
 If dnsdist is available in your operating system's software repositories, install it from there.
 However, the version of dnsdist in the repositories might be an older version that might not have a feature that was added in a later version.
 Or you might want to be brave and try a development snapshot from the master branch.
-PowerDNS provides software respositories for the most popular distributions.
+PowerDNS provides software repositories for the most popular distributions.
 Visit https://repo.powerdns.com for more information and installation instructions.
 
 Debian
