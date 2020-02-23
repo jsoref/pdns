@@ -1,5 +1,4 @@
-^pdns/dnsdistdist/src_js/
-^pdns/recursordist/html/js/
+(?:^|/)ext/
 (?:^|/)go\.mod$
 (?:^|/)go\.sum$
 (?:^|/)package-lock\.json$
@@ -51,4 +50,6 @@ SUMS$
 \.yml$
 \.zip$
 ^excludes\.txt$
+^pdns/dnsdistdist/src_js/
+^pdns/recursordist/html/js/
 ^whitelist\.txt$
