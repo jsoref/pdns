@@ -1371,7 +1371,7 @@ static void reapRecordsFromNegCacheEntryForValidation(tcache_t& tcache, const ve
  *
  * \param records DNSRecords that need to go into ret
  * \param ttl     The new TTL for these records
- * \param ret     The vector of DNSRecords that should contian the records with the modified TTL
+ * \param ret     The vector of DNSRecords that should contain the records with the modified TTL
  */
 static void addTTLModifiedRecords(const vector<DNSRecord>& records, const uint32_t ttl, vector<DNSRecord>& ret) {
   for (const auto& rec : records) {
