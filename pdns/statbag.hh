@@ -37,7 +37,7 @@ class StatRing
 {
 public:
   StatRing(unsigned int size=10000);
-  // Some older C++ libs have trouble emplacing without a copy-contructor, so provide one
+  // Some older C++ libs have trouble emplacing without a copy-constructor, so provide one
   StatRing(const StatRing &);
   StatRing & operator=(const StatRing &) = delete;
   
