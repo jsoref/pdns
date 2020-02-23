@@ -7,9 +7,9 @@ Deciding whether a domain is truly a new domain would involve deterministic meth
 
 A simple method to determine a candidate domain would simply be to check if the domain was not in the recursor cache; indeed this is a method used by many security researchers. However, while that does produce a smaller list of candidate domains, cache misses are still relatively common, particularly in deployments where techniques such as EDNS client-subnet are used.
 
-Therefore, a feature has been developed for the recursor which uses probablistic data structures (specifically a Stable Bloom Filter (SBF): [http://webdocs.cs.ualberta.ca/~drafiei/papers/DupDet06Sigmod.pdf]). This recursor feature is named "Newly Observed Domain" or "NOD" for short.
+Therefore, a feature has been developed for the recursor which uses probabilistic data structures (specifically a Stable Bloom Filter (SBF): [http://webdocs.cs.ualberta.ca/~drafiei/papers/DupDet06Sigmod.pdf]). This recursor feature is named "Newly Observed Domain" or "NOD" for short.
 
-The use of a probablistic data structure means that the memory and CPU usage for the NOD feature is minimal, however it does mean that there can be false positives (a domain flagged as new when it is not), and false negatives (a domain that is new is not detected). The size of the SBF data structure can be tuned to reduce the FP/FN rate, although it is created with a default size (67108864 cells) that should provide a reasonably low FP/FN rate. To configure a different size use the ``new-domain-db-size`` setting to specify a higher or lower cell count. Each cell consumes 1-bit of RAM (per recursor thread) and 1-byte of disk space. 
+The use of a probabilistic data structure means that the memory and CPU usage for the NOD feature is minimal, however it does mean that there can be false positives (a domain flagged as new when it is not), and false negatives (a domain that is new is not detected). The size of the SBF data structure can be tuned to reduce the FP/FN rate, although it is created with a default size (67108864 cells) that should provide a reasonably low FP/FN rate. To configure a different size use the ``new-domain-db-size`` setting to specify a higher or lower cell count. Each cell consumes 1-bit of RAM (per recursor thread) and 1-byte of disk space. 
 
 NOD is disabled by default, and must be enabled through the use of the following setting in recursor.conf:
 
@@ -39,7 +39,7 @@ If both NOD and protobuf logging are enabled, then the ``newlyObservedDomain`` f
 Unique Domain Response
 ~~~~~~~~~~~~~~~~~~~~~~
 
-A similar feature to NOD is Unique Domain Response (UDR). This feature uses the same probablistic data structures as NOD to store information about unique responses for a given lookup domain. Determining if a particular response is unique for a given lookup domain is extremely useful for determining potential security issues such as:
+A similar feature to NOD is Unique Domain Response (UDR). This feature uses the same probabilistic data structures as NOD to store information about unique responses for a given lookup domain. Determining if a particular response is unique for a given lookup domain is extremely useful for determining potential security issues such as:
 
 * Fast-Flux Domain Names
 * Cache-Poisoning Attacks
