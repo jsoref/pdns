@@ -12,7 +12,7 @@ Now point your browser at http://127.0.0.1:8083 and log in with any username, an
 Security of the Webserver
 -------------------------
 
-The built-in webserver serves its content from inside the binary, this means it will not and connot read from disk.
+The built-in webserver serves its content from inside the binary, this means it will not and cannot read from disk.
 
 By default, our web server sends some security-related headers::
 
