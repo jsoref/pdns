@@ -381,7 +381,7 @@ Reverse lookups
 Currently there are two options: Set ``ldap-method`` to ``strict`` to
 have the code automatically derive PTR records from A and AAAA records
 in the tree. Or, in ``simple`` and ``tree`` modes, create additional
-objects explictly mapping each address to a PTR record.
+objects explicitly mapping each address to a PTR record.
 
 For ``strict`` or ``simple`` modes, first create an object with an SOA
 record for the reverse-lookup zone(s) corresponding to the A and AAAA
