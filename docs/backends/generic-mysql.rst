@@ -36,7 +36,7 @@ assumes this layout is in place. For full migration notes, please see
 for master, slave and superslave operation.
 
 When using the InnoDB storage engine, we suggest adding foreign key
-contraints to the tables in order to automate deletion of records, key
+constraints to the tables in order to automate deletion of records, key
 material, and other information upon deletion of a domain from the
 domains table. The following SQL does the job:
 
