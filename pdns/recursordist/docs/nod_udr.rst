@@ -39,7 +39,7 @@ If both NOD and protobuf logging are enabled, then the ``newlyObservedDomain`` f
 Unique Domain Response
 ~~~~~~~~~~~~~~~~~~~~~~
 
-A similar feature to NOD is Unique Domain Response (UDR). This feature uses the same probablistic data structures as NOD to store information about unique responses for a given lookup domain. Determining if a particular response is unique for a given lookup domain is extremly useful for determining potential security issues such as:
+A similar feature to NOD is Unique Domain Response (UDR). This feature uses the same probablistic data structures as NOD to store information about unique responses for a given lookup domain. Determining if a particular response is unique for a given lookup domain is extremely useful for determining potential security issues such as:
 
 * Fast-Flux Domain Names
 * Cache-Poisoning Attacks
