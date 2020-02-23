@@ -113,7 +113,7 @@ The recursor must have been built with configure ``--enable-dnstap`` to make thi
 
   Options:
 
-  * ``logQueries=true``: bool - log oputgoing queries
+  * ``logQueries=true``: bool - log outgoing queries
   * ``logResponses=true``: bool - log incoming responses
  
   The follwing options apply to the settings of the framestream library. Refer to the documentation of that
