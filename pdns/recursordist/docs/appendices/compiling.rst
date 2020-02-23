@@ -65,7 +65,7 @@ Protobuf to emit DNS logs
 
 The PowerDNS Recursor can log DNS query information over :doc:`Protocol Buffers <../lua-config/protobuf>`.
 To enable this functionality, install the  `protobuf <https://developers.google.com/protocol-buffers/>`_ library and compiler.
-The configure script will automatically detect this and bump the Boost version depencency to 1.42.
+The configure script will automatically detect this and bump the Boost version dependency to 1.42.
 
 To disable building this functionality, use ``--without-protobuf``.
 
