@@ -1323,7 +1323,7 @@ Since 4.1.0, when ``pdns-distributes-queries`` is set to false and ``reuseport``
 - String
 - Default: auto
 
-Specify which random number generator to use. Permissible choises are
+Specify which random number generator to use. Permissible choices are
  - auto - choose automatically
  - sodium - Use libsodium ``randombytes_uniform``
  - openssl - Use libcrypto ``RAND_bytes``
@@ -1333,7 +1333,7 @@ Specify which random number generator to use. Permissible choises are
  - kiss - Use simple settable deterministic RNG. **FOR TESTING PURPOSES ONLY!**
 
 .. note::
-  Not all choises are available on all systems.
+  Not all choices are available on all systems.
 
 .. _setting-root-nx-trust:
 

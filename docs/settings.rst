@@ -1393,7 +1393,7 @@ it is disabled by default.
 - String
 - Default: auto
 
-Specify which random number generator to use. Permissible choises are:
+Specify which random number generator to use. Permissible choices are:
 
 - auto - choose automatically
 - sodium - Use libsodium ``randombytes_uniform``
@@ -1404,7 +1404,7 @@ Specify which random number generator to use. Permissible choises are:
 - kiss - Use simple settable deterministic RNG. **FOR TESTING PURPOSES ONLY!**
 
 .. note::
-  Not all choises are available on all systems.
+  Not all choices are available on all systems.
 
 .. _setting-security-poll-suffix:
 
