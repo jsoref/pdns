@@ -2,7 +2,7 @@ Installing dnsdist
 ==================
 
 dnsdist only runs on UNIX-like systems and there are several ways to install dnsdist.
-The fastest way is using packages, either from your own operating system vendor or suppied by the PowerDNS project.
+The fastest way is using packages, either from your own operating system vendor or supplied by the PowerDNS project.
 Building from source is also supported.
 
 
