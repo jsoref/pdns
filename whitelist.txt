@@ -93,7 +93,6 @@ ACPI
 Acpvl
 activatedomainkey
 Acu
-acx
 ada
 adadab
 adata
@@ -323,7 +322,6 @@ ARSH
 aruba
 asan
 asc
-ASCIICI
 Ascio
 Ascp
 ASd
@@ -334,7 +332,7 @@ ASEP
 aset
 Ashish
 ashort
-asio
+ASIN
 asm
 asn
 asnr
@@ -342,8 +340,6 @@ asnum
 aspx
 associateddomain
 AStats
-Asynch
-ASYNCHDNS
 asyncresolve
 atbcoh
 atcf
@@ -358,7 +354,6 @@ atof
 atoi
 Atomia
 aton
-atpanic
 atruncatetc
 attodot
 attr
@@ -418,7 +413,6 @@ autosplit
 autotools
 Avd
 avect
-AVX
 awb
 AWbqt
 Awc
@@ -481,7 +475,6 @@ BACKENDSTATE
 BACKENDWEIGHT
 backgrounding
 backport
-backquotes
 Backtick
 backtraces
 BADALG
@@ -504,7 +497,6 @@ BAIU
 Baj
 bak
 Bakker
-balign
 Baltus
 BAQEB
 basedn
@@ -516,7 +508,6 @@ Bastiaan
 batchmode
 BAu
 bayour
-baz
 bba
 bbb
 bbbb
@@ -548,7 +539,6 @@ Bcfo
 Bcgrgopsma
 Bchl
 BCi
-bck
 bct
 bda
 BDc
@@ -642,7 +632,6 @@ BIGNUM
 BIGSERIAL
 Bijt
 Bilik
-bimap
 BINARYPATH
 binascii
 bincount
@@ -653,7 +642,6 @@ binddirectory
 binddn
 binddnssec
 binderror
-bindfix
 bindir
 bindlexer
 bindmethod
@@ -715,7 +703,6 @@ Bniijgf
 bnn
 bnvs
 BNX
-bodybuf
 bodyfont
 bodysize
 bodywrapper
@@ -729,11 +716,9 @@ bolditalic
 bonafide
 boostorg
 booststringappend
-BORLANDC
 Bortzmeyer
 Bostock
 botnet
-bpatsubst
 bpf
 BPHYx
 bpo
@@ -751,7 +736,6 @@ Braunoeder
 BRCs
 breadcrumb
 BREHMDq
-breif
 brendangregg
 Briley
 Broens
@@ -771,7 +755,6 @@ Bse
 bsqlodbc
 BSTUNE
 bsvqkkshh
-bswap
 Bswn
 BTbx
 BTf
@@ -817,7 +800,6 @@ bvect
 bvko
 Bvy
 bw
-bwd
 BWdx
 BWq
 bwrgk
@@ -833,7 +815,6 @@ byteorder
 byterate
 bytesread
 bytestring
-BYTESWAP
 byy
 bzee
 bzero
@@ -873,7 +854,6 @@ cachemisses
 cachenotfullyet
 cacheonly
 cachettl
-cachevar
 cacheweekno
 CAcreateserial
 CADA
@@ -889,7 +869,6 @@ callbackfunc
 callbackmap
 callee
 callgraph
-camelize
 CANTOPEN
 capair
 caplen
@@ -974,11 +953,10 @@ cfe
 cfea
 cfeb
 cff
-cflags
+CFLAGS
 Cfqi
 cfrf
 cft
-cfunction
 Cfy
 Cga
 cgi
@@ -1114,10 +1092,8 @@ cnt
 Cnxd
 Cockroft
 codebgcolor
-codecvt
 codedocs
 codeninja
-codepoint
 codetextcolor
 coejgj
 coldata
@@ -1133,7 +1109,6 @@ combovar
 comfun
 commandline
 committransaction
-como
 compat
 compgen
 compilerflags
@@ -1155,7 +1130,6 @@ configpath
 configsetting
 configstring
 configurability
-conftest
 confx
 connectionroom
 connectlogstr
@@ -1167,13 +1141,11 @@ conscli
 consequenses
 Consolas
 constexpr
-constness
 contentstr
 contenttype
 controllen
 controlsocket
 cookiesoption
-cookiestr
 coproc
 coprocess
 coprocesses
@@ -1181,12 +1153,10 @@ copyable
 copyfile
 coredumps
 cornercases
-coro
 corpit
 correctpackets
 cors
 costypetrisor
-countmutex
 cout
 Covcbz
 coverity
@@ -1196,7 +1166,6 @@ Cpbzq
 CPe
 CPfk
 cpid
-cplusplus
 cpng
 cpnmu
 cpnmuog
@@ -1204,7 +1173,7 @@ cpnmuoj
 cpos
 cpp
 cppcheck
-cppflags
+CPPFLAGS
 CPq
 cptr
 cpuchart
@@ -1229,7 +1198,6 @@ Cremers
 crend
 Crhs
 Crk
-crlf
 CRn
 cron
 crr
@@ -1237,7 +1205,6 @@ crst
 crt
 cruft
 crv
-cryp
 cryptokey
 Cryptoki
 cryptopp
@@ -1289,7 +1256,6 @@ CURLE
 CURLINFO
 CURLOPT
 CURLPROTO
-currentlast
 curtime
 Cuz
 CUZRVq
@@ -1316,11 +1282,9 @@ Cxmh
 CXp
 CXq
 cxx
-CXXCPP
 CXXFLAGS
 CYaioa
 CYb
-cygwin
 CYII
 Cynqdh
 Cynvn
@@ -1375,7 +1339,6 @@ dbdnsseckeeper
 dbe
 dbedfc
 dbf
-DBFF
 dbfile
 dbg
 DBHOST
@@ -1424,7 +1387,6 @@ dda
 ddaab
 Ddata
 ddb
-ddced
 DDct
 Ddcy
 ddd
@@ -1456,8 +1418,6 @@ decafsigners
 decerement
 declarearguments
 declarestats
-DECLS
-declspec
 decltype
 deconfigure
 ded
@@ -1471,12 +1431,10 @@ defaultport
 defaultttl
 defaultvalue
 defcontent
-defn
 defpol
 defport
 defstr
 defttl
-DEFUN
 deinit
 dej
 Dek
@@ -1523,8 +1481,8 @@ dfd
 dfdec
 dfe
 dff
-DFFF
 dfhl
+DFL
 dfqb
 dfsdfsdf
 Dgcs
@@ -1535,7 +1493,6 @@ dgnu
 dgram
 DGUX
 dh
-DHAVE
 DHCID
 DHCP
 dhcpd
@@ -1546,9 +1503,7 @@ Dhi
 DHsd
 DHTML
 Dhydb
-Diab
 dietlibc
-difffile
 difflib
 diffopts
 diffs
@@ -1574,7 +1529,6 @@ dirstamp
 disabledvialua
 diskspace
 Disqus
-DISTCHECK
 distdir
 disthashseed
 distributo
@@ -1742,6 +1696,7 @@ Dockerfile
 docnamecachelookup
 docstring
 doctrees
+DOCTYPE
 documentclass
 documentwrapper
 docutils
@@ -1792,7 +1747,6 @@ dpalvptnlkbb
 DPcj
 DPG
 DPGZA
-DPIE
 dpk
 dpkg
 DPKGLIBDIR
@@ -1842,7 +1796,6 @@ dsdelegation
 dsdigestalgorithm
 dse
 DSfor
-dshaw
 dskey
 DSm
 dsmap
@@ -1871,10 +1824,7 @@ dtxn
 Dufberg
 Dumjvvfn
 dumresp
-DUPFIXED
-dupop
 DUPSORT
-dustin
 duv
 DUXx
 dv
@@ -1897,7 +1847,6 @@ DWmk
 DWW
 DXagbsuz
 DXB
-DXh
 dylib
 dynblock
 dynblocklist
@@ -1943,7 +1892,6 @@ EAw
 eb
 ebaf
 eban
-ebca
 ebd
 ebda
 ebe
@@ -2008,7 +1956,6 @@ ede
 EDEADLK
 edf
 edfa
-edg
 EDIGL
 editline
 editttl
@@ -2168,8 +2115,6 @@ entrypoint
 ENTu
 Enu
 enum
-envflags
-ENVINDEX
 envoutput
 enw
 Enx
@@ -2215,18 +2160,14 @@ errcode
 errfds
 errlen
 errlog
-ERRMEM
 errmsg
 errno
-ERRORBUFFER
 Erroring
 errorlevels
 errorresponses
 errorresult
 errorstring
-ERRRUN
 errstr
-ERRSYNTAX
 ertsvsm
 esac
 escapedtext
@@ -2265,7 +2206,6 @@ eun
 Euz
 ev
 evah
-evc
 eventkey
 everytime
 EVFILT
@@ -2292,10 +2232,8 @@ exceedfuncs
 exe
 execfile
 execinfo
-executables
 execv
 execvp
-exeext
 EXITCODE
 exitvalue
 exky
@@ -2306,11 +2244,9 @@ expr
 expungebyname
 expungebynameandtype
 expungebynameother
-extbind
 extdir
 externalrefs
 extfile
-extnsd
 extracontext
 extrahead
 EXTRAOPTS
@@ -2372,7 +2308,6 @@ fcf
 fcff
 fcgi
 fclose
-fcm
 fcnt
 fcntl
 fcontext
@@ -2459,6 +2394,7 @@ findall
 findclientpolicy
 findinit
 findnext
+Firefox
 firewalled
 firewalls
 FIRSTHDR
@@ -2501,13 +2437,11 @@ FLYU
 Fmajor
 FMc
 Fmf
-fmix
 fmod
 fmrh
 fmri
 FMRJ
 fmter
-fmtflags
 Fmw
 fnamearg
 FNcy
@@ -2534,7 +2468,6 @@ footerbgcolor
 footertextcolor
 fopen
 forcesafesearch
-foreach
 forfun
 formask
 formerr
@@ -2552,7 +2485,6 @@ fpc
 FPFNM
 Fpk
 fprintf
-fprofile
 fptype
 Fpw
 FPyd
@@ -2613,14 +2545,12 @@ fsl
 fslu
 fslutest
 FSq
-fstack
 fstream
 fstrm
 fstrmlogger
 FSv
 fsync
 Ftd
-ftest
 ftf
 FTk
 ftp
@@ -2635,7 +2565,6 @@ funarg
 func
 funcdb
 funcparam
-funcptr
 funcstats
 funkdb
 funkwithusage
@@ -2683,7 +2612,6 @@ gaba
 gacogne
 gai
 gaierror
-Gaim
 gamesgiroll
 GANi
 garblewarble
@@ -2718,7 +2646,6 @@ gdate
 gdb
 GDhn
 GDoj
-gdp
 gdpr
 Gdv
 gdxam
@@ -2726,15 +2653,12 @@ gecos
 GEDMo
 Geijn
 Gemfile
-genbegin
 gencontrol
 GENERALIZEDTIME
 GENERR
-genfind
 genhook
 genindex
 genlog
-genoperator
 genpaa
 geobackend
 geoip
@@ -2767,7 +2691,6 @@ getattr
 getbeforeandafternames
 getbeforeandafternamesabsolute
 getbeforename
-getblock
 getchar
 getcommonlabels
 getcontext
@@ -2783,24 +2706,19 @@ getent
 getenv
 geteuid
 GETFL
-getglobal
 getgrnam
 gethostbyname
-gethostent
 gethostname
 getinfo
 getlastlabel
 getline
 getlocaladdress
 getlock
-getmetatable
 getn
 getnameinfo
 GETNEXT
 getopt
 getpagesize
-getparmbuf
-getparms
 getpass
 getpeername
 getpid
@@ -2825,7 +2743,6 @@ gettag
 gettext
 gettime
 gettimeofday
-gettop
 gettsigkey
 getupdatedmasters
 getvalue
@@ -2878,10 +2795,7 @@ Gllnxcbj
 Gln
 Glo
 globalconf
-globals
-GLOBALSINDEX
 globfree
-globl
 Glq
 glqrss
 Glreja
@@ -2896,7 +2810,6 @@ gmd
 Gmp
 gmt
 gmtime
-gmtoff
 GMu
 GMy
 gmysql
@@ -3068,7 +2981,6 @@ haveednssubnet
 HAVENSEC
 havetsig
 HAvi
-haxx
 HBa
 HBB
 HBdr
@@ -3129,7 +3041,6 @@ hh
 HHA
 HHBFq
 hhc
-hhmm
 HHNH
 hhp
 hhrsadparthvtuou
@@ -3283,7 +3194,6 @@ httpconnects
 httpd
 httpdomain
 HTTPHEADER
-httponly
 httpversion
 HTv
 hu
@@ -3370,7 +3280,6 @@ idqueue
 Idret
 idserver
 idstate
-IDTo
 IDum
 idx
 IDxy
@@ -3387,7 +3296,6 @@ iface
 ifarch
 IFBNLFo
 ifdef
-ifelse
 ifeq
 ifindex
 IFknv
@@ -3401,8 +3309,6 @@ ifupport
 ifupurl
 ifurlup
 IFV
-ifval
-ifvaln
 ifw
 Ifx
 ig
@@ -3458,14 +3364,12 @@ IMEI
 img
 Imhard
 Imiw
-imm
 impl
 imt
 Imx
 inbytes
 incbin
 Incd
-incdir
 inceptionday
 incfiles
 includeboilerplate
@@ -3475,7 +3379,6 @@ indexa
 indexassociated
 indexfunction
 indextable
-indir
 inescape
 inet
 inext
@@ -3517,7 +3420,6 @@ installdeb
 installdox
 installexamples
 installinit
-INTEGERKEY
 INTERNETTRAFFIC
 interop
 interoperability
@@ -3552,7 +3454,6 @@ iowait
 IOz
 Iozkt
 ip
-ipa
 ipaddress
 ipairs
 IPbackend
@@ -3607,24 +3508,17 @@ isane
 ISAr
 isatty
 isbase
-isboolean
 isc
 iscvfel
 isdigit
 ISDIR
-isdst
 ISeej
 isfile
-isfinite
-isfunction
 isinstance
 islandofsecurity
 isleap
 ismaster
-isnil
-isnumber
 isoc
-isopen
 isp
 ispell
 isql
@@ -3636,13 +3530,9 @@ iss
 isse
 isset
 isspace
-isstring
-istable
-istr
 istream
 istreambuf
 istringstream
-isuserdata
 isv
 isxdigit
 ISXZ
@@ -3772,7 +3662,6 @@ ji
 JIBALA
 JIHMNLNG
 Jip
-jit
 jiv
 Jiy
 JIZh
@@ -3817,7 +3706,6 @@ jod
 JOjv
 Jong
 Jorn
-Josefsson
 JOSKHMWFC
 journalctl
 journald
@@ -3911,7 +3799,6 @@ kbm
 KBo
 Kbuild
 KByamq
-kcc
 kce
 kcfc
 KCmpz
@@ -3967,7 +3854,6 @@ keytab
 keytag
 keytype
 keyv
-keyvalue
 keywordmatches
 kf
 KFCQn
@@ -4076,7 +3962,6 @@ Krist
 Krnl
 KRU
 Krul
-Ksecure
 KSh
 Ksj
 ksk
@@ -4089,7 +3974,6 @@ kspatto
 KSRFVACKO
 KStream
 Ksy
-kthread
 Ktre
 Ktubk
 ku
@@ -4181,20 +4065,16 @@ Lbackend
 lber
 lbj
 lbl
-lboost
 LBTVNTk
 Lbv
 lcc
-lcdb
 lcfmvae
 LChs
 lci
 Lcode
 lcontent
-lcookies
 lcrypto
 LCUP
-lcurl
 lczonename
 LDA
 LDADD
@@ -4218,14 +4098,13 @@ ldaputils
 LDAPv
 ldb
 ldd
-ldflag
+ldflags
 LDhkdmq
 ldid
 ldif
 LDnd
 ldns
 ldnsutils
-ldpath
 ldpepf
 ldrnh
 LDROTDVQ
@@ -4246,7 +4125,6 @@ letsencrypt
 letterpaper
 LETVUTCAHLH
 LEVMU
-lexer
 lfb
 Lfboh
 Lfd
@@ -4263,14 +4141,12 @@ lgnutls
 lgoy
 LGPL
 lgrd
-lgtm
 Lgu
 LGx
 LHav
 lhdtjhjr
 lhead
 LHg
-lhi
 LHq
 lhs
 Lhwzi
@@ -4292,7 +4168,6 @@ libdir
 libdl
 libedit
 libexecdir
-libext
 libfaketime
 libfstrm
 libgcc
@@ -4319,10 +4194,8 @@ libmaxminddb
 libmongo
 libmysqlclient
 libnacl
-libname
 libnet
 libnss
-libodbc
 libopie
 libp
 libpcap
@@ -4342,7 +4215,6 @@ libsofthsm
 libsqlite
 libsqliteodbc
 libssl
-libstd
 libsystemd
 libtdsodbc
 libtestremotebackend
@@ -4353,7 +4225,6 @@ libunbound
 libwslay
 libyahttp
 libyaml
-libz
 libzmq
 licensedir
 lightuserdata
@@ -4396,20 +4267,14 @@ LKJRFIV
 lkk
 LKKQ
 lkm
-lkrb
-llber
 lld
-lldap
 LLL
-llmdb
 lltemp
-llthread
 LLTy
 llu
 llva
 LLVM
 Llxy
-lmaxminddb
 lmdb
 lmdbbackend
 LMDBKV
@@ -4422,7 +4287,6 @@ lmrsadk
 LMtr
 Lmv
 LMw
-lmysqlclient
 Lnb
 lnc
 LNn
@@ -4435,7 +4299,6 @@ loadbalancing
 loaderdecaf
 loadersodium
 loadmodule
-loadstring
 locala
 localaddr
 localaddress
@@ -4492,13 +4355,9 @@ lowercasequery
 lowercasing
 lowerroman
 Lpat
-Lpath
 LPE
 LPi
 lpj
-lposix
-lpq
-lpthread
 lptr
 Lpxp
 lpy
@@ -4514,7 +4373,6 @@ Lqr
 lqu
 lqv
 lrde
-lre
 lresbbp
 lresolv
 Lrhazi
@@ -4524,7 +4382,6 @@ Lrnvak
 lrt
 lru
 LSA
-lsan
 lsb
 LSH
 lsj
@@ -4558,7 +4415,6 @@ luac
 luacall
 luaconf
 luaconfpath
-LUACONTEXT
 luadnsrule
 luahooks
 luajit
@@ -4566,7 +4422,6 @@ LUAJITPC
 lualib
 luamaintenance
 luamutex
-luapc
 luaroundrobin
 luarule
 luaruleparams
@@ -4598,7 +4453,6 @@ Lwz
 lxc
 LXOb
 LXXs
-lyahttp
 LYg
 Lyna
 lz
@@ -4643,7 +4497,6 @@ Mandriva
 manpage
 manpath
 mapasync
-mapsize
 mariadb
 Markmann
 marvin
@@ -4661,7 +4514,6 @@ matchlen
 matchtype
 matthijs
 maxanswersize
-maxbody
 maxbodysize
 maxbogusttl
 maxcachesize
@@ -4669,16 +4521,12 @@ maxcachettl
 maxchunkrecords
 maxcleaninterval
 maxconnsperclient
-maxcontent
 maxcp
-maxdbs
 maxdepth
 maxent
 maxevents
 maxfd
 MAXHOSTNAMELEN
-maxid
-maxidval
 MAXINT
 maxlistdepth
 maxmind
@@ -4688,7 +4536,6 @@ maxobjects
 maxqperq
 maxqps
 maxqueriesperconn
-maxreaders
 maxreplylen
 maxrss
 maxthreads
@@ -4722,7 +4569,6 @@ mdb
 MDBIn
 MDBRO
 MDBRW
-mdbval
 mdctx
 mde
 Mdi
@@ -4748,7 +4594,7 @@ memcmp
 memcpy
 memfree
 memis
-memlock
+MEMLOCK
 memmove
 memset
 Memusage
@@ -4766,7 +4612,6 @@ metadatabase
 metadatadn
 metainformation
 metamap
-metatable
 metavar
 methodname
 metricnames
@@ -4784,7 +4629,6 @@ Mgdzk
 MGJ
 mgmname
 Mgo
-mgw
 mhi
 Mhpvw
 mhv
@@ -4804,7 +4648,6 @@ minbody
 mincleaninterval
 mindex
 MINFO
-mingw
 minicurl
 MINIMIZATON
 minipatch
@@ -4878,14 +4721,10 @@ monshouwer
 Moq
 moreutils
 motherboards
-mov
 moz
 mozilla
 Mpgp
-mpi
-MPICXX
 MPkb
-mpl
 mplexer
 Mpm
 Mpqhbg
@@ -4907,7 +4746,6 @@ mrtg
 MRUBY
 MRw
 MSAIBIJIIm
-msan
 Msd
 msdcs
 msdn
@@ -4921,7 +4759,7 @@ msocket
 msphinx
 mssql
 mstr
-msvc
+MSVC
 msysmsec
 mtasker
 MTASKERTIMING
@@ -4941,8 +4779,6 @@ mul
 Mulholland
 multialgo
 MULTIARCH
-MULTIARRAY
-MULTIINDEXCCONTAINER
 multiline
 multimaint
 multimap
@@ -4971,7 +4807,6 @@ MVp
 Mwaikambo
 MWb
 Mwc
-MWERKS
 MWJu
 MWux
 mx
@@ -4996,7 +4831,6 @@ MYec
 myemailhere
 myfile
 myhost
-myinclude
 myinitlock
 myinstance
 MYMETA
@@ -5067,7 +4901,6 @@ Nauck
 Navarrete
 NAwgj
 nbb
-nblocks
 NBr
 NBSWh
 NBt
@@ -5086,7 +4919,6 @@ Ndd
 NDEBUG
 NDELAY
 ndftst
-NDG
 NDgw
 ndiff
 NDIy
@@ -5147,7 +4979,6 @@ newdomains
 newfd
 newgid
 newid
-newindex
 newkey
 newlate
 newlen
@@ -5170,13 +5001,9 @@ newsize
 newsock
 newsr
 newstat
-newstate
-newtable
 newtarget
-newthread
 newttl
 newuid
-newuserdata
 newval
 nextclean
 nextcloser
@@ -5184,8 +5011,6 @@ nexthash
 nexthdr
 nextid
 nextpart
-nextpos
-nextprev
 nextupd
 NEZU
 nf
@@ -5292,7 +5117,6 @@ nodnssec
 NODNSTAPTESTS
 nodot
 nodownstream
-NODUP
 NODUPDATA
 nodyndns
 noecs
@@ -5303,7 +5127,6 @@ noerrorcount
 noerrors
 noexcept
 NOEXIST
-noext
 nof
 nogpgcheck
 NOi
@@ -5311,7 +5134,6 @@ noinline
 noinput
 noinst
 noitk
-NOKEY
 nologin
 nolua
 nometa
@@ -5366,7 +5188,6 @@ NOTFOUND
 notimp
 NOTIMPL
 notincludedir
-NOTLS
 notoverridden
 notoverriddenprefixlength
 NOTPARALLEL
@@ -5418,8 +5239,6 @@ nsa
 nscount
 NSCx
 nsd
-nsdc
-nsdfix
 nsdname
 nsdomain
 nseconds
@@ -5434,7 +5253,6 @@ NSIDUDP
 nsip
 nsiploop
 nsis
-nsl
 nsname
 nsock
 nsone
@@ -5452,7 +5270,6 @@ nsupdate
 nsz
 nta
 ntk
-NTLM
 ntlworld
 ntohl
 ntohs
@@ -5465,7 +5282,6 @@ Ntx
 nuea
 nufhga
 Nui
-nullindex
 nullptr
 NULs
 NUMA
@@ -5571,7 +5387,6 @@ objectclass
 OBJECTFILES
 OBJECTLIBS
 OBJECTPROPERTY
-objext
 Obk
 OBmzv
 OBOOz
@@ -5716,9 +5531,7 @@ opendir
 opendns
 openf
 openldap
-openlibs
 openlog
-openmut
 openpgpkey
 opensc
 opensource
@@ -5835,7 +5648,6 @@ ouv
 Ouyp
 ov
 ovbvtv
-overquoted
 overriddenprefixlength
 overriddenprefixlengthvialua
 overriddenvialua
@@ -5927,7 +5739,6 @@ Pbnr
 PBo
 PBpq
 pbtag
-pcall
 pcap
 PCAPFILE
 PCas
@@ -6007,7 +5818,6 @@ Pfz
 pgamt
 PGconn
 PGHOST
-PGI
 PGJTc
 pgmysql
 pgmysqlbackend
@@ -6025,7 +5835,6 @@ PGUe
 Pgv
 PGw
 PHa
-PHAAO
 pheader
 PHH
 phishing
@@ -6107,7 +5916,6 @@ PLt
 plugin
 plumgrid
 Plusnet
-plz
 plzz
 pmap
 Pmh
@@ -6150,7 +5958,6 @@ polmap
 Ponomarev
 poolaction
 poolname
-popdef
 popen
 popisort
 portev
@@ -6161,11 +5968,9 @@ portsmplexer
 posbegin
 posend
 posix
-postbuf
 postdata
 POSTFIELDS
 POSTFIELDSIZE
-postformat
 postgre
 postgresql
 postinst
@@ -6193,7 +5998,6 @@ ppid
 pply
 Ppns
 pprint
-pptr
 PQclear
 PQconnectdb
 PQD
@@ -6226,7 +6030,6 @@ PRELOAD
 preout
 preoutquery
 preparse
-preproc
 prequery
 prereleases
 prereq
@@ -6236,7 +6039,6 @@ presigned
 presignedcontext
 presignedness
 preun
-prevnext
 prevprev
 prevqname
 prfds
@@ -6296,10 +6098,8 @@ PTh
 pthread
 pthsno
 Pthv
-ptime
 pton
 ptr
-ptree
 ptrrecord
 pubkey
 publabel
@@ -6316,20 +6116,7 @@ pullreq
 pullrequest
 PULT
 pum
-pureftpd
-pushboolean
-pushcclosure
-pushcfunction
-pushdef
-pushglobaltable
-pushinteger
 pushlightuserdata
-pushlstring
-pushnil
-pushnumber
-pushstring
-pushthread
-pushvalue
 pv
 pvars
 pvect
@@ -6485,7 +6272,6 @@ Qnd
 Qnmy
 Qnnqcxo
 qns
-QNX
 QNXm
 qo
 qoa
@@ -6624,7 +6410,6 @@ rarg
 raspbian
 rattr
 RAv
-rawget
 rawpacket
 rb
 rbegin
@@ -6769,7 +6554,6 @@ regexstr
 regfree
 reginfo
 regist
-REGISTRYINDEX
 regm
 regmatch
 reid
@@ -6808,7 +6592,6 @@ reparse
 replacerrset
 replen
 reqinfo
-reqresp
 reqs
 requery
 requestbuilder
@@ -6844,7 +6627,6 @@ Resync
 resynchronise
 retargetcount
 retargeted
-rethrowing
 retkeyset
 retlen
 retline
@@ -6861,7 +6643,6 @@ revents
 revsets
 revzone
 revzonedata
-rez
 rfc
 rfcmbucm
 rfds
@@ -6880,7 +6661,6 @@ RGtg
 RGw
 rhandle
 rhel
-rhi
 Rhiw
 rhs
 rhscount
@@ -6906,7 +6686,6 @@ RJJm
 Rjk
 rjlf
 Rjn
-Rjsp
 RJx
 rk
 Rkc
@@ -6947,7 +6726,6 @@ rnow
 rnplq
 RNWc
 rocommunity
-rodata
 Roel
 rohha
 Rohhm
@@ -6960,16 +6738,12 @@ roothintspath
 rootkey
 rootnodot
 rootoid
-rootprefix
 rootptr
 rootupdate
 rootzone
 ROqu
-RORW
 rosksbmegcqfnkf
 Rosmalen
-ROtransactions
-ROTX
 rotxn
 roundrobin
 roundtrip
@@ -6979,7 +6753,6 @@ roystgnr
 rp
 Rpa
 rpacket
-rpath
 rpb
 Rpbmcgd
 rpc
@@ -7067,10 +6840,8 @@ rtb
 rtf
 rthreads
 RTLD
-rtopt
 rtqv
 rtr
-RTSP
 rttl
 rtype
 RTYSa
@@ -7118,15 +6889,11 @@ Rwgj
 rwl
 rwlock
 Rwo
-rwt
-RWtransactions
-RWTX
 rwtxn
 rwxr
 rx
 Rxgrk
 rxj
-RXPA
 RXXw
 ry
 RYJo
@@ -7239,10 +7006,8 @@ selfansweredresprulactions
 selfstat
 selinux
 sendall
-Sendbody
 senderrors
 Sendetzky
-sendfile
 sendfromto
 sendit
 sendlines
@@ -7260,7 +7025,6 @@ SEPq
 seqinit
 seqnext
 Sequanux
-serializer
 serialtweaker
 servercmd
 serverdiff
@@ -7295,11 +7059,8 @@ setecsaction
 setenv
 setf
 SETFD
-setfield
-setfill
 SETFL
 setgid
-setglobal
 setgroups
 sethook
 SETID
@@ -7325,19 +7086,14 @@ settting
 setuptools
 setuptree
 setvariable
-setw
 SEv
 SEZ
 Sfci
-sfinae
 SFlz
 sformat
-sfw
 SGAFYGx
 SGANBTKMQK
-sgdpn
 Sgi
-sgpn
 Sgs
 SGVL
 shantikulkarni
@@ -7363,6 +7119,7 @@ shu
 shuf
 Shukla
 shutil
+Shutterstock
 shz
 sid
 SIddm
@@ -7548,7 +7305,6 @@ Soroceanu
 sortcname
 sortlist
 sourcecode
-sourced
 SOURCEDIR
 sourceforge
 sourceip
@@ -7647,7 +7403,6 @@ ssize
 Ssj
 ssl
 sslctx
-ssldir
 SSLECDSADNS
 SSLEDDSADNS
 sslmode
@@ -7659,7 +7414,6 @@ SSLTLSIO
 SSLv
 SSMYSQL
 SSocket
-SSPI
 sspj
 SSQ
 ssql
@@ -7688,13 +7442,11 @@ starttransaction
 Stasic
 statbag
 statbas
-statbuf
 stateenum
 statemachine
 statesbase
 statfmt
 statfunction
-STATICASSERT
 staticmethod
 statisticitem
 statm
@@ -7709,7 +7461,6 @@ Statsv
 stattid
 statuscode
 statvisitor
-STb
 stbuehler
 stdcxx
 stddev
@@ -7752,9 +7503,7 @@ strcasecmp
 strcasestr
 strchr
 strcmp
-strcookie
 strdup
-streamsize
 strerr
 strerror
 strftime
@@ -7762,7 +7511,6 @@ stringappend
 stringbuffer
 stringerror
 stringfgets
-STRINGIZE
 stringmatch
 stringstream
 stringtok
@@ -7808,7 +7556,6 @@ suffixother
 suffixtype
 SUFNRRMLILGL
 suh
-suidsgid
 supermaster
 supermasterbackend
 SUPERMASTERCONF
@@ -7836,7 +7583,6 @@ SVY
 swapcontext
 swe
 Swfi
-swt
 SWUOQ
 SWWGq
 sx
@@ -7891,7 +7637,6 @@ TARBALLPREFIX
 TARBALLVERSION
 tardirname
 targetlen
-TArguments
 Tarjei
 Tarnell
 TAUI
@@ -7902,7 +7647,6 @@ Tbmu
 tbody
 Tbz
 tcache
-TCallback
 tcbit
 TCEDNS
 tcely
@@ -7958,9 +7702,7 @@ tcsetattr
 Tctk
 TCZTQTOk
 td
-TData
 tdate
-TDelim
 tdhv
 tdi
 TDIBy
@@ -7975,12 +7717,10 @@ Tdsza
 TDt
 tdur
 TDVXa
-Tdx
 teeaction
 Telekom
 Telenet
 tellg
-TELNET
 TEMIz
 tempbf
 tempdi
@@ -7995,11 +7735,8 @@ templateparts
 templatestep
 templatestop
 templatize
-Templatized
 Tenl
-TEnum
 termios
-testbody
 testcase
 testcmd
 TESTDRIVER
@@ -8031,14 +7768,12 @@ tf
 tfcf
 tfh
 TFILE
-TFirst
 TFN
 tfo
 tfoot
 TFOV
 tful
 tfunc
-TFunction
 tfvlg
 TFZJl
 Tgf
@@ -8049,7 +7784,6 @@ Tgl
 TGM
 TGUG
 THandler
-THash
 thead
 theirserial
 thel
@@ -8099,8 +7833,6 @@ timespent
 timeusec
 timeval
 timezone
-TIndex
-TIndices
 tinfo
 tinycdb
 tinydns
@@ -8161,7 +7893,6 @@ Tltq
 TLXt
 Tlz
 TMAFm
-TMember
 tmeta
 TMi
 Tmk
@@ -8177,7 +7908,6 @@ tmpkey
 tmpnam
 tmpname
 tmpstr
-tmpurl
 tmqpjkp
 tmsg
 tname
@@ -8190,10 +7920,7 @@ tns
 tntcbdfsihhd
 TNx
 toaddr
-tobind
-TObject
 tobool
-toboolean
 toc
 tocheck
 toctree
@@ -8202,25 +7929,18 @@ TODOLIST
 TOf
 toh
 toint
-tointeger
-tointegerx
 tok
 tokenizer
 tokill
 TOLO
 tolower
 Tolstov
-tolstring
 tomm
-tonsd
 tonumber
-tonumberx
 toolong
 toolongtobevalid
-toolset
 toomuchinfo
 topbar
-topointer
 toport
 toportstr
 toroot
@@ -8243,16 +7963,12 @@ totremove
 tottime
 toub
 toupper
-touserdata
 toxml
 toysdig
 tozero
-tparam
-TParameters
 tphu
 tpl
 tpoa
-TPointer
 tpos
 tpph
 tptr
@@ -8268,13 +7984,11 @@ TQXY
 TRAF
 transactiondomain
 transactiondomainid
-translit
 Travaille
 trc
 trecords
 treeview
 trentjstdodla
-TReturn
 tribool
 trilab
 trillian
@@ -8282,7 +7996,6 @@ TRJE
 trl
 tro
 trollololoooolll
-TRoute
 tru
 trunc
 Truncateds
@@ -8299,13 +8012,11 @@ tryrwlock
 trysuperdomains
 trywait
 trywrlock
-tsan
 tsbl
 tsc
 tscomp
 tsdelta
 tsdp
-TSecond
 tsig
 tsigalgname
 tsigalgo
@@ -8328,7 +8039,6 @@ tsu
 tsuna
 Tsy
 tt
-TTable
 ttd
 ttdi
 ttdindex
@@ -8344,19 +8054,15 @@ TTmlcd
 Ttq
 ttsig
 Ttv
-ttype
 TUCUj
 Tuinder
 Tuk
 tunables
 tuomi
 tupb
-Tupleizer
 Tushuizen
 Tuu
 Tuxis
-TValue
-TVar
 TVcz
 tvd
 Tvg
@@ -8370,7 +8076,6 @@ TWk
 TWl
 TWmhtf
 twopt
-TWrite
 TXch
 TXk
 txn
@@ -8386,7 +8091,6 @@ typemap
 typename
 typestr
 TYPETOK
-TYPETRAITS
 tyu
 Tyw
 TYX
@@ -8431,7 +8135,6 @@ uba
 UBACK
 UBIGINT
 UBl
-ublas
 ubm
 Ubo
 ubsan
@@ -8546,7 +8249,6 @@ ulen
 ulimit
 ulong
 Uloul
-Ultrix
 Ulws
 UMB
 umcst
@@ -8641,8 +8343,6 @@ upperroman
 upq
 upr
 upto
-upvalue
-upvalueindex
 uq
 UQbm
 UQMRQ
@@ -8659,7 +8359,6 @@ urlencoded
 urljoin
 urllib
 urlmap
-urlmask
 urlparse
 urlsafe
 uroot
@@ -8678,8 +8377,6 @@ useragent
 userbase
 userdata
 userfriendly
-userinfo
-userland
 usermsec
 username
 userperc
@@ -8692,7 +8389,6 @@ usr
 USs
 USSZ
 ustar
-utc
 UTCNA
 utexas
 utf
@@ -9028,7 +8724,6 @@ Weimer
 weirdtxt
 Welzel
 wenever
-werror
 Wessels
 westes
 wetimedout
@@ -9072,7 +8767,6 @@ wildzone
 Willcott
 windr
 Winfried
-WINNT
 wiplist
 wireformat
 wirelen
@@ -9106,7 +8800,6 @@ wlist
 Wll
 wlocks
 wlon
-Wmaybe
 wmc
 Wmh
 WMjk
@@ -9133,7 +8826,6 @@ wouter
 Wowie
 wp
 wpad
-Wparentheses
 WPebpc
 Wpf
 WPqoe
@@ -9167,7 +8859,6 @@ wshash
 WSIZE
 Wsqvx
 WSRECURSOR
-wstring
 WSUU
 Wswaps
 WSxx
@@ -9186,8 +8877,6 @@ wuh
 WUIKj
 WUjx
 wukh
-Wunknown
-Wunused
 WUX
 WUz
 wv
@@ -9244,7 +8933,6 @@ xaf
 Xander
 XAPI
 xargs
-xauto
 Xautonomous
 xawp
 Xay
@@ -9307,13 +8995,10 @@ xff
 xffff
 xffffffff
 xffffffffffffffff
-xffffffffu
 XFFRVVWX
 xffverylongstring
-XFhcn
 XFm
 xfr
-xfrdfile
 XFRM
 xfrserver
 XFv
@@ -9344,14 +9029,12 @@ XKq
 Xkqi
 xl
 xlabel
-xlc
 XLhp
 XLl
 xluajit
 XLzl
 xm
 xml
-Xmt
 Xmu
 XMvg
 XMXh
@@ -9364,7 +9047,6 @@ xo
 XOBo
 xod
 Xof
-XOPEN
 XOq
 xor
 xorbooter
@@ -9380,7 +9062,6 @@ xpfversion
 Xpk
 xpong
 XPP
-xpressive
 Xpuc
 Xpw
 XPx
@@ -9397,7 +9078,6 @@ XRr
 Xrx
 xsalsa
 XSIl
-xskip
 XSKk
 XSl
 Xsqv
@@ -9549,7 +9229,6 @@ YTg
 ytics
 YTJv
 Ytk
-YTOXPG
 Ytq
 YTRh
 Yty
@@ -9685,7 +9364,6 @@ ZLK
 zm
 zmakerfunc
 zmakermap
-zmanda
 Zmd
 Zminimal
 zmlx
@@ -9718,7 +9396,6 @@ zonemetadata
 zonename
 zoneparser
 zoneparsertng
-zonesdir
 zonestring
 ZONETOK
 zonetransfer
