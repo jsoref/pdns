@@ -52,6 +52,7 @@ SUMS$
 \.zip$
 ^excludes\.txt$
 ^modules/remotebackend/example\.rb$
+^modules/tinydnsbackend/data\.cdb$
 ^pdns/dnsdistdist/src_js/
 ^pdns/recursordist/html/js/
 ^whitelist\.txt$
