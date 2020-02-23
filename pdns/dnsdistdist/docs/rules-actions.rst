@@ -1370,7 +1370,7 @@ The following actions exist.
   Send copy of query to ``remote``, keep stats on responses.
   If ``addECS`` is set to true, EDNS Client Subnet information will be added to the query.
 
-  :param string remote: An IP:PORT conbination to send the copied queries to
+  :param string remote: An IP:PORT combination to send the copied queries to
   :param bool addECS: Whether or not to add ECS information. Default false
 
 .. function:: TempFailureCacheTTLAction(ttl)
