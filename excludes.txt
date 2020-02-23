@@ -1,4 +1,5 @@
 ^pdns/dnsdistdist/src_js/
+^pdns/recursordist/html/js/
 (?:^|/)go\.mod$
 (?:^|/)go\.sum$
 (?:^|/)package-lock\.json$
