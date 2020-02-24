@@ -1477,6 +1477,7 @@ dnsdistdist
 dnsdistdoc
 dnsdistdynblocks
 dnsdistkvs
+dnsdistlbpolicies
 dnsdistluarules
 dnsdistpacketcache
 dnsdistrings
@@ -1510,7 +1511,7 @@ dnspkt
 DNSPORT
 dnsproxy
 dnspython
-DNSQ
+dnsq
 dnsquestion
 DNSR
 dnsrecord
@@ -1530,7 +1531,7 @@ dnssecfromexisting
 dnssecinfra
 dnsseckeeper
 dnssecmode
-DNSSECOK
+dnssecok
 DNSSECOn
 dnssecsigner
 DNSSERVER
@@ -1570,6 +1571,7 @@ doent
 doesnotexist
 doesnotmatter
 dofile
+DOHFFI
 dohlocals
 Dohmen
 dohquerypair
@@ -1623,6 +1625,7 @@ dq
 dqcount
 DQEBBQUAA
 DQEBBQUAMBMx
+dqffi
 dqfn
 dqgy
 DQMAECt
@@ -1804,6 +1807,7 @@ edn
 ednscookies
 ednsdomains
 EDNSECS
+EDNSFFI
 ednsflag
 EDNSIGNORANT
 ednsip
@@ -2156,6 +2160,9 @@ ffffcc
 ffffff
 FFFFFFFF
 ffi
+ffilb
+ffipolicy
+ffipolicyfunc
 fflush
 Ffyk
 fgets
@@ -3133,7 +3140,6 @@ IPTo
 iptostr
 ipunitlist
 iputils
-IPUTILSHH
 ipv
 iqbgccga
 IQCj
@@ -3602,6 +3608,7 @@ LBa
 Lbackend
 lber
 lbl
+lbpolicies
 LBTVNTk
 Lbv
 lcc
@@ -3914,6 +3921,10 @@ luacall
 luaconf
 luaconfpath
 luadnsrule
+luaffi
+luaffiactionfunction
+luaffiactionsettag
+luaffirulefunction
 luahooks
 luajit
 LUAJITPC
@@ -3923,6 +3934,7 @@ luamutex
 LUAPC
 luaroundrobin
 luarule
+luarulefunction
 luaruleparams
 luascript
 luascriptpath
@@ -4619,7 +4631,7 @@ NOTAUTH
 notdisabled
 NOTFOUND
 notimp
-NOTIMPL
+notimpl
 notincludedir
 notoverridden
 notoverriddenprefixlength
@@ -6648,7 +6660,6 @@ sslsock
 SSLTLS
 SSLTLSIO
 SSLv
-SSMYSQL
 SSocket
 SSQ
 ssql
@@ -7936,7 +7947,6 @@ wrlock
 WRONLY
 WRYm
 WSAABWq
-WSAPI
 WSd
 Wsg
 wshadow
@@ -7944,7 +7954,6 @@ wshash
 WSIZE
 WSk
 Wsqvx
-WSRECURSOR
 Wswaps
 WSxx
 WSz
