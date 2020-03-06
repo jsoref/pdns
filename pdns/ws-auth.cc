@@ -486,7 +486,7 @@ static void fillZone(UeberBackend& B, const DNSName& zonename, HttpResponse* res
     doc["rrsets"] = rrsets;
   }
 
-  resp->setBody(doc);
+  resp->setJsonBody(doc);
 }
 
 void productServerStatisticsFetch(map<string,string>& out)
@@ -885,7 +885,7 @@ static void apiZoneMetadata(HttpRequest* req, HttpResponse *resp) {
       document.push_back(key);
     }
 
-    resp->setBody(document);
+    resp->setJsonBody(document);
   } else if (req->method == "POST") {
     auto document = req->json();
     string kind;
@@ -935,7 +935,7 @@ static void apiZoneMetadata(HttpRequest* req, HttpResponse *resp) {
     };
 
     resp->status = 201;
-    resp->setBody(key);
+    resp->setJsonBody(key);
   } else
     throw HttpMethodNotAllowedException();
 }
@@ -968,7 +968,7 @@ static void apiZoneMetadataKind(HttpRequest* req, HttpResponse* resp) {
       entries.push_back(i);
 
     document["metadata"] = entries;
-    resp->setBody(document);
+    resp->setJsonBody(document);
   } else if (req->method == "PUT") {
     auto document = req->json();
 
@@ -995,7 +995,7 @@ static void apiZoneMetadataKind(HttpRequest* req, HttpResponse* resp) {
       { "metadata", metadata }
     };
 
-    resp->setBody(key);
+    resp->setJsonBody(key);
   } else if (req->method == "DELETE") {
     if (!isValidMetadataKind(kind, false))
       throw ApiException("Unsupported metadata kind '" + kind + "'");
@@ -1063,7 +1063,7 @@ static void apiZoneCryptokeysGET(DNSName zonename, int inquireKeyId, HttpRespons
 
     if (inquireSingleKey) {
       key["privatekey"] = value.first.getKey()->convertToISC();
-      resp->setBody(key);
+      resp->setJsonBody(key);
       return;
     }
     doc.push_back(key);
@@ -1073,7 +1073,7 @@ static void apiZoneCryptokeysGET(DNSName zonename, int inquireKeyId, HttpRespons
     // we came here because we couldn't find the requested key.
     throw HttpNotFoundException();
   }
-  resp->setBody(doc);
+  resp->setJsonBody(doc);
 
 }
 
@@ -1425,7 +1425,7 @@ static void apiServerTSIGKeys(HttpRequest* req, HttpResponse* resp) {
     for(const auto &key : keys) {
       doc.push_back(makeJSONTSIGKey(key, false));
     }
-    resp->setBody(doc);
+    resp->setJsonBody(doc);
   } else if (req->method == "POST") {
     auto document = req->json();
     DNSName keyname(stringFromJson(document, "name"));
@@ -1448,7 +1448,7 @@ static void apiServerTSIGKeys(HttpRequest* req, HttpResponse* resp) {
     }
 
     resp->status = 201;
-    resp->setBody(makeJSONTSIGKey(keyname, algo, content));
+    resp->setJsonBody(makeJSONTSIGKey(keyname, algo, content));
   } else {
     throw HttpMethodNotAllowedException();
   }
@@ -1470,7 +1470,7 @@ static void apiServerTSIGKeyDetail(HttpRequest* req, HttpResponse* resp) {
   tsk.key = content;
 
   if (req->method == "GET") {
-    resp->setBody(makeJSONTSIGKey(tsk));
+    resp->setJsonBody(makeJSONTSIGKey(tsk));
   } else if (req->method == "PUT") {
     json11::Json document;
     if (!req->body.empty()) {
@@ -1504,7 +1504,7 @@ static void apiServerTSIGKeyDetail(HttpRequest* req, HttpResponse* resp) {
         throw HttpInternalServerErrorException("Unable to remove TSIG key '" + keyname.toStringNoDot() + "'");
       }
     }
-    resp->setBody(makeJSONTSIGKey(tsk));
+    resp->setJsonBody(makeJSONTSIGKey(tsk));
   } else if (req->method == "DELETE") {
     if (!B.deleteTSIGKey(keyname)) {
       throw HttpInternalServerErrorException("Unable to remove TSIG key '" + keyname.toStringNoDot() + "'");
@@ -1720,7 +1720,7 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
   for(const DomainInfo& di : domains) {
     doc.push_back(getZoneInfo(di, with_dnssec ? &dk : nullptr));
   }
-  resp->setBody(doc);
+  resp->setJsonBody(doc);
 }
 
 static void apiServerZoneDetail(HttpRequest* req, HttpResponse* resp) {
@@ -1801,7 +1801,7 @@ static void apiServerZoneExport(HttpRequest* req, HttpResponse* resp) {
   }
 
   if (req->accept_json) {
-    resp->setBody(Json::object { { "zone", ss.str() } });
+    resp->setJsonBody(Json::object { { "zone", ss.str() } });
   } else {
     resp->headers["Content-Type"] = "text/plain; charset=us-ascii";
     resp->body = ss.str();
@@ -2237,7 +2237,7 @@ static void apiServerSearchData(HttpRequest* req, HttpResponse* resp) {
     }
   }
 
-  resp->setBody(doc);
+  resp->setJsonBody(doc);
 }
 
 static void apiServerCacheFlush(HttpRequest* req, HttpResponse* resp) {
@@ -2247,7 +2247,7 @@ static void apiServerCacheFlush(HttpRequest* req, HttpResponse* resp) {
   DNSName canon = apiNameToDNSName(req->getvars["domain"]);
 
   uint64_t count = purgeAuthCachesExact(canon);
-  resp->setBody(Json::object {
+  resp->setJsonBody(Json::object {
       { "count", (int) count },
       { "result", "Flushed cache." }
   });

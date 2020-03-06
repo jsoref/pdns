@@ -116,7 +116,7 @@ static void apiServerConfigAllowFrom(HttpRequest* req, HttpResponse* resp)
   vector<string> entries;
   t_allowFrom->toStringVector(&entries);
 
-  resp->setBody(Json::object {
+  resp->setJsonBody(Json::object {
     { "name", "allow-from" },
     { "value", entries },
   });
@@ -157,7 +157,7 @@ static void fillZone(const DNSName& zonename, HttpResponse* resp)
     { "records", records }
   };
 
-  resp->setBody(doc);
+  resp->setJsonBody(doc);
 }
 
 static void doCreateZone(const Json document)
@@ -296,7 +296,7 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp)
       { "recursion_desired", zone.d_servers.empty() ? false : zone.d_rdForward }
     });
   }
-  resp->setBody(doc);
+  resp->setJsonBody(doc);
 }
 
 static void apiServerZoneDetail(HttpRequest* req, HttpResponse* resp)
@@ -372,7 +372,7 @@ static void apiServerSearchData(HttpRequest* req, HttpResponse* resp) {
       });
     }
   }
-  resp->setBody(doc);
+  resp->setJsonBody(doc);
 }
 
 static void apiServerCacheFlush(HttpRequest* req, HttpResponse* resp) {
@@ -382,10 +382,10 @@ static void apiServerCacheFlush(HttpRequest* req, HttpResponse* resp) {
   DNSName canon = apiNameToDNSName(req->getvars["domain"]);
   bool subtree = (req->getvars.count("subtree") > 0 && req->getvars["subtree"].compare("true") == 0);
 
-  int count = broadcastAccFunction<uint64_t>(std::bind(pleaseWipeCache, canon, subtree, 0xffff));
-  count += broadcastAccFunction<uint64_t>(std::bind(pleaseWipePacketCache, canon, subtree, 0xffff));
-  count += broadcastAccFunction<uint64_t>(std::bind(pleaseWipeAndCountNegCache, canon, subtree));
-  resp->setBody(Json::object {
+  int count = broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, canon, subtree, 0xffff));
+  count += broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, canon, subtree, 0xffff));
+  count += broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, canon, subtree));
+  resp->setJsonBody(Json::object {
     { "count", count },
     { "result", "Flushed cache." }
   });
@@ -418,7 +418,7 @@ static void apiServerRPZStats(HttpRequest* req, HttpResponse* resp) {
     };
     ret[name] = zoneInfo;
   }
-  resp->setBody(ret);
+  resp->setJsonBody(ret);
 }
 
 
@@ -586,7 +586,7 @@ void RecursorWebServer::jsonstat(HttpRequest* req, HttpResponse *resp)
         (int)(queries.size() - totIncluded), "", ""
       });
     }
-    resp->setBody(Json::object { { "entries", entries } });
+    resp->setJsonBody(Json::object { { "entries", entries } });
     return;
   }
   else if(command == "get-remote-ring") {
@@ -632,7 +632,7 @@ void RecursorWebServer::jsonstat(HttpRequest* req, HttpResponse *resp)
       });
     }
 
-    resp->setBody(Json::object { { "entries", entries } });
+    resp->setJsonBody(Json::object { { "entries", entries } });
     return;
   } else {
     resp->setErrorResult("Command '"+command+"' not found", 404);
