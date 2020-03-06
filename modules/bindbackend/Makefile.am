@@ -5,7 +5,6 @@ AM_LFLAGS = -i
 AM_YFLAGS = -d --verbose --debug
 
 BUILT_SOURCES = \
-	../../pdns/bind-dnssec.schema.sqlite3.sql.h \
 	../../pdns/bindlexer.l \
 	../../pdns/bindparser.yy
 
