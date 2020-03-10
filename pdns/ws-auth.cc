@@ -47,6 +47,7 @@
 #include "auth-caches.hh"
 #include "threadname.hh"
 #include "tsigutils.hh"
+#include "ext/incbin/incbin.h"
 
 using json11::Json;
 
@@ -853,6 +854,23 @@ static bool isValidMetadataKind(const string& kind, bool readonly) {
   }
 
   return found;
+}
+
+/* Return OpenAPI document describing the supported API.
+ */
+#include "apidocfiles.h"
+
+void apiDocs(HttpRequest* req, HttpResponse* resp) {
+  if(req->method != "GET")
+    throw HttpMethodNotAllowedException();
+
+  if (req->accept_yaml) {
+    resp->setYamlBody(g_api_swagger_yaml);
+  } else if (req->accept_json) {
+    resp->setJsonBody(g_api_swagger_json);
+  } else {
+    resp->setPlainBody(g_api_swagger_yaml);
+  }
 }
 
 static void apiZoneMetadata(HttpRequest* req, HttpResponse *resp) {
@@ -2312,6 +2330,7 @@ void AuthWebServer::webThread()
       d_ws->registerApiHandler("/api/v1/servers/localhost/zones", &apiServerZones);
       d_ws->registerApiHandler("/api/v1/servers/localhost", &apiServerDetail);
       d_ws->registerApiHandler("/api/v1/servers", &apiServer);
+      d_ws->registerApiHandler("/api/docs", &apiDocs);
       d_ws->registerApiHandler("/api", &apiDiscovery);
     }
     if (::arg().mustDo("webserver")) {

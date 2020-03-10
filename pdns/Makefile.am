@@ -59,7 +59,8 @@ EXTRA_DIST = \
 BUILT_SOURCES = \
 	bind-dnssec.schema.sqlite3.sql.h \
 	bindparser.h \
-	dnslabeltext.cc
+	dnslabeltext.cc \
+	apidocfiles.h
 
 CLEANFILES = \
 	*.gcda \
@@ -69,7 +70,30 @@ CLEANFILES = \
 	backends/gsql/gsqlbackend.gcno \
 	backends/gsql/gsqlbackend.gcov \
 	dnsmessage.pb.cc dnsmessage.pb.h \
-	pdns.conf-dist
+	pdns.conf-dist \
+	apidocfiles.h \
+	api-swagger.yaml \
+	api-swagger.json
+
+api-swagger.yaml: ../docs/http-api/swagger/authoritative-api-swagger.yaml
+	cp $< $@
+
+if HAVE_VIRTUALENV
+.venv: requirements.txt
+	virtualenv .venv
+	.venv/bin/pip install -U pip setuptools setuptools-git
+	.venv/bin/pip install -r requirements.txt
+
+api-swagger.json: api-swagger.yaml .venv
+	.venv/bin/python -c "import sys, json, yaml; y = yaml.safe_load(sys.stdin.read()); json.dump(y, sys.stdout, indent=2, separators=(',', ': '))" < $< > $@
+else # if HAVE_VIRTUALENV
+api-swagger.json:
+	echo "You need virtualenv to generate the JSON API document"
+	exit 1
+endif
+
+apidocfiles.h: api-swagger.yaml api-swagger.json
+	./incfiles $^ > $@
 
 noinst_SCRIPTS = pdns.init
 sysconf_DATA = pdns.conf-dist
