@@ -1,7 +1,10 @@
 name: Spell checking
 on:
-  pull_request:
   push:
+    branches:
+      - "*"
+    tags-ignore:
+      - "*"
 
 jobs:
   build:
