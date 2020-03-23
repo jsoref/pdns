@@ -1144,7 +1144,7 @@ faster than the existing rules.
     :param string reason: The message to show next to the blocks
     :param int blockingTime: The number of seconds this block to expire
     :param int action: The action to take when the dynamic block matches, see :ref:`here <DNSAction>`. (default to the one set with :func:`setDynBlocksAction`)
-    :param function vistitor: The Lua function to call.
+    :param function visitor: The Lua function to call.
 
   .. method:: DynBlockRulesGroup:setSuffixMatchRuleFFI(seconds, reason, blockingTime, action , visitor)
 
@@ -1158,7 +1158,7 @@ faster than the existing rules.
     :param string reason: The message to show next to the blocks
     :param int blockingTime: The number of seconds this block to expire
     :param int action: The action to take when the dynamic block matches, see :ref:`here <DNSAction>`. (default to the one set with :func:`setDynBlocksAction`)
-    :param function vistitor: The Lua FFI function to call.
+    :param function visitor: The Lua FFI function to call.
 
   .. method:: DynBlockRulesGroup:apply()
 
