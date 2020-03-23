@@ -4,8 +4,8 @@
 (?:^|/)m4/
 (?:^|/)package-lock\.json$
 /expected_result$
+pdns/test-dnsrecords_cc\.cc$
 SUMS$
-\.DS_Store$
 \.ai$
 \.asc$
 \.bmp$
@@ -15,6 +15,7 @@ SUMS$
 \.crt$
 \.csr$
 \.dll$
+\.DS_Store$
 \.eot$
 \.eps$
 \.exe$
@@ -52,10 +53,8 @@ SUMS$
 \.xpm$
 \.yml$
 \.zip$
-^excludes\.txt$
 ^modules/remotebackend/example\.rb$
 ^modules/tinydnsbackend/data\.cdb$
 ^pdns/dnsdistdist/src_js/
 ^pdns/recursordist/html/js/
-^whitelist\.txt$
-pdns/test-dnsrecords_cc\.cc$
+^\.github/actions/spell-check/
