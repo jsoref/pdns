@@ -14,5 +14,5 @@ jobs:
     - uses: check-spelling/check-spelling@0.0.12-alpha
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        bucket: ssh://git@github.com/jsoref/pdns.git
-        project: spelling-data
+        bucket: .github/actions
+        project: spell-check
