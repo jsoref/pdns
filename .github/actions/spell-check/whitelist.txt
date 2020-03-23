@@ -317,6 +317,7 @@ asyncresolve
 atcf
 athread
 atid
+ATime
 ATj
 Atlassian
 Ato
@@ -402,17 +403,6 @@ Ayea
 AYFF
 AYq
 AZWLVw
-b'a
-b'deadbeef
-b'deadc
-b'dnsdist
-b'kvs
-b'protobuf
-b'qname
-b'servers
-b'the
-b'there
-b'this
 Baan
 babdb
 bacc
@@ -1042,6 +1032,7 @@ conscli
 consequenses
 Consolas
 constexpr
+contentlen
 contentstr
 contenttype
 controllen
@@ -1064,6 +1055,7 @@ coverity
 Cpaa
 cparts
 cpid
+cplusplus
 cpng
 cpnmu
 cpnmuog
@@ -1283,6 +1275,7 @@ DDpx
 DDWN
 deactivatedomainkey
 deadbeef
+deadc
 debbuild
 debconf
 DEBEMAIL
@@ -1334,7 +1327,6 @@ descclassname
 descname
 descr
 descrip
-descriptioon
 deserialize
 Dessel
 dest
@@ -1857,6 +1849,7 @@ efc
 efd
 efe
 Efg
+EFGH
 Efm
 efmq
 EFw
@@ -2054,6 +2047,7 @@ exitvalue
 exky
 Exort
 Expat
+expectedlen
 expf
 expr
 expungebyname
@@ -2249,7 +2243,6 @@ Fnxiqg
 Foi
 followedbyanother
 FOLLOWLOCATION
-follwing
 fontname
 foob
 fooba
@@ -2733,6 +2726,7 @@ headbgcolor
 headerfmt
 HEADERFUNCTION
 headerlink
+headersize
 headfont
 headl
 headlinkcolor
@@ -5165,6 +5159,7 @@ pdnsmgrd
 pdnsodbx
 PDNSPB
 pdnsrandom
+PDNSRECCONTROL
 PDNSRECURSOR
 pdnssec
 PDNSSERVER
@@ -5182,6 +5177,7 @@ perl
 PERLMOD
 Perror
 Perroud
+pershard
 pertub
 Pertubation
 pevents
@@ -5434,6 +5430,13 @@ protobuf
 protoc
 protostr
 providername
+proxyheader
+proxymagic
+PROXYMAGICLEN
+proxyprotocol
+PROXYPROTOCOLHEADER
+proxyprotocolvalues
+PROXYv
 PRsm
 prt
 PRU
@@ -5451,6 +5454,7 @@ Pso
 psql
 Pstmt
 psy
+ptcp
 PTh
 pthread
 Pthv
@@ -6563,6 +6567,7 @@ sourcecode
 SOURCEDIR
 sourceforge
 sourceip
+sourceware
 Spaans
 spacelen
 Spackages
@@ -6771,6 +6776,7 @@ strsignal
 strstr
 strtod
 strtol
+structs
 sttl
 stubquery
 stubresolver
@@ -6823,6 +6829,7 @@ SVY
 swapcontext
 swe
 Swfi
+swoga
 SWUOQ
 sx
 SXGv
@@ -7105,6 +7112,7 @@ tlsunsupportedprotocol
 TLSv
 tlsversion
 Tltq
+tlv
 TLXt
 Tlz
 tmeta
@@ -7296,26 +7304,6 @@ TZE
 TZOFF
 TZud
 TZwjx
-u'a
-u'active
-u'algorithm
-u'bits
-u'comments
-u'content
-u'csk
-u'disabled
-u'example
-u'flags
-u'id
-u'keytype
-u'name
-u'ns
-u'object
-u'published
-u'record
-u'ttl
-u'type
-u'zone
 UAd
 UAK
 ualberta
@@ -7648,6 +7636,7 @@ Verschuren
 versionadded
 versionbind
 versionchanged
+versioncommand
 versionmangle
 versionmodified
 versionpdns
@@ -7784,6 +7773,7 @@ wantsnsid
 Wao
 warnlog
 Wascwa
+wastcp
 wattr
 Wawo
 Waxyl
