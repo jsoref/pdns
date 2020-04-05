@@ -39,10 +39,6 @@ paths:
           description: Requested item was not found
           schema:
             $ref: '#/definitions/Error'
-        '409':
-          description: An item with this name already exists
-          schema:
-            $ref: '#/definitions/Error'
         '422':
           description: The input to the operation was not valid
           schema:
@@ -797,6 +793,10 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/TSIGKey'
+        '409':
+          description: An item with this name already exists
+          schema:
+            $ref: '#/definitions/Error'
         <<: *commonErrors
 
   '/servers/{server_id}/tsigkeys/{tsigkey_id}':
@@ -844,6 +844,10 @@ paths:
           description: OK. TSIGKey is changed.
           schema:
             $ref: '#/definitions/TSIGKey'
+        '409':
+          description: An item with this name already exists
+          schema:
+            $ref: '#/definitions/Error'
         <<: *commonErrors
     delete:
       summary: 'Delete the TSIGKey with tsigkey_id'
