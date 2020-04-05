@@ -66,7 +66,7 @@ $(MANPAGES_DIST): %: mans/.complete manpages/%.rst
 endif # if !HAVE_MANPAGES
 
 mans/.complete: manpages := $(addprefix manpages/,$(addsuffix .rst,$(MANPAGES_DIST)))
-mans/.complete: .venv
+mans/.complete: .venv http-api/swagger/authoritative-api-swagger.yaml-sphinx
 	rm -rf "$(@D).tmp"
 	.venv/bin/python -msphinx -b man . "$(@D).tmp" $(manpages) && rm -rf "$(@D)" && mv "$(@D).tmp" "$(@D)"
 	touch "$@"
@@ -88,12 +88,16 @@ mans/.complete: .venv
 
 clean-local:
 	rm -f latex/PowerDNS-Authoritative.pdf $(MANPAGES_DIST) html-docs.tar.bz2
+	rm -f http-api/swagger/authoritative-api-swagger.yaml-sphinx
 	rm -rf mans
 
-html-docs: common/** manpages/** .venv *.rst
+http-api/swagger/authoritative-api-swagger.yaml-sphinx: http-api/swagger/authoritative-api-swagger.yaml .venv
+	.venv/bin/python -c "import sys, yaml; y = yaml.safe_load(sys.stdin.read()); yaml.dump(y, sys.stdout)" < $< > $@
+
+html-docs: common/** manpages/** .venv *.rst http-api/*.rst http-api/swagger/authoritative-api-swagger.yaml-sphinx
 	.venv/bin/python -msphinx -b html . html-docs
 
-latex/PowerDNS-Authoritative.pdf: common/** manpages/** .venv *.rst
+latex/PowerDNS-Authoritative.pdf: common/** manpages/** .venv *.rst http-api/*.rst http-api/swagger/authoritative-api-swagger.yaml-sphinx
 	.venv/bin/python -msphinx -M latexpdf . .
 
 PowerDNS-Authoritative.pdf: latex/PowerDNS-Authoritative.pdf

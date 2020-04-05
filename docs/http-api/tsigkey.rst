@@ -49,11 +49,11 @@ Modifying the key material
 TSIGKey Endpoints
 -----------------
 
-.. openapi:: swagger/authoritative-api-swagger.yaml
+.. openapi:: swagger/authoritative-api-swagger.yaml-sphinx
   :paths: /servers/{server_id}/tsigkeys /servers/{server_id}/tsigkeys/{tsigkey_id}
 
 Objects
 -------
 
-.. openapi:: swagger/authoritative-api-swagger.yaml
+.. openapi:: swagger/authoritative-api-swagger.yaml-sphinx
   :definitions: TSIGKey

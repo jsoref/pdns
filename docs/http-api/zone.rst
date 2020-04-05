@@ -6,7 +6,7 @@ Manipulating zones is the primary use of the API.
 Zone Endpoints
 --------------
 
-.. openapi:: swagger/authoritative-api-swagger.yaml
+.. openapi:: swagger/authoritative-api-swagger.yaml-sphinx
   :paths: /servers/{server_id}/zones /servers/{server_id}/zones/{zone_id} /servers/{server_id}/zones/{zone_id}/axfr-retrieve /servers/{server_id}/zones/{zone_id}/notify /servers/{server_id}/zones/{zone_id}/export /servers/{server_id}/zones/{zone_id}/rectify
 
 Objects
@@ -18,7 +18,7 @@ A Resource Record Set (below as "RRset") are all records for a given name and ty
 
 Comments are per-RRset.
 
-.. openapi:: swagger/authoritative-api-swagger.yaml
+.. openapi:: swagger/authoritative-api-swagger.yaml-sphinx
   :definitions: Zone RRSet Record Comment
 
 .. note::

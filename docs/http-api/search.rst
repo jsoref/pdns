@@ -6,10 +6,10 @@ The API allows searching for data in :json:object:`Zone`\ s, :json:object:`Comme
 Endpoints
 ---------
 
-.. openapi:: swagger/authoritative-api-swagger.yaml
+.. openapi:: swagger/authoritative-api-swagger.yaml-sphinx
   :paths: /servers/{server_id}/search-data
 
 Objects
 -------
-.. openapi:: swagger/authoritative-api-swagger.yaml
+.. openapi:: swagger/authoritative-api-swagger.yaml-sphinx
   :definitions: SearchResult
