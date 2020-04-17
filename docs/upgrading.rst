@@ -8,6 +8,15 @@ Please upgrade to the PowerDNS Authoritative Server 4.0.0 from 3.4.2+.
 See the `3.X <https://doc.powerdns.com/3/authoritative/upgrading/>`__
 upgrade notes if your version is older than 3.4.2.
 
+4.3.X to 4.4.0
+--------------
+
+PostgreSQL configuration escaping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We now correctly quote/escape Postgres connection parameters.
+If you used single quotes around your Postgres password because it contained spaces, you now need to remove those quotes.
+
 4.2.x to 4.3.0
 --------------
 

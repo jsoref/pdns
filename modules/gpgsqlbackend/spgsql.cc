@@ -246,6 +246,15 @@ private:
 
 bool SPgSQL::s_dolog;
 
+static string escapeForPQparam(const string &v)
+{
+  string ret = v;
+  boost::replace_all(ret, "\\", "\\\\");
+  boost::replace_all(ret, "'", "\\'");
+
+  return string("'")+ret+string("'");
+}
+
 SPgSQL::SPgSQL(const string &database, const string &host, const string& port, const string &user,
                const string &password, const string &extra_connection_parameters)
 {
@@ -254,16 +263,16 @@ SPgSQL::SPgSQL(const string &database, const string &host, const string& port, c
   d_connectstr="";
 
   if (!database.empty())
-    d_connectstr+="dbname="+database;
+    d_connectstr+="dbname="+escapeForPQparam(database);
 
   if (!user.empty())
-    d_connectstr+=" user="+user;
+    d_connectstr+=" user="+escapeForPQparam(user);
 
   if(!host.empty())
-    d_connectstr+=" host="+host;
+    d_connectstr+=" host="+escapeForPQparam(host);
 
   if(!port.empty())
-    d_connectstr+=" port="+port;
+    d_connectstr+=" port="+escapeForPQparam(port);
 
   if(!extra_connection_parameters.empty())
     d_connectstr+=" " + extra_connection_parameters;
@@ -272,7 +281,7 @@ SPgSQL::SPgSQL(const string &database, const string &host, const string& port, c
 
   if(!password.empty()) {
     d_connectlogstr+=" password=<HIDDEN>";
-    d_connectstr+=" password="+password;
+    d_connectstr+=" password="+escapeForPQparam(password);
   }
 
   d_db=PQconnectdb(d_connectstr.c_str());
