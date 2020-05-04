@@ -1,0 +1,39 @@
+# our chosen base image
+FROM debian:10
+
+# import everything - this could be pdns.git OR an auth tarball!
+COPY . /source
+
+# TODO: make sure /source looks roughly the same from git or tar
+
+# TODO: ccache
+
+# devscripts gives us mk-build-deps (and a lot of other stuff)
+RUN apt-get update && apt-get -y dist-upgrade && apt-get install -y  --no-install-recommends devscripts equivs && apt-get clean
+
+# TODO: control file is not in tarballs at all right now
+RUN mk-build-deps -i -t 'apt-get -y -o Debug::pkgProblemResolver=yes --no-install-recommends' /source/builder-support/debian/authoritative/debian-buster/control && apt-get clean
+RUN apt-get -y install tini sqlite3 && apt-get clean
+
+# build and install (TODO: before we hit this line, rearrange /source structure if we are coming from a tarball)
+WORKDIR /source/
+
+ARG MAKEFLAGS=
+ENV MAKEFLAGS ${MAKEFLAGS:--j2}
+
+RUN autoreconf -vfi
+
+RUN ./configure --with-lua=luajit --sysconfdir=/etc/powerdns --enable-option-checking=fatal --with-modules='bind geoip gsqlite3' --enable-tools --enable-ixfrdist && make clean && make $MAKEFLAGS  -C ext && make $MAKEFLAGS -C modules && make $MAKEFLAGS -C pdns && make -C pdns install && make clean
+
+RUN mkdir -p /etc/powerdns/pdns.d && cp /source/dockerdata/pdns.conf /etc/powerdns
+RUN cp /source/dockerdata/startup.py /usr/local/sbin/pdns_server-startup
+
+RUN mkdir -p /var/lib/powerdns && sqlite3 /var/lib/powerdns/pdns.sqlite3 < /source/modules/gsqlite3backend/schema.sqlite3.sql
+
+# DNS ports
+EXPOSE 53/udp
+EXPOSE 53/tcp
+# webserver port
+EXPOSE 8081/tcp
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/sbin/pdns_server-startup"]

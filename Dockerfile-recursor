@@ -1,0 +1,45 @@
+# USAGE
+
+#   docker build --build-arg MAKEFLAGS=-j8 -t recursor -f docker/Dockerfile-recursor .
+#   docker run -p 1053:53 -p 1053:53/udp -ti --rm recursor
+#   dig a www.example.com @0 -p 1053
+
+# our chosen base image
+FROM debian:10
+
+# import everything - this could be pdns.git OR a recursor tarball!
+COPY . /source
+
+# TODO: make sure /source looks roughly the same from git or tar
+
+# TODO: ccache
+
+# devscripts gives us mk-build-deps (and a lot of other stuff)
+RUN apt-get update && apt-get -y dist-upgrade && apt-get install -y  --no-install-recommends devscripts equivs && apt-get clean
+
+# TODO: control file is not in tarballs at all right now
+RUN mk-build-deps -i -t 'apt-get -y -o Debug::pkgProblemResolver=yes --no-install-recommends' /source/builder-support/debian/recursor/debian-buster/control && apt-get clean
+RUN apt-get -y install protobuf-compiler && apt-get clean
+
+# build and install (TODO: before we hit this line, rearrange /source structure if we are coming from a tarball)
+WORKDIR /source/pdns/recursordist
+
+ARG MAKEFLAGS=
+ENV MAKEFLAGS ${MAKEFLAGS:--j2}
+
+#RUN touch pdns_recursor.1 rec_control.1 # avoid installing pandoc
+
+RUN autoreconf -vfi
+
+RUN ./configure --with-lua=luajit LDFLAGS=-rdynamic --sysconfdir=/etc/powerdns --enable-option-checking=fatal && make clean && make $MAKEFLAGS install && make clean
+
+RUN mkdir -p /etc/powerdns/recursor.d /var/run/pdns-recursor && cp /source/dockerdata/recursor.conf /etc/powerdns/
+RUN cp /source/dockerdata/startup.py /usr/local/sbin/pdns_recursor-startup
+
+# DNS ports
+EXPOSE 53/udp
+EXPOSE 53/tcp
+# webserver port
+EXPOSE 8082/tcp
+
+ENTRYPOINT ["/usr/local/sbin/pdns_recursor-startup"]

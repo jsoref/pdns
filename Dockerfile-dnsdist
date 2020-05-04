@@ -1,0 +1,46 @@
+# our chosen base image
+FROM debian:10
+
+# import everything - this could be pdns.git OR a dnsdist tarball!
+COPY . /source
+
+# TODO: make sure /source looks roughly the same from git or tar
+
+# TODO: ccache
+
+# devscripts gives us mk-build-deps (and a lot of other stuff)
+RUN apt-get update && apt-get -y dist-upgrade && apt-get install -y  --no-install-recommends devscripts equivs && apt-get clean
+
+# TODO: control file is not in tarballs at all right now
+RUN mk-build-deps -i -t 'apt-get -y -o Debug::pkgProblemResolver=yes --no-install-recommends' /source/builder-support/debian/dnsdist/debian-buster/control && apt-get clean
+RUN apt-get -y install protobuf-compiler tini python3-atomicwrites && apt-get clean
+
+# build and install (TODO: before we hit this line, rearrange /source structure if we are coming from a tarball)
+WORKDIR /source/pdns/dnsdistdist
+
+ARG MAKEFLAGS=
+ENV MAKEFLAGS ${MAKEFLAGS:--j2}
+
+#RUN touch pdns_recursor.1 rec_control.1 # avoid installing pandoc
+
+RUN autoreconf -vfi
+
+RUN ./configure --with-lua=luajit LDFLAGS=-rdynamic --sysconfdir=/etc/dnsdist --enable-option-checking=fatal --enable-dnscrypt --enable-dns-over-tls --enable-dns-over-https --with-re2 && make clean && make $MAKEFLAGS install && make clean
+
+RUN mkdir -p /etc/dnsdist/conf.d && cp /source/dockerdata/dnsdist.conf /etc/dnsdist
+RUN cp /source/dockerdata/startup.py /usr/local/bin/dnsdist-startup
+
+# DNS ports
+EXPOSE 53/udp
+EXPOSE 53/tcp
+# console port
+EXPOSE 5199/tcp
+# webserver port
+EXPOSE 8083/tcp
+
+WORKDIR /etc/dnsdist
+
+RUN cp /source/dockerdata/dnsdist-resolver.lua /etc/dnsdist/
+RUN cp /source/dockerdata/dnsdist-resolver.py /usr/local/bin/dnsdist-resolver
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/dnsdist-startup"]
