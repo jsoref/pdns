@@ -10,6 +10,8 @@ local _M = {}
 _M.servers = {}
 
 -- these are the servers we have
+-- key = name
+-- value = {address, serverObject} (should make these named members)
 local ourservers = {}
 
 local resolverpipe = io.popen('/usr/local/bin/dnsdist-resolver', 'w')
@@ -24,7 +26,7 @@ local function tablecopy(t)
 end
 
 local function removeServer(name)
-    rmServer(ourservers[name])
+    rmServer(ourservers[name][2])
     ourservers[name] = nil
 end
 
@@ -34,7 +36,8 @@ local function setServer(name, ip)
     if existing ~= nil
     then
         -- it exists, check IP
-        if existing.address == ip
+        infolog(string.format("existing[1] [%s] == ip [%s] ??", existing[1], ip))
+        if existing[1] == ip
         then
             -- IP is correct, done!
             return
@@ -49,7 +52,7 @@ local function setServer(name, ip)
     settings.name = name
     -- TODO: we only take the first IP
     settings.address = ip
-    ourservers[name] = newServer(settings)
+    ourservers[name] = {ip, newServer(settings)}
 end
 
 function _M.maintenance()
@@ -83,10 +86,10 @@ function _M.maintenance()
 
     for name, ips in pairs(resout)
     do
-        print("name=", name)
+        infolog("name="..name)
         for _, ip in ipairs(ips)
         do
-            print("  ip=", ip)
+            infolog("  ip="..ip)
         end
 
         if #ips == 0
