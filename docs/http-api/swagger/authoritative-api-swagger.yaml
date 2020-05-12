@@ -4,10 +4,7 @@ info:
   title: PowerDNS Authoritative HTTP API
   license:
     name: MIT
-host: localhost:8081
 basePath: /api/v1
-schemes:
-  - http
 consumes:
   - application/json
 produces:
