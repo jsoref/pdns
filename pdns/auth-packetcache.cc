@@ -46,13 +46,11 @@ AuthPacketCache::AuthPacketCache(size_t mapsCount): d_maps(mapsCount), d_lastcle
 AuthPacketCache::~AuthPacketCache()
 {
   try {
-    vector<WriteLock*> locks;
+    vector<WriteLock> locks;
     for(auto& mc : d_maps) {
-      locks.push_back(new WriteLock(&mc.d_mut));
+      locks.push_back(WriteLock(mc.d_mut));
     }
-    for(auto wl : locks) {
-      delete wl;
-    }
+    locks.clear();
   }
   catch(...) {
   }
@@ -170,7 +168,7 @@ void AuthPacketCache::insert(DNSPacket& q, DNSPacket& r, unsigned int maxTTL)
     }
 
     /* no existing entry found to refresh */
-    mc.d_map.insert(entry);
+    mc.d_map.insert(std::move(entry));
 
     if (*d_statnumentries >= d_maxEntries) {
       /* remove the least recently inserted or replaced entry */
@@ -178,7 +176,7 @@ void AuthPacketCache::insert(DNSPacket& q, DNSPacket& r, unsigned int maxTTL)
       sidx.pop_front();
     }
     else {
-      (*d_statnumentries)++;
+      ++(*d_statnumentries);
     }
   }
 }
@@ -248,11 +246,7 @@ uint64_t AuthPacketCache::purge(const string &match)
 			   
 void AuthPacketCache::cleanup()
 {
-  uint64_t maxCached = d_maxEntries;
-  uint64_t cacheSize = *d_statnumentries;
-  uint64_t totErased = 0;
-
-  totErased = pruneLockedCollectionsVector<SequencedTag>(d_maps, maxCached, cacheSize);
+  uint64_t totErased = pruneLockedCollectionsVector<SequencedTag>(d_maps);
   *d_statnumentries -= totErased;
 
   DLOG(g_log<<"Done with cache clean, cacheSize: "<<(*d_statnumentries)<<", totErased"<<totErased<<endl);

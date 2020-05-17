@@ -479,7 +479,7 @@ uint64_t SyncRes::doDumpThrottleMap(int fd)
   uint64_t count=0;
 
   const auto& throttleMap = t_sstorage.throttle.getThrottleMap();
-  for(const auto i : throttleMap)
+  for(const auto& i : throttleMap)
   {
     count++;
     char tmp[26];
@@ -782,9 +782,11 @@ int SyncRes::doResolveNoQNameMinimization(const DNSName &qname, const QType &qty
 
   state = Indeterminate;
 
-  if(s_maxdepth && depth > s_maxdepth)
-    throw ImmediateServFailException("More than "+std::to_string(s_maxdepth)+" (max-recursion-depth) levels of recursion needed while resolving "+qname.toLogString());
-
+  if (s_maxdepth && depth > s_maxdepth) {
+    string msg = "More than " + std::to_string(s_maxdepth) + " (max-recursion-depth) levels of recursion needed while resolving " + qname.toLogString();
+    LOG(prefix << qname << ": " << msg << endl);
+    throw ImmediateServFailException(msg);
+  }
   int res=0;
 
   // This is a difficult way of expressing "this is a normal query", i.e. not getRootNS.
@@ -955,7 +957,7 @@ vector<ComboAddress> SyncRes::getAddrs(const DNSName &qname, unsigned int depth,
         // We have some IPv4 records, don't bother with going out to get IPv6, but do consult the cache
         // Once IPv6 adoption matters, this needs to be revisited
         res_t cset;
-        if (t_RC->get(d_now.tv_sec, qname, QType(QType::AAAA), false, &cset, d_cacheRemote) > 0) {
+        if (s_RC->get(d_now.tv_sec, qname, QType(QType::AAAA), false, &cset, d_cacheRemote, d_routingTag) > 0) {
           for (const auto &i : cset) {
             if (i.d_ttl > (unsigned int)d_now.tv_sec ) {
               if (auto rec = getRR<AAAARecordContent>(i)) {
@@ -990,7 +992,7 @@ vector<ComboAddress> SyncRes::getAddrs(const DNSName &qname, unsigned int depth,
   t_sstorage.nsSpeeds[qname].purge(speeds);
 
   if(ret.size() > 1) {
-    random_shuffle(ret.begin(), ret.end());
+    shuffle(ret.begin(), ret.end(), pdns::dns_random_engine());
     speedOrderCA so(speeds);
     stable_sort(ret.begin(), ret.end(), so);
 
@@ -1031,7 +1033,7 @@ void SyncRes::getBestNSFromCache(const DNSName &qname, const QType& qtype, vecto
     vector<DNSRecord> ns;
     *flawedNSSet = false;
 
-    if(t_RC->get(d_now.tv_sec, subdomain, QType(QType::NS), false, &ns, d_cacheRemote) > 0) {
+    if(s_RC->get(d_now.tv_sec, subdomain, QType(QType::NS), false, &ns, d_cacheRemote, d_routingTag) > 0) {
       bestns.reserve(ns.size());
 
       for(auto k=ns.cbegin();k!=ns.cend(); ++k) {
@@ -1040,8 +1042,8 @@ void SyncRes::getBestNSFromCache(const DNSName &qname, const QType& qtype, vecto
 
           const DNSRecord& dr=*k;
 	  auto nrr = getRR<NSRecordContent>(dr);
-          if(nrr && (!nrr->getNS().isPartOf(subdomain) || t_RC->get(d_now.tv_sec, nrr->getNS(), s_doIPv6 ? QType(QType::ADDR) : QType(QType::A),
-                                                                    false, doLog() ? &aset : 0, d_cacheRemote) > 5)) {
+          if(nrr && (!nrr->getNS().isPartOf(subdomain) || s_RC->get(d_now.tv_sec, nrr->getNS(), s_doIPv6 ? QType(QType::ADDR) : QType(QType::A),
+                                                                    false, doLog() ? &aset : 0, d_cacheRemote, d_routingTag) > 5)) {
             bestns.push_back(dr);
             LOG(prefix<<qname<<": NS (with ip, or non-glue) in cache for '"<<subdomain<<"' -> '"<<nrr->getNS()<<"'"<<endl);
             LOG(prefix<<qname<<": within bailiwick: "<< nrr->getNS().isPartOf(subdomain));
@@ -1156,10 +1158,10 @@ DNSName SyncRes::getBestNSNamesFromCache(const DNSName &qname, const QType& qtyp
 void SyncRes::updateValidationStatusInCache(const DNSName &qname, const QType& qt, bool aa, vState newState) const
 {
   if (newState == Bogus) {
-    t_RC->updateValidationStatus(d_now.tv_sec, qname, qt, d_cacheRemote, aa, newState, s_maxbogusttl + d_now.tv_sec);
+    s_RC->updateValidationStatus(d_now.tv_sec, qname, qt, d_cacheRemote, d_routingTag, aa, newState, s_maxbogusttl + d_now.tv_sec);
   }
   else {
-    t_RC->updateValidationStatus(d_now.tv_sec, qname, qt, d_cacheRemote, aa, newState, boost::none);
+    s_RC->updateValidationStatus(d_now.tv_sec, qname, qt, d_cacheRemote, d_routingTag, aa, newState, boost::none);
   }
 }
 
@@ -1187,7 +1189,7 @@ bool SyncRes::doCNAMECacheCheck(const DNSName &qname, const QType &qtype, vector
 
   LOG(prefix<<qname<<": Looking for CNAME cache hit of '"<<qname<<"|CNAME"<<"'"<<endl);
   /* we don't require auth data for forward-recurse lookups */
-  if (t_RC->get(d_now.tv_sec, qname, QType(QType::CNAME), !wasForwardRecurse && d_requireAuthData, &cset, d_cacheRemote, d_doDNSSEC ? &signatures : nullptr, d_doDNSSEC ? &authorityRecs : nullptr, &d_wasVariable, &state, &wasAuth) > 0) {
+  if (s_RC->get(d_now.tv_sec, qname, QType(QType::CNAME), !wasForwardRecurse && d_requireAuthData, &cset, d_cacheRemote, d_routingTag, d_doDNSSEC ? &signatures : nullptr, d_doDNSSEC ? &authorityRecs : nullptr, &d_wasVariable, &state, &wasAuth) > 0) {
     foundName = qname;
     foundQT = QType(QType::CNAME);
   }
@@ -1204,7 +1206,7 @@ bool SyncRes::doCNAMECacheCheck(const DNSName &qname, const QType &qtype, vector
       if (dnameName == qname && qtype != QType::DNAME) { // The client does not want a DNAME, but we've reached the QNAME already. So there is no match
         break;
       }
-      if (t_RC->get(d_now.tv_sec, dnameName, QType(QType::DNAME), !wasForwardRecurse && d_requireAuthData, &cset, d_cacheRemote, d_doDNSSEC ? &signatures : nullptr, d_doDNSSEC ? &authorityRecs : nullptr, &d_wasVariable, &state, &wasAuth) > 0) {
+      if (s_RC->get(d_now.tv_sec, dnameName, QType(QType::DNAME), !wasForwardRecurse && d_requireAuthData, &cset, d_cacheRemote, d_routingTag, d_doDNSSEC ? &signatures : nullptr, d_doDNSSEC ? &authorityRecs : nullptr, &d_wasVariable, &state, &wasAuth) > 0) {
         foundName = dnameName;
         foundQT = QType(QType::DNAME);
         break;
@@ -1367,11 +1369,11 @@ static void reapRecordsFromNegCacheEntryForValidation(tcache_t& tcache, const ve
 }
 
 /*!
- * Convience function to push the records from records into ret with a new TTL
+ * Convenience function to push the records from records into ret with a new TTL
  *
  * \param records DNSRecords that need to go into ret
  * \param ttl     The new TTL for these records
- * \param ret     The vector of DNSRecords that should contian the records with the modified TTL
+ * \param ret     The vector of DNSRecords that should contain the records with the modified TTL
  */
 static void addTTLModifiedRecords(const vector<DNSRecord>& records, const uint32_t ttl, vector<DNSRecord>& ret) {
   for (const auto& rec : records) {
@@ -1447,7 +1449,7 @@ bool SyncRes::doCacheCheck(const DNSName &qname, const DNSName& authname, bool w
     prefix.append(depth, ' ');
   }
 
-  // sqname and sqtype are used contain 'higher' names if we have them (e.g. powerdns.com|SOA when we find a negative entry for doesnotexists.powerdns.com|A)
+  // sqname and sqtype are used contain 'higher' names if we have them (e.g. powerdns.com|SOA when we find a negative entry for doesnotexist.powerdns.com|A)
   DNSName sqname(qname);
   QType sqt(qtype);
   uint32_t sttl=0;
@@ -1540,7 +1542,7 @@ bool SyncRes::doCacheCheck(const DNSName &qname, const DNSName& authname, bool w
   uint32_t ttl=0;
   uint32_t capTTL = std::numeric_limits<uint32_t>::max();
   bool wasCachedAuth;
-  if(t_RC->get(d_now.tv_sec, sqname, sqt, !wasForwardRecurse && d_requireAuthData, &cset, d_cacheRemote, d_doDNSSEC ? &signatures : nullptr, d_doDNSSEC ? &authorityRecs : nullptr, &d_wasVariable, &cachedState, &wasCachedAuth) > 0) {
+  if(s_RC->get(d_now.tv_sec, sqname, sqt, !wasForwardRecurse && d_requireAuthData, &cset, d_cacheRemote, d_routingTag, d_doDNSSEC ? &signatures : nullptr, d_doDNSSEC ? &authorityRecs : nullptr, &d_wasVariable, &cachedState, &wasCachedAuth) > 0) {
 
     LOG(prefix<<sqname<<": Found cache hit for "<<sqt.getName()<<": ");
 
@@ -1655,7 +1657,7 @@ inline std::vector<std::pair<DNSName, float>> SyncRes::shuffleInSpeedOrder(NsSet
       return rnameservers;
   }
 
-  random_shuffle(rnameservers.begin(),rnameservers.end());
+  shuffle(rnameservers.begin(),rnameservers.end(), pdns::dns_random_engine());
   speedOrder so;
   stable_sort(rnameservers.begin(),rnameservers.end(), so);
 
@@ -1686,7 +1688,7 @@ inline vector<ComboAddress> SyncRes::shuffleForwardSpeed(const vector<ComboAddre
     speed=t_sstorage.nsSpeeds[nsName].get(d_now);
     speeds[val]=speed;
   }
-  random_shuffle(nameservers.begin(),nameservers.end());
+  shuffle(nameservers.begin(),nameservers.end(), pdns::dns_random_engine());
   speedOrderCA so(speeds);
   stable_sort(nameservers.begin(),nameservers.end(), so);
 
@@ -1807,17 +1809,23 @@ bool SyncRes::nameserversBlockedByRPZ(const DNSFilterEngine& dfe, const NsSet& n
   if (d_wantsRPZ && (d_appliedPolicy.d_type == DNSFilterEngine::PolicyType::None || d_appliedPolicy.d_kind == DNSFilterEngine::PolicyKind::NoAction)) {
     for (auto const &ns : nameservers) {
       bool match = dfe.getProcessingPolicy(ns.first, d_discardedPolicies, d_appliedPolicy);
-      if (match && d_appliedPolicy.d_kind != DNSFilterEngine::PolicyKind::NoAction) { // client query needs an RPZ response
-        LOG(", however nameserver "<<ns.first<<" was blocked by RPZ policy '"<<(d_appliedPolicy.d_name ? *d_appliedPolicy.d_name : "")<<"'"<<endl);
-        return true;
+      if (match) {
+        mergePolicyTags(d_policyTags, d_appliedPolicy.getTags());
+        if (d_appliedPolicy.d_kind != DNSFilterEngine::PolicyKind::NoAction) { // client query needs an RPZ response
+          LOG(", however nameserver "<<ns.first<<" was blocked by RPZ policy '"<<d_appliedPolicy.getName()<<"'"<<endl);
+          return true;
+        }
       }
 
       // Traverse all IP addresses for this NS to see if they have an RPN NSIP policy
       for (auto const &address : ns.second.first) {
         match = dfe.getProcessingPolicy(address, d_discardedPolicies, d_appliedPolicy);
-        if (match && d_appliedPolicy.d_kind != DNSFilterEngine::PolicyKind::NoAction) { // client query needs an RPZ response
-          LOG(", however nameserver "<<ns.first<<" IP address "<<address.toString()<<" was blocked by RPZ policy '"<<(d_appliedPolicy.d_name ? *d_appliedPolicy.d_name : "")<<"'"<<endl);
-          return true;
+        if (match) {
+          mergePolicyTags(d_policyTags, d_appliedPolicy.getTags());
+          if (d_appliedPolicy.d_kind != DNSFilterEngine::PolicyKind::NoAction) { // client query needs an RPZ response
+            LOG(", however nameserver "<<ns.first<<" IP address "<<address.toString()<<" was blocked by RPZ policy '"<<d_appliedPolicy.getName()<<"'"<<endl);
+            return true;
+          }
         }
       }
     }
@@ -1835,9 +1843,12 @@ bool SyncRes::nameserverIPBlockedByRPZ(const DNSFilterEngine& dfe, const ComboAd
   */
   if (d_wantsRPZ && (d_appliedPolicy.d_type == DNSFilterEngine::PolicyType::None || d_appliedPolicy.d_kind == DNSFilterEngine::PolicyKind::NoAction)) {
     bool match = dfe.getProcessingPolicy(remoteIP, d_discardedPolicies, d_appliedPolicy);
-    if (match && d_appliedPolicy.d_kind != DNSFilterEngine::PolicyKind::NoAction) {
-      LOG(" (blocked by RPZ policy '"+(d_appliedPolicy.d_name ? *d_appliedPolicy.d_name : "")+"')");
-      return true;
+    if (match) {
+      mergePolicyTags(d_policyTags, d_appliedPolicy.getTags());
+      if (d_appliedPolicy.d_kind != DNSFilterEngine::PolicyKind::NoAction) {
+        LOG(" (blocked by RPZ policy '" + d_appliedPolicy.getName() + "')");
+        return true;
+      }
     }
   }
   return false;
@@ -2542,7 +2553,7 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
       isCNAMEAnswer = false;
     }
 
-    /* if we have a positive answer synthetized from a wildcard,
+    /* if we have a positive answer synthesized from a wildcard,
        we need to store the corresponding NSEC/NSEC3 records proving
        that the exact name did not exist in the negative cache */
     if(gatherWildcardProof) {
@@ -2561,7 +2572,7 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
       if (rrsig) {
         /* As illustrated in rfc4035's Appendix B.6, the RRSIG label
            count can be lower than the name's label count if it was
-           synthetized from the wildcard. Note that the difference might
+           synthesized from the wildcard. Note that the difference might
            be > 1. */
         if (rec.d_name == qname && isWildcardExpanded(labelCount, rrsig)) {
           gatherWildcardProof = true;
@@ -2571,11 +2582,11 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
                We still want to gather the corresponding NSEC/NSEC3 records
                to pass them to our client in case it wants to validate by itself.
             */
-            LOG(prefix<<qname<<": RRSIG indicates the name was synthetized from a wildcard, we need a wildcard proof"<<endl);
+            LOG(prefix<<qname<<": RRSIG indicates the name was synthesized from a wildcard, we need a wildcard proof"<<endl);
             needWildcardProof = true;
           }
           else {
-            LOG(prefix<<qname<<": RRSIG indicates the name was synthetized from a wildcard expanded onto itself, we need to gather wildcard proof"<<endl);
+            LOG(prefix<<qname<<": RRSIG indicates the name was synthesized from a wildcard expanded onto itself, we need to gather wildcard proof"<<endl);
           }
           wildcardLabelsCount = rrsig->d_labels;
         }
@@ -2827,7 +2838,7 @@ RCode::rcodes_ SyncRes::updateCacheFromRecords(unsigned int depth, LWResult& lwr
         }
       }
       if (doCache) {
-        t_RC->replace(d_now.tv_sec, i->first.name, QType(i->first.type), i->second.records, i->second.signatures, authorityRecs, i->first.type == QType::DS ? true : isAA, i->first.place == DNSResourceRecord::ANSWER ? ednsmask : boost::none, recordState);
+        s_RC->replace(d_now.tv_sec, i->first.name, QType(i->first.type), i->second.records, i->second.signatures, authorityRecs, i->first.type == QType::DS ? true : isAA, i->first.place == DNSResourceRecord::ANSWER ? ednsmask : boost::none, d_routingTag, recordState);
       }
     }
 
@@ -2982,7 +2993,7 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
         }
       }
     }
-    /* if we have a positive answer synthetized from a wildcard, we need to
+    /* if we have a positive answer synthesized from a wildcard, we need to
        return the corresponding NSEC/NSEC3 records from the AUTHORITY section
        proving that the exact name did not exist */
     else if(gatherWildcardProof && (rec.d_type==QType::RRSIG || rec.d_type==QType::NSEC || rec.d_type==QType::NSEC3) && rec.d_place==DNSResourceRecord::AUTHORITY) {
@@ -3000,7 +3011,7 @@ bool SyncRes::processRecords(const std::string& prefix, const DNSName& qname, co
       done=true;
 
       if (state == Secure && needWildcardProof) {
-        /* We have a positive answer synthetized from a wildcard, we need to check that we have
+        /* We have a positive answer synthesized from a wildcard, we need to check that we have
            proof that the exact name doesn't exist so the wildcard can be used,
            as described in section 5.3.4 of RFC 4035 and 5.3 of RFC 7129.
         */
@@ -3407,9 +3418,12 @@ bool SyncRes::processAnswer(unsigned int depth, LWResult& lwr, const DNSName& qn
     for (auto const &nameserver : nsset) {
       if (d_wantsRPZ && (d_appliedPolicy.d_type == DNSFilterEngine::PolicyType::None || d_appliedPolicy.d_kind == DNSFilterEngine::PolicyKind::NoAction)) {
         bool match = dfe.getProcessingPolicy(nameserver, d_discardedPolicies, d_appliedPolicy);
-        if (match && d_appliedPolicy.d_kind != DNSFilterEngine::PolicyKind::NoAction) { // client query needs an RPZ response
-          LOG("however "<<nameserver<<" was blocked by RPZ policy '"<<(d_appliedPolicy.d_name ? *d_appliedPolicy.d_name : "")<<"'"<<endl);
-          throw PolicyHitException();
+        if (match) {
+          mergePolicyTags(d_policyTags, d_appliedPolicy.getTags());
+          if (d_appliedPolicy.d_kind != DNSFilterEngine::PolicyKind::NoAction) { // client query needs an RPZ response
+            LOG("however "<<nameserver<<" was blocked by RPZ policy '"<<d_appliedPolicy.getName()<<"'"<<endl);
+            throw PolicyHitException();
+          }
         }
       }
       nameservers.insert({nameserver, {{}, false}});
@@ -3457,7 +3471,7 @@ int SyncRes::doResolveAt(NsSet &nameservers, DNSName auth, bool flawedNSSet, con
         if(!auth.isRoot() && flawedNSSet) {
           LOG(prefix<<qname<<": Ageing nameservers for level '"<<auth<<"', next query might succeed"<<endl);
 
-          if(t_RC->doAgeCache(d_now.tv_sec, auth, QType::NS, 10))
+          if(s_RC->doAgeCache(d_now.tv_sec, auth, QType::NS, 10))
             g_stats.nsSetInvalidations++;
         }
         return -1;
