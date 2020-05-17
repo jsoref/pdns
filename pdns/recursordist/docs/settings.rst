@@ -24,6 +24,8 @@ The default allows access only from :rfc:`1918` private IP addresses.
 Due to the aggressive nature of the internet these days, it is highly recommended to not open up the recursor for the entire internet.
 Questions from IP addresses not listed here are ignored and do not get an answer.
 
+When the Proxy Protocol is enabled (see `proxy-protocol-from`_), the recursor will check the address of the client IP advertised in the Proxy Protocol header instead of the one of the proxy.
+
 .. _setting-allow-from-file:
 
 ``allow-from-file``
@@ -370,6 +372,20 @@ If `pdns-distributes-queries`_ is set, spawn this number of distributor threads 
 handle incoming queries and distribute them to other threads based on a hash of the query, to maximize the cache hit
 ratio.
 
+.. _setting-dns64-prefix:
+
+``dns64-prefix``
+----------------
+.. versionadded:: 4.4.0
+
+-  Netmask, as a string
+-  Default: None
+
+Enable DNS64 (:rfc:`6147`) support using the supplied /96 IPv6 prefix. This will generate 'fake' AAAA records for names
+with only `A` records, as well as 'fake' PTR records to make sure that reverse lookup of DNS64-generated IPv6 addresses
+generate the right name.
+See :doc:`dns64` for more flexible but slower alternatives using Lua.
+
 .. _setting-dnssec:
 
 ``dnssec``
@@ -436,7 +452,7 @@ Queries to addresses for zones as configured in any of the settings `forward-zon
 .. versionadded:: 4.2.0
 
 -  Comma separated list of netmasks
--  Default: 0.0.0.0/0, ::, !127.0.0.0/8, !10.0.0.0/8, !100.64.0.0/10, !169.254.0.0/16, !192.168.0.0/16, !172.16.0.0/12, !::1/128, !fc00::/7, !fe80::/10
+-  Default: 0.0.0.0/0, ::/0, !127.0.0.0/8, !10.0.0.0/8, !100.64.0.0/10, !169.254.0.0/16, !192.168.0.0/16, !172.16.0.0/12, !::1/128, !fc00::/7, !fe80::/10
 
 List of requestor netmasks for which the requestor IP Address should be used as the :rfc:`EDNS Client Subnet <7871>` for outgoing queries. Outgoing queries for requestors that do not match this list will use the `ecs-scope-zero-address`_ instead.
 Valid incoming ECS values from `use-incoming-edns-subnet`_ are not replaced.
@@ -865,6 +881,9 @@ Maximum number of seconds to cache an item in the DNS cache, no matter what the 
 
 ``max-concurrent-requests-per-tcp-connection``
 ----------------------------------------------
+
+.. versionadded:: 4.3.0
+
 -  Integer
 -  Default: 10
 
@@ -911,10 +930,12 @@ Maximum number of Packet Cache entries.
 ``max-qperq``
 -------------
 -  Integer
--  Default: 50
+-  Default: 60
 
 The maximum number of outgoing queries that will be sent out during the resolution of a single client query.
 This is used to limit endlessly chasing CNAME redirections.
+If qname-minimization is enabled, the number will be forced to be 100
+at a minimum to allow for the extra queries qname-minimization generates when the cache is empty.
 
 .. _setting-max-negative-ttl:
 
@@ -1016,7 +1037,7 @@ Can be set at runtime using ``rec_control set-minimum-ttl 3600``.
 - Default: no (disabled)
 
 Whether to track newly observed domains, i.e. never seen before. This
-is a probablistic algorithm, using a stable bloom filter to store
+is a probabilistic algorithm, using a stable bloom filter to store
 records of previously seen domains. When enabled for the first time,
 all domains will appear to be newly observed, so the feature is best
 left enabled for e.g. a week or longer before using the results. Note
@@ -1221,6 +1242,31 @@ Improves performance on Linux.
 
 Whether to compute the latency of responses in protobuf messages using the timestamp set by the kernel when the query packet was received (when available), instead of computing it based on the moment we start processing the query.
 
+.. _setting-proxy-protocol-from:
+
+``proxy-protocol-from``
+-----------------------
+.. versionadded:: 4.4.0
+
+-  IP ranges, separated by commas
+-  Default: empty
+
+Ranges that are required to send a Proxy Protocol version 2 header in front of UDP and TCP queries, to pass the original source and destination addresses and ports to the recursor, as well as custom values.
+Queries that are not prefixed with such a header will not be accepted from clients in these ranges. Queries prefixed by headers from clients that are not listed in these ranges will be dropped.
+
+Note that once a Proxy Protocol header has been received, the source address from the proxy header instead of the address of the proxy will be checked against the `allow-from`_ ACL, 
+
+.. _setting-proxy-protocol-maximum-size:
+
+``proxy-protocol-maximum-size``
+-------------------------------
+.. versionadded:: 4.4.0
+
+-  Integer
+-  Default: 512
+
+The maximum size, in bytes, of a Proxy Protocol payload (header, addresses and ports, and TLV values). Queries with a larger payload will be dropped.
+
 .. _setting-public-suffix-list-file:
 
 ``public-suffix-list-file``
@@ -1241,7 +1287,7 @@ Path to the Public Suffix List file, if any. If set, PowerDNS will try to load t
 -  Boolean
 -  Default: yes
 
-Enable Query Name Minimization. This is a experimental feature, implementing a relaxed form of Query Name Mimimization as
+Enable Query Name Minimization. This implements a relaxed form of Query Name Mimimization as
 described in :rfc:`7816`.
 
 .. _setting-query-local-address:
@@ -1291,7 +1337,7 @@ Since 4.1.0, when ``pdns-distributes-queries`` is set to false and ``reuseport``
 - String
 - Default: auto
 
-Specify which random number generator to use. Permissible choises are
+Specify which random number generator to use. Permissible choices are
  - auto - choose automatically
  - sodium - Use libsodium ``randombytes_uniform``
  - openssl - Use libcrypto ``RAND_bytes``
@@ -1301,7 +1347,7 @@ Specify which random number generator to use. Permissible choises are
  - kiss - Use simple settable deterministic RNG. **FOR TESTING PURPOSES ONLY!**
 
 .. note::
-  Not all choises are available on all systems.
+  Not all choices are available on all systems.
 
 .. _setting-root-nx-trust:
 

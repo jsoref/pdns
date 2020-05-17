@@ -146,7 +146,21 @@ dump-throttlemap *FILENAME*
       :program:`pdns_recursor` often runs in a chroot. You can
       retrieve the file using::
 
-        rec_control dump-rpz ZONE_NAME /tmp/file
+        rec_control dump-throttlemap /tmp/file
+        mv /proc/$(pidof pdns_recursor)/root/tmp/file /tmp/filename
+
+dump-failedservers *FILENAME*
+    Dump the contents of the failed server map to the *FILENAME* mentioned.
+    This file should not exist already, PowerDNS will refuse to
+    overwrite it otherwise. While dumping, the recursor will not answer
+    questions.
+
+    .. note::
+
+      :program:`pdns_recursor` often runs in a chroot. You can
+      retrieve the file using::
+
+        rec_control dump-failedservers /tmp/file
         mv /proc/$(pidof pdns_recursor)/root/tmp/file /tmp/filename
 
 get *STATISTIC* [*STATISTIC*]...
@@ -182,10 +196,13 @@ ping
     Check if server is alive.
 
 quit
-    Request shutdown of the recursor.
+    Request shutdown of the recursor, exiting the process while
+    letting the OS clean up resources.
 
 quit-nicely
-    Request nice shutdown of the recursor.
+    Request nice shutdown of the recursor. This method allows all
+    threads to finish their current work and releases resources before
+    exiting. This is the preferred method to stop the recursor.
 
 reload-acls
     Reloads ACLs.
@@ -284,17 +301,19 @@ trace-regex *REGEX*
     tracing. To unset the regex, pass **trace-regex** without a new regex.
 
     The regular expression is matched against domain queries terminated with a
-    '.'. For example the regex 'powerdns\.com$' will not match a query for
-    'www.powerdns.com', since the attempted match will be with
-    'www.powerdns.com.'.
+    dot. For example the regex ``'powerdns.com$'`` will not match a query for
+    ``'www.powerdns.com'``, since the attempted match will be with
+    ``'www.powerdns.com.'``.
 
     In addition, since this is a regular expression, to exclusively match
-    queries for 'www.powerdns.com', one should escape the dots:
-    '^www\.powerdns\.com\.$'.
+    queries for ``'www.powerdns.com'``, one should escape the dots:
+    ``'^www\.powerdns\.com\.$'``.
+    Note that the single quotes prevent
+    further interpretation of the backslashes by the shell.
 
-    Multiple matches can be chained with the '|' operator. For example, to
-    match all queries for Dutch (.nl) and German (.de) domain names, use:
-    '\.nl\.$|\.de\.$'.
+    Multiple matches can be chained with the ``|`` operator. For example, to
+    match all queries for Dutch (``.nl``) and German (``.de``) domain names, use:
+    ``'\.nl\.$|\.de\.$'``.
 
 unload-lua-script
     Unloads Lua script if one was loaded.
@@ -314,6 +333,9 @@ wipe-cache *DOMAIN* [*DOMAIN*] [...]
 
     **Warning**: Don't just wipe "www.somedomain.com", its NS records or CNAME
     target may still be undesired, so wipe "somedomain.com" as well.
+
+wipe-cache-typed *qtype* *DOMAIN* [*DOMAIN*] [...]
+    Same as wipe-cache, but only wipe records of type *qtype*.
 
 See also
 --------

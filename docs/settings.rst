@@ -359,7 +359,7 @@ to enable DNSSEC. Must be one of:
 
 .. note::
   Actual supported algorithms depend on the crypto-libraries
-  PowerDNS was compiled against. To check the supported DNSSEC algoritms
+  PowerDNS was compiled against. To check the supported DNSSEC algorithms
   in your build of PowerDNS, run ``pdnsutil list-algorithms``.
 
 .. _setting-default-ksk-size:
@@ -372,6 +372,31 @@ to enable DNSSEC. Must be one of:
 
 The default keysize for the KSK generated with :doc:`pdnsutil secure-zone <dnssec/pdnsutil>`.
 Only relevant for algorithms with non-fixed keysizes (like RSA).
+
+.. _setting-default-publish-cdnskey:
+
+``default-publish-cdnskey``
+---------------------------
+- Integer
+- Default: empty
+
+.. versionadded:: 4.3.0
+
+The default PUBLISH-CDNSKEY value for zones that do not have one individually specified.
+See the :ref:`metadata-publish-cdnskey-publish-cds` docs for more information.
+
+.. _setting-default-publish-cds:
+
+``default-publish-cds``
+-----------------------
+
+- Comma-separated integers
+- Default: empty
+
+.. versionadded:: 4.3.0
+
+The default PUBLISH-CDS value for zones that do not have one individually specified.
+See the :ref:`metadata-publish-cdnskey-publish-cds` docs for more information.
 
 .. _setting-default-soa-edit:
 
@@ -404,7 +429,7 @@ Overrides :ref:`setting-default-soa-edit`
 -  String
 
 .. deprecated:: 4.2.0
-  This setting has been deprecated and will be removed in 4.3.0
+  This setting has been deprecated and will be removed in 4.4.0
 
 Mail address to insert in the SOA record if none set in the backend.
 
@@ -417,7 +442,7 @@ Mail address to insert in the SOA record if none set in the backend.
 -  Default: a.misconfigured.powerdns.server
 
 .. deprecated:: 4.2.0
-  This setting has been deprecated and will be removed in 4.3.0
+  This setting has been deprecated and will be removed in 4.4.0
 
 Name to insert in the SOA record if none set in the backend.
 
@@ -457,7 +482,7 @@ to enable DNSSEC. Must be one of:
 
 .. note::
   Actual supported algorithms depend on the crypto-libraries
-  PowerDNS was compiled against. To check the supported DNSSEC algoritms
+  PowerDNS was compiled against. To check the supported DNSSEC algorithms
   in your build of PowerDNS, run ``pdnsutil list-algorithms``.
 
 .. _setting-default-zsk-size:
@@ -640,7 +665,7 @@ Entropy source file to use.
 
 .. versionadded:: 4.1.0
 
-If this is enabled, ALIAS records are expanded (synthesised to their
+If this is enabled, ALIAS records are expanded (synthesized to their
 A/AAAA).
 
 If this is disabled (the default), ALIAS records will not be expanded and
@@ -744,11 +769,16 @@ available in non-static distributions.
 
 ``local-address``
 -----------------
+.. versionchanged:: 4.3.0
+  now also takes your IPv6 addresses
+
+.. versionchanged:: 4.3.0
+  Before 4.3.0, this setting only supported IPv4.
 
 -  IPv4 Addresses, separated by commas or whitespace
--  Default: 0.0.0.0
+-  Default: ``0.0.0.0, ::``
 
-Local IP address to which we bind. It is highly advised to bind to
+Local IP addresses to which we bind. It is highly advised to bind to
 specific interfaces and not use the default 'bind to any'. This causes
 big problems if you have multiple IP addresses. Unix does not provide a
 way of figuring out what IP address a packet was sent to when binding to
@@ -769,9 +799,14 @@ Fail to start if one or more of the
 
 ``local-ipv6``
 --------------
+.. versionchanged:: 4.4.0
+  removed, use :ref:`setting-local-address`
+
+.. deprecated:: 4.3.0
+  This setting has been deprecated, use :ref:`setting-local-address`
 
 -  IPv6 Addresses, separated by commas or whitespace
--  Default: '::'
+-  Default: ``::``
 
 Local IPv6 address to which we bind. It is highly advised to bind to
 specific interfaces and not use the default 'bind to any'. This causes
@@ -781,6 +816,9 @@ big problems if you have multiple IP addresses.
 
 ``local-ipv6-nonexist-fail``
 ----------------------------
+
+.. versionchanged:: 4.3.0
+  This setting has been removed, use :ref:`setting-local-address-nonexist-fail`
 
 -  Boolean
 -  Default: no
@@ -867,6 +905,32 @@ e.g. error = 3, warning = 4, notice = 5, info = 6
 .. versionadded:: 4.1.0
 
 Script to be used to edit incoming AXFRs, see :ref:`modes-of-operation-axfrfilter`
+
+.. _setting-lua-health-checks-expire-delay:
+
+``lua-health-checks-expire-delay``
+----------------------------------
+
+-  Integer
+-  Default: 3600
+
+.. versionadded:: 4.3.0
+
+Amount of time (in seconds) to expire (remove) a LUA monitoring check when the record
+isn't used any more (either deleted or modified).
+
+.. _setting-lua-health-checks-interval:
+
+``lua-health-checks-interval``
+------------------------------
+
+-  Integer
+-  Default: 5
+
+.. versionadded:: 4.3.0
+
+Amount of time (in seconds) between subsequent monitoring health checks. Does nothing
+if the checks take more than that time to execute.
 
 .. _setting-lua-prequery-script:
 
@@ -1160,7 +1224,7 @@ default has been "yes" since 2005.
 -  Boolean
 -  Default: no
 
-If this is enabled, ALIAS records are expanded (synthesised to their
+If this is enabled, ALIAS records are expanded (synthesized to their
 A/AAAA) during outgoing AXFR. This means slaves will not automatically
 follow changes in those A/AAAA records unless you AXFR regularly!
 
@@ -1329,7 +1393,7 @@ it is disabled by default.
 - String
 - Default: auto
 
-Specify which random number generator to use. Permissible choises are:
+Specify which random number generator to use. Permissible choices are:
 
 - auto - choose automatically
 - sodium - Use libsodium ``randombytes_uniform``
@@ -1340,7 +1404,7 @@ Specify which random number generator to use. Permissible choises are:
 - kiss - Use simple settable deterministic RNG. **FOR TESTING PURPOSES ONLY!**
 
 .. note::
-  Not all choises are available on all systems.
+  Not all choices are available on all systems.
 
 .. _setting-security-poll-suffix:
 
@@ -1452,7 +1516,7 @@ See :ref:`metadata-slave-renotify` to set this per-zone.
 -  Default: 604800
 
 .. deprecated:: 4.2.0
-  This setting has been deprecated and will be removed in 4.3.0
+  This setting has been deprecated and will be removed in 4.4.0
 
 Default :ref:`types-soa` expire.
 
@@ -1465,7 +1529,7 @@ Default :ref:`types-soa` expire.
 -  Default: 3600
 
 .. deprecated:: 4.2.0
-  This setting has been deprecated and will be removed in 4.3.0
+  This setting has been deprecated and will be removed in 4.4.0
 
 Default :ref:`types-soa` minimum ttl.
 
@@ -1478,7 +1542,7 @@ Default :ref:`types-soa` minimum ttl.
 -  Default: 10800
 
 .. deprecated:: 4.2.0
-  This setting has been deprecated and will be removed in 4.3.0
+  This setting has been deprecated and will be removed in 4.4.0
 
 Default :ref:`types-soa` refresh.
 
@@ -1491,7 +1555,7 @@ Default :ref:`types-soa` refresh.
 -  Default: 3600
 
 .. deprecated:: 4.2.0
-  This setting has been deprecated and will be removed in 4.3.0
+  This setting has been deprecated and will be removed in 4.4.0
 
 Default :ref:`types-soa` retry.
 

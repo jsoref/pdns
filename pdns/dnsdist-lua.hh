@@ -21,59 +21,69 @@
  */
 #pragma once
 
-class LuaAction : public DNSAction
-{
-public:
-  typedef std::function<std::tuple<int, boost::optional<string> >(DNSQuestion* dq)> func_t;
-  LuaAction(const LuaAction::func_t& func) : d_func(func)
-  {}
-  Action operator()(DNSQuestion* dq, string* ruleresult) const override;
-  string toString() const override
-  {
-    return "Lua script";
-  }
-private:
-  func_t d_func;
-};
+#include <random>
 
-class LuaResponseAction : public DNSResponseAction
+struct ResponseConfig
 {
-public:
-  typedef std::function<std::tuple<int, boost::optional<string> >(DNSResponse* dr)> func_t;
-  LuaResponseAction(const LuaResponseAction::func_t& func) : d_func(func)
-  {}
-  Action operator()(DNSResponse* dr, string* ruleresult) const override;
-  string toString() const override
-  {
-    return "Lua response script";
-  }
-private:
-  func_t d_func;
+  boost::optional<bool> setAA{boost::none};
+  boost::optional<bool> setAD{boost::none};
+  boost::optional<bool> setRA{boost::none};
+  uint32_t ttl{60};
 };
+void setResponseHeadersFromConfig(dnsheader& dh, const ResponseConfig& config);
 
 class SpoofAction : public DNSAction
 {
 public:
   SpoofAction(const vector<ComboAddress>& addrs): d_addrs(addrs)
   {
+    for (const auto& addr : d_addrs) {
+      if (addr.isIPv4()) {
+        d_types.insert(QType::A);
+      }
+      else if (addr.isIPv6()) {
+        d_types.insert(QType::AAAA);
+      }
+    }
+
+    if (!d_addrs.empty()) {
+      d_types.insert(QType::ANY);
+    }
   }
-  SpoofAction(const string& cname): d_cname(cname)
+
+  SpoofAction(const DNSName& cname): d_cname(cname)
   {
   }
+
+  SpoofAction(const std::string& raw): d_rawResponse(raw)
+  {
+  }
+
   DNSAction::Action operator()(DNSQuestion* dq, string* ruleresult) const override;
+
   string toString() const override
   {
     string ret = "spoof in ";
-    if(!d_cname.empty()) {
-      ret+=d_cname.toString()+ " ";
-    } else {
+    if (!d_cname.empty()) {
+      ret += d_cname.toString() + " ";
+    }
+    else if (!d_rawResponse.empty()) {
+      ret += "raw bytes ";
+    }
+    else {
       for(const auto& a : d_addrs)
         ret += a.toString()+" ";
     }
     return ret;
   }
+
+
+  ResponseConfig d_responseConfig;
 private:
+  static thread_local std::default_random_engine t_randomEngine;
   std::vector<ComboAddress> d_addrs;
+  std::set<uint16_t> d_types;
+  std::string d_rawResponse;
   DNSName d_cname;
 };
 
@@ -84,13 +94,14 @@ void parseRuleParams(boost::optional<luaruleparams_t> params, boost::uuids::uuid
 
 typedef NetmaskTree<DynBlock> nmts_t;
 
+vector<std::function<void(void)>> setupLua(bool client, bool configCheck, const std::string& config);
 void setupLuaActions();
 void setupLuaBindings(bool client);
 void setupLuaBindingsDNSCrypt();
 void setupLuaBindingsDNSQuestion();
 void setupLuaBindingsKVS(bool client);
 void setupLuaBindingsPacketCache();
-void setupLuaBindingsProtoBuf(bool client);
+void setupLuaBindingsProtoBuf(bool client, bool configCheck);
 void setupLuaRules();
 void setupLuaInspection();
 void setupLuaVars();

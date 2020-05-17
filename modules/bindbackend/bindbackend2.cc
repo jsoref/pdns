@@ -34,6 +34,8 @@
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 #include <system_error>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "pdns/dnsseckeeper.hh"
 #include "pdns/dnssecinfra.hh"
@@ -75,9 +77,9 @@ Bind2Backend::state_t Bind2Backend::s_state;
 int Bind2Backend::s_first=1;
 bool Bind2Backend::s_ignore_broken_records=false;
 
-pthread_rwlock_t Bind2Backend::s_state_lock=PTHREAD_RWLOCK_INITIALIZER;
-pthread_mutex_t Bind2Backend::s_supermaster_config_lock=PTHREAD_MUTEX_INITIALIZER; // protects writes to config file
-pthread_mutex_t Bind2Backend::s_startup_lock=PTHREAD_MUTEX_INITIALIZER;
+ReadWriteLock Bind2Backend::s_state_lock;
+std::mutex Bind2Backend::s_supermaster_config_lock; // protects writes to config file
+std::mutex Bind2Backend::s_startup_lock;
 string Bind2Backend::s_binddirectory;  
 
 template <typename T>
@@ -325,7 +327,7 @@ void Bind2Backend::getUpdatedMasters(vector<DomainInfo> *changedDomains)
       di.notified_serial=i->d_lastnotified;
       di.backend=this;
       di.kind=DomainInfo::Master;
-      consider.push_back(di);
+      consider.push_back(std::move(di));
     }
   }
 
@@ -346,7 +348,7 @@ void Bind2Backend::getUpdatedMasters(vector<DomainInfo> *changedDomains)
       }
       if(di.notified_serial)  { // don't do notification storm on startup
         di.serial=soadata.serial;
-        changedDomains->push_back(di);
+        changedDomains->push_back(std::move(di));
       }
     }
   }
@@ -359,6 +361,7 @@ void Bind2Backend::getAllDomains(vector<DomainInfo> *domains, bool include_disab
   // prevent deadlock by using getSOA() later on
   {
     ReadLock rl(&s_state_lock);
+    domains->reserve(s_state.size());
 
     for(state_t::const_iterator i = s_state.begin(); i != s_state.end() ; ++i) {
       DomainInfo di;
@@ -368,7 +371,7 @@ void Bind2Backend::getAllDomains(vector<DomainInfo> *domains, bool include_disab
       di.kind=i->d_kind;
       di.masters=i->d_masters;
       di.backend=this;
-      domains->push_back(di);
+      domains->push_back(std::move(di));
     };
   }
 
@@ -390,6 +393,7 @@ void Bind2Backend::getUnfreshSlaveInfos(vector<DomainInfo> *unfreshDomains)
   vector<DomainInfo> domains;
   {
     ReadLock rl(&s_state_lock);
+    domains.reserve(s_state.size());
     for(state_t::const_iterator i = s_state.begin(); i != s_state.end() ; ++i) {
       if(i->d_kind != DomainInfo::Slave)
         continue;
@@ -400,9 +404,10 @@ void Bind2Backend::getUnfreshSlaveInfos(vector<DomainInfo> *unfreshDomains)
       sd.last_check=i->d_lastcheck;
       sd.backend=this;
       sd.kind=DomainInfo::Slave;
-      domains.push_back(sd);
+      domains.push_back(std::move(sd));
     }
   }
+  unfreshDomains->reserve(domains.size());
 
   for(DomainInfo &sd :  domains) {
     SOAData soadata;
@@ -414,7 +419,7 @@ void Bind2Backend::getUnfreshSlaveInfos(vector<DomainInfo> *unfreshDomains)
     catch(...){}
     sd.serial=soadata.serial;
     if(sd.last_check+soadata.refresh < (unsigned int)time(0))
-      unfreshDomains->push_back(sd);    
+      unfreshDomains->push_back(std::move(sd));
   }
 }
 
@@ -458,7 +463,7 @@ void Bind2Backend::alsoNotifies(const DNSName& domain, set<string> *ips)
       (*ips).insert(str);
     }
   }
-  ReadLock rl(&s_state_lock);  
+  ReadLock rl(&s_state_lock);
   for(state_t::const_iterator i = s_state.begin(); i != s_state.end() ; ++i) {
     if(i->d_name == domain) {
       for(set<string>::iterator it = i->d_also_notify.begin(); it != i->d_also_notify.end(); it++) {
@@ -480,7 +485,7 @@ void Bind2Backend::parseZoneFile(BB2DomainInfo *bbd)
   } else
     nsec3zone=getNSEC3PARAM(bbd->d_name, &ns3pr);
 
-  bbd->d_records = shared_ptr<recordstorage_t>(new recordstorage_t());
+  auto records = std::make_shared<recordstorage_t>();
   ZoneParserTNG zpt(bbd->d_filename, bbd->d_name, s_binddirectory);
   zpt.setMaxGenerateSteps(::arg().asNum("max-generate-steps"));
   DNSResourceRecord rr;
@@ -489,30 +494,30 @@ void Bind2Backend::parseZoneFile(BB2DomainInfo *bbd)
     if(rr.qtype.getCode() == QType::NSEC || rr.qtype.getCode() == QType::NSEC3 || rr.qtype.getCode() == QType::NSEC3PARAM)
       continue; // we synthesise NSECs on demand
 
-    insertRecord(*bbd, rr.qname, rr.qtype, rr.content, rr.ttl, "");
+    insertRecord(records, bbd->d_name, rr.qname, rr.qtype, rr.content, rr.ttl, "");
   }
-  fixupOrderAndAuth(*bbd, nsec3zone, ns3pr);
-  doEmptyNonTerminals(*bbd, nsec3zone, ns3pr);
+  fixupOrderAndAuth(records, bbd->d_name, nsec3zone, ns3pr);
+  doEmptyNonTerminals(records, bbd->d_name, nsec3zone, ns3pr);
   bbd->setCtime();
   bbd->d_loaded=true; 
   bbd->d_checknow=false;
   bbd->d_status="parsed into memory at "+nowTime();
+  bbd->d_records = LookButDontTouch<recordstorage_t>(records);
 }
 
 /** THIS IS AN INTERNAL FUNCTION! It does moadnsparser prio impedance matching
     Much of the complication is due to the efforts to benefit from std::string reference counting copy on write semantics */
-void Bind2Backend::insertRecord(BB2DomainInfo& bb2, const DNSName &qname, const QType &qtype, const string &content, int ttl, const std::string& hashed, bool *auth)
+void Bind2Backend::insertRecord(std::shared_ptr<recordstorage_t>& records, const DNSName& zoneName, const DNSName &qname, const QType &qtype, const string &content, int ttl, const std::string& hashed, bool *auth)
 {
   Bind2DNSRecord bdr;
-  shared_ptr<recordstorage_t> records = bb2.d_records.getWRITABLE();
   bdr.qname=qname;
 
-  if(bb2.d_name.empty())
+  if(zoneName.empty())
     ;
-  else if(bdr.qname.isPartOf(bb2.d_name))
-    bdr.qname = bdr.qname.makeRelative(bb2.d_name);
+  else if(bdr.qname.isPartOf(zoneName))
+    bdr.qname.makeUsRelative(zoneName);
   else {
-    string msg = "Trying to insert non-zone data, name='"+bdr.qname.toLogString()+"', qtype="+qtype.getName()+", zone='"+bb2.d_name.toLogString()+"'";
+    string msg = "Trying to insert non-zone data, name='"+bdr.qname.toLogString()+"', qtype="+qtype.getName()+", zone='"+zoneName.toLogString()+"'";
     if(s_ignore_broken_records) {
         g_log<<Logger::Warning<<msg<< " ignored" << endl;
         return;
@@ -537,7 +542,7 @@ void Bind2Backend::insertRecord(BB2DomainInfo& bb2, const DNSName &qname, const 
     bdr.auth=true;
 
   bdr.ttl=ttl;
-  records->insert(bdr);
+  records->insert(std::move(bdr));
 }
 
 string Bind2Backend::DLReloadNowHandler(const vector<string>&parts, Utility::pid_t ppid)
@@ -567,16 +572,17 @@ string Bind2Backend::DLReloadNowHandler(const vector<string>&parts, Utility::pid
 string Bind2Backend::DLDomStatusHandler(const vector<string>&parts, Utility::pid_t ppid)
 {
   ostringstream ret;
-      
+
   if(parts.size() > 1) {
     for(vector<string>::const_iterator i=parts.begin()+1;i<parts.end();++i) {
       BB2DomainInfo bbd;
-      if(safeGetBBDomainInfo(DNSName(*i), &bbd)) {	
+      if(safeGetBBDomainInfo(DNSName(*i), &bbd)) {
         ret<< *i << ": "<< (bbd.d_loaded ? "": "[rejected]") <<"\t"<<bbd.d_status<<"\n";
-    }
-      else
+      }
+      else {
         ret<< *i << " no such domain\n";
-    }    
+      }
+    }
   }
   else {
     ReadLock rl(&s_state_lock);
@@ -587,6 +593,69 @@ string Bind2Backend::DLDomStatusHandler(const vector<string>&parts, Utility::pid
 
   if(ret.str().empty())
     ret<<"no domains passed";
+
+  return ret.str();
+}
+
+static void printDomainExtendedStatus(ostringstream& ret, const BB2DomainInfo& info)
+{
+  ret << info.d_name << ": " << std::endl;
+  ret << "\t Status: " << info.d_status << std::endl;
+  ret << "\t Internal ID: " << info.d_id << std::endl;
+  ret << "\t On-disk file: " << info.d_filename << " (" << info.d_ctime << ")" << std::endl;
+  ret << "\t Kind: ";
+  switch (info.d_kind) {
+  case DomainInfo::Master:
+    ret << "Master";
+    break;
+  case DomainInfo::Slave:
+    ret << "Slave";
+    break;
+  default:
+    ret << "Native";
+  }
+  ret << std::endl;
+  ret << "\t Masters: " << std::endl;
+  for (const auto& master : info.d_masters) {
+    ret << "\t\t - " << master.toStringWithPort() << std::endl;
+  }
+  ret << "\t Also Notify: " << std::endl;
+  for (const auto& also : info.d_also_notify) {
+    ret << "\t\t - " << also << std::endl;
+  }
+  ret << "\t Number of records: " << info.d_records.getEntriesCount() << std::endl;
+  ret << "\t Loaded: " << info.d_loaded << std::endl;
+  ret << "\t Check now: " << info.d_checknow << std::endl;
+  ret << "\t Check interval: " << info.getCheckInterval() << std::endl;
+  ret << "\t Last check: " << info.d_lastcheck << std::endl;
+  ret << "\t Last notified: " << info.d_lastnotified << std::endl;
+}
+
+string Bind2Backend::DLDomExtendedStatusHandler(const vector<string>&parts, Utility::pid_t ppid)
+{
+  ostringstream ret;
+
+  if (parts.size() > 1) {
+    for (vector<string>::const_iterator i=parts.begin()+1;i<parts.end();++i) {
+      BB2DomainInfo bbd;
+      if (safeGetBBDomainInfo(DNSName(*i), &bbd)) {
+        printDomainExtendedStatus(ret, bbd);
+      }
+      else {
+        ret << *i << " no such domain" << std::endl;
+      }
+    }
+  }
+  else {
+    ReadLock rl(&s_state_lock);
+    for (const auto& state : s_state) {
+      printDomainExtendedStatus(ret, state);
+    }
+  }
+
+  if (ret.str().empty()) {
+    ret << "no domains passed" << std::endl;
+  }
 
   return ret.str();
 }
@@ -661,7 +730,7 @@ Bind2Backend::Bind2Backend(const string &suffix, bool loadZones)
   if (!loadZones && d_hybrid)
     return;
 
-  Lock l(&s_startup_lock);
+  std::lock_guard<std::mutex> l(s_startup_lock);
   
   setupDNSSEC();
   if(!s_first) {
@@ -676,6 +745,7 @@ Bind2Backend::Bind2Backend(const string &suffix, bool loadZones)
   extern DynListener *dl;
   dl->registerFunc("BIND-RELOAD-NOW", &DLReloadNowHandler, "bindbackend: reload domains", "<domains>");
   dl->registerFunc("BIND-DOMAIN-STATUS", &DLDomStatusHandler, "bindbackend: list status of all domains", "[domains]");
+  dl->registerFunc("BIND-DOMAIN-EXTENDED-STATUS", &DLDomExtendedStatusHandler, "bindbackend: list the extended status of all domains", "[domains]");
   dl->registerFunc("BIND-LIST-REJECTS", &DLListRejectsHandler, "bindbackend: list rejected domains");
   dl->registerFunc("BIND-ADD-ZONE", &DLAddDomainHandler, "bindbackend: add zone", "<domain> <filename>");
 }
@@ -696,10 +766,8 @@ void Bind2Backend::reload()
   }
 }
 
-void Bind2Backend::fixupOrderAndAuth(BB2DomainInfo& bbd, bool nsec3zone, NSEC3PARAMRecordContent ns3pr)
+void Bind2Backend::fixupOrderAndAuth(std::shared_ptr<recordstorage_t>& records, const DNSName& zoneName, bool nsec3zone, NSEC3PARAMRecordContent ns3pr)
 {
-  shared_ptr<recordstorage_t> records = bbd.d_records.getWRITABLE();
-
   bool skip;
   DNSName shorter;
   set<DNSName> nssets, dssets;
@@ -728,7 +796,7 @@ void Bind2Backend::fixupOrderAndAuth(BB2DomainInfo& bbd, bool nsec3zone, NSEC3PA
 
     if(!skip && nsec3zone && iter->qtype != QType::RRSIG && (iter->auth || (iter->qtype == QType::NS && !ns3pr.d_flags) || dssets.count(iter->qname))) {
       Bind2DNSRecord bdr = *iter;
-      bdr.nsec3hash = toBase32Hex(hashQNameWithSalt(ns3pr, bdr.qname+bbd.d_name));
+      bdr.nsec3hash = toBase32Hex(hashQNameWithSalt(ns3pr, bdr.qname+zoneName));
       records->replace(iter, bdr);
     }
 
@@ -736,14 +804,12 @@ void Bind2Backend::fixupOrderAndAuth(BB2DomainInfo& bbd, bool nsec3zone, NSEC3PA
   }
 }
 
-void Bind2Backend::doEmptyNonTerminals(BB2DomainInfo& bbd, bool nsec3zone, NSEC3PARAMRecordContent ns3pr)
+void Bind2Backend::doEmptyNonTerminals(std::shared_ptr<recordstorage_t>& records, const DNSName& zoneName, bool nsec3zone, NSEC3PARAMRecordContent ns3pr)
 {
-  shared_ptr<const recordstorage_t> records = bbd.d_records.get();
-
   bool auth;
   DNSName shorter;
-  set<DNSName> qnames;
-  map<DNSName, bool> nonterm;
+  std::unordered_set<DNSName> qnames;
+  std::unordered_map<DNSName, bool> nonterm;
 
   uint32_t maxent = ::arg().asNum("max-ent-entries");
 
@@ -764,12 +830,12 @@ void Bind2Backend::doEmptyNonTerminals(BB2DomainInfo& bbd, bool nsec3zone, NSEC3
       {
         if(!(maxent))
         {
-          g_log<<Logger::Error<<"Zone '"<<bbd.d_name<<"' has too many empty non terminals."<<endl;
+          g_log<<Logger::Error<<"Zone '"<<zoneName<<"' has too many empty non terminals."<<endl;
           return;
         }
 
         if (!nonterm.count(shorter)) {
-          nonterm.insert(pair<DNSName, bool>(shorter, auth));
+          nonterm.emplace(shorter, auth);
           --maxent;
         } else if (auth)
           nonterm[shorter] = true;
@@ -784,10 +850,10 @@ void Bind2Backend::doEmptyNonTerminals(BB2DomainInfo& bbd, bool nsec3zone, NSEC3
   for(auto& nt : nonterm)
   {
     string hashed;
-    rr.qname = nt.first + bbd.d_name;
+    rr.qname = nt.first + zoneName;
     if(nsec3zone && nt.second)
       hashed = toBase32Hex(hashQNameWithSalt(ns3pr, rr.qname));
-    insertRecord(bbd, rr.qname, rr.qtype, rr.content, rr.ttl, hashed, &nt.second);
+    insertRecord(records, zoneName, rr.qname, rr.qtype, rr.content, rr.ttl, hashed, &nt.second);
 
     // cerr<<rr.qname<<"\t"<<rr.qtype.getName()<<"\t"<<hashed<<"\t"<<nt.second<<endl;
   }
@@ -838,7 +904,7 @@ void Bind2Backend::loadConfig(string* status)
     sort(domains.begin(), domains.end()); // put stuff in inode order
     for(vector<BindDomainInfo>::const_iterator i=domains.begin();
         i!=domains.end();
-        ++i) 
+        ++i)
       {
         if (!(i->hadFileDirective)) {
           g_log<<Logger::Warning<<d_logprefix<<" Zone '"<<i->name<<"' has no 'file' directive set in "<<getArg("config")<<endl;
@@ -954,6 +1020,9 @@ void Bind2Backend::queueReloadAndStore(unsigned int id)
     if(!safeGetBBDomainInfo(id, &bbold))
       return;
     BB2DomainInfo bbnew(bbold);
+    /* make sure that nothing will be able to alter the existing records,
+       we will load them from the zone file instead */
+    bbnew.d_records = LookButDontTouch<recordstorage_t>();
     parseZoneFile(&bbnew);
     bbnew.d_checknow=false;
     bbnew.d_wasRejectedLastReload=false;
@@ -978,10 +1047,8 @@ void Bind2Backend::queueReloadAndStore(unsigned int id)
   }
 }
 
-bool Bind2Backend::findBeforeAndAfterUnhashed(BB2DomainInfo& bbd, const DNSName& qname, DNSName& unhashed, DNSName& before, DNSName& after)
+bool Bind2Backend::findBeforeAndAfterUnhashed(std::shared_ptr<const recordstorage_t>& records, const DNSName& qname, DNSName& unhashed, DNSName& before, DNSName& after)
 {
-  shared_ptr<const recordstorage_t> records = bbd.d_records.get();
-
   // for(const auto& record: *records)
   //   cerr<<record.qname<<"\t"<<makeHexDump(record.qname.toDNSString())<<endl;
 
@@ -1026,11 +1093,12 @@ bool Bind2Backend::getBeforeAndAfterNamesAbsolute(uint32_t id, const DNSName& qn
   } else
     nsec3zone=getNSEC3PARAM(bbd.d_name, &ns3pr);
 
+  shared_ptr<const recordstorage_t> records = bbd.d_records.get();
   if(!nsec3zone) {
-    return findBeforeAndAfterUnhashed(bbd, qname, unhashed, before, after);
+    return findBeforeAndAfterUnhashed(records, qname, unhashed, before, after);
   }
   else {
-    auto& hashindex=boost::multi_index::get<NSEC3Tag>(*bbd.d_records.getWRITABLE());
+    auto& hashindex=boost::multi_index::get<NSEC3Tag>(*records);
 
     // for(auto iter = first; iter != hashindex.end(); iter++)
     //  cerr<<iter->nsec3hash<<endl;
@@ -1071,7 +1139,7 @@ void Bind2Backend::lookup(const QType &qtype, const DNSName &qname, int zoneId, 
 
   if (zoneId >= 0) {
     if ((found = (safeGetBBDomainInfo(zoneId, &bbd) && qname.isPartOf(bbd.d_name)))) {
-      domain = bbd.d_name;
+      domain = std::move(bbd.d_name);
     }
   } else {
     domain = qname;
@@ -1093,17 +1161,17 @@ void Bind2Backend::lookup(const QType &qtype, const DNSName &qname, int zoneId, 
   d_handle.id=bbd.d_id;
   d_handle.qname=qname.makeRelative(domain); // strip domain name
   d_handle.qtype=qtype;
-  d_handle.domain=domain;
+  d_handle.domain=std::move(domain);
 
   if(!bbd.d_loaded) {
     d_handle.reset();
-    throw DBException("Zone for '"+bbd.d_name.toLogString()+"' in '"+bbd.d_filename+"' temporarily not available (file missing, or master dead)"); // fsck
+    throw DBException("Zone for '"+d_handle.domain.toLogString()+"' in '"+bbd.d_filename+"' temporarily not available (file missing, or master dead)"); // fsck
   }
     
   if(!bbd.current()) {
-    g_log<<Logger::Warning<<"Zone '"<<bbd.d_name<<"' ("<<bbd.d_filename<<") needs reloading"<<endl;
+    g_log<<Logger::Warning<<"Zone '"<<d_handle.domain<<"' ("<<bbd.d_filename<<") needs reloading"<<endl;
     queueReloadAndStore(bbd.d_id);
-    if (!safeGetBBDomainInfo(domain, &bbd))
+    if (!safeGetBBDomainInfo(d_handle.domain, &bbd))
       throw DBException("Zone '"+bbd.d_name.toLogString()+"' ("+bbd.d_filename+") gone after reload"); // if we don't throw here, we crash for some reason
   }
 
@@ -1290,7 +1358,7 @@ BB2DomainInfo Bind2Backend::createDomainEntry(const DNSName& domain, const strin
   BB2DomainInfo bbd;
   bbd.d_kind = DomainInfo::Native;
   bbd.d_id = newid;
-  bbd.d_records = shared_ptr<recordstorage_t >(new recordstorage_t);
+  bbd.d_records = std::make_shared<recordstorage_t >();
   bbd.d_name = domain;
   bbd.setCheckInterval(getArgAsNum("check-interval"));
   bbd.d_filename = filename;
@@ -1307,7 +1375,7 @@ bool Bind2Backend::createSlaveDomain(const string &ip, const DNSName& domain, co
     << "' from supermaster " << ip << endl;
 
   {
-    Lock l2(&s_supermaster_config_lock);
+    std::lock_guard<std::mutex> l2(s_supermaster_config_lock);
         
     ofstream c_of(getArg("supermaster-config").c_str(),  std::ios::app);
     if (!c_of) {
@@ -1361,7 +1429,7 @@ bool Bind2Backend::searchRecords(const string &pattern, int maxResults, vector<D
           r.qtype=ri->qtype;
           r.ttl=ri->ttl;
           r.auth = ri->auth;
-          result.push_back(r);
+          result.push_back(std::move(r));
         }
       }
     }

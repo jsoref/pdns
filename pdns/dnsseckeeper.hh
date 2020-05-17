@@ -25,6 +25,7 @@
 #include <vector>
 #include <boost/logic/tribool.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
 #include <boost/multi_index/key_extractors.hpp>
@@ -32,6 +33,7 @@
 #include "dnssecinfra.hh"
 #include "dnsrecords.hh"
 #include "ueberbackend.hh"
+#include "lock.hh"
 
 using namespace ::boost::multi_index;
 
@@ -69,6 +71,7 @@ public:
     bool active;
     keytype_t keyType;
     bool hasSEPBit;
+    bool published;
   };
   typedef std::pair<DNSSECPrivateKey, KeyMetaData> keymeta_t;
   typedef std::vector<keymeta_t > keyset_t;
@@ -181,32 +184,38 @@ public:
     if(d_ourDB)
       delete d_keymetadb;
   }
+
+  static uint64_t dbdnssecCacheSizes(const std::string& str);
+  static void clearAllCaches();
+  static void clearCaches(const DNSName& name);
+
   bool doesDNSSEC();
   bool isSecuredZone(const DNSName& zone);
-  static uint64_t dbdnssecCacheSizes(const std::string& str);
   keyset_t getEntryPoints(const DNSName& zname);
   keyset_t getKeys(const DNSName& zone, bool useCache = true);
   DNSSECPrivateKey getKeyById(const DNSName& zone, unsigned int id);
-  bool addKey(const DNSName& zname, bool setSEPBit, int algorithm, int64_t& id, int bits=0, bool active=true);
-  bool addKey(const DNSName& zname, const DNSSECPrivateKey& dpk, int64_t& id, bool active=true);
+  bool addKey(const DNSName& zname, bool setSEPBit, int algorithm, int64_t& id, int bits=0, bool active=true, bool published=true);
+  bool addKey(const DNSName& zname, const DNSSECPrivateKey& dpk, int64_t& id, bool active=true, bool published=true);
   bool removeKey(const DNSName& zname, unsigned int id);
   bool activateKey(const DNSName& zname, unsigned int id);
   bool deactivateKey(const DNSName& zname, unsigned int id);
+  bool publishKey(const DNSName& zname, unsigned int id);
+  bool unpublishKey(const DNSName& zname, unsigned int id);
   bool checkKeys(const DNSName& zname, vector<string>* errorMessages = nullptr);
 
   bool getNSEC3PARAM(const DNSName& zname, NSEC3PARAMRecordContent* n3p=0, bool* narrow=0);
   bool checkNSEC3PARAM(const NSEC3PARAMRecordContent& ns3p, string& msg);
   bool setNSEC3PARAM(const DNSName& zname, const NSEC3PARAMRecordContent& n3p, const bool& narrow=false);
   bool unsetNSEC3PARAM(const DNSName& zname);
-  void clearAllCaches();
-  void clearCaches(const DNSName& name);
   bool getPreRRSIGs(UeberBackend& db, const DNSName& signer, const DNSName& qname, const DNSName& wildcardname, const QType& qtype, DNSResourceRecord::Place, vector<DNSZoneRecord>& rrsigs, uint32_t signTTL);
   bool isPresigned(const DNSName& zname);
   bool setPresigned(const DNSName& zname);
   bool unsetPresigned(const DNSName& zname);
   bool setPublishCDNSKEY(const DNSName& zname);
+  void getPublishCDNSKEY(const DNSName& zname, std::string& value);
   bool unsetPublishCDNSKEY(const DNSName& zname);
   bool setPublishCDS(const DNSName& zname, const string& digestAlgos);
+  void getPublishCDS(const DNSName& zname, std::string& value);
   bool unsetPublishCDS(const DNSName& zname);
 
   bool TSIGGrantsAccess(const DNSName& zone, const DNSName& keyname);
@@ -222,10 +231,14 @@ public:
     (*d_keymetadb->backends.begin())->commitTransaction();
   }
   
-  void getFromMeta(const DNSName& zname, const std::string& key, std::string& value);
+  void getFromMetaOrDefault(const DNSName& zname, const std::string& key, std::string& value, const std::string& defaultvalue);
+  bool getFromMeta(const DNSName& zname, const std::string& key, std::string& value);
   void getSoaEdit(const DNSName& zname, std::string& value);
   bool unSecureZone(const DNSName& zone, std::string& error, std::string& info);
   bool rectifyZone(const DNSName& zone, std::string& error, std::string& info, bool doTransaction);
+
+  static void setMaxEntries(size_t maxEntries);
+
 private:
 
 
@@ -252,28 +265,33 @@ private:
   
     DNSName d_domain;
     mutable std::string d_key, d_value;
+    mutable bool d_isset;
     unsigned int d_ttd;
   
   };
   
+  struct KeyCacheTag{};
+  struct CompositeTag{};
+  struct SequencedTag{};
   
   typedef multi_index_container<
     KeyCacheEntry,
     indexed_by<
-      ordered_unique<member<KeyCacheEntry, DNSName, &KeyCacheEntry::d_domain> >,
-      sequenced<>
+      hashed_unique<tag<KeyCacheTag>,member<KeyCacheEntry, DNSName, &KeyCacheEntry::d_domain> >,
+      sequenced<tag<SequencedTag>>
     >
   > keycache_t;
+
   typedef multi_index_container<
     METACacheEntry,
     indexed_by<
-      ordered_unique<
+      ordered_unique<tag<CompositeTag>,
         composite_key< 
           METACacheEntry, 
           member<METACacheEntry, DNSName, &METACacheEntry::d_domain> ,
           member<METACacheEntry, std::string, &METACacheEntry::d_key>
         >, composite_key_compare<std::less<DNSName>, CIStringCompare> >,
-      sequenced<>
+      sequenced<tag<SequencedTag>>
     >
   > metacache_t;
 
@@ -281,10 +299,11 @@ private:
 
   static keycache_t s_keycache;
   static metacache_t s_metacache;
-  static pthread_rwlock_t s_metacachelock;
-  static pthread_rwlock_t s_keycachelock;
+  static ReadWriteLock s_metacachelock;
+  static ReadWriteLock s_keycachelock;
   static AtomicCounter s_ops;
   static time_t s_last_prune;
+  static size_t s_maxEntries;
 
 public:
   void preRemoval(const KeyCacheEntry&)

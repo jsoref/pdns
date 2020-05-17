@@ -224,11 +224,6 @@ install_auth() {
   run "sudo apt-get -qq --no-install-recommends install \
     liblmdb-dev"
 
-  # opendbx-backend
-  run "sudo apt-get -qq --no-install-recommends install \
-    libopendbx1-dev \
-    libopendbx1-sqlite3"
-
   # remote-backend build requirements
   run "sudo apt-get -qq --no-install-recommends install \
     libzmq3-dev"
@@ -393,7 +388,7 @@ build_auth() {
   run "autoreconf -vi"
   run "./configure \
     ${sanitizerflags} \
-    --with-dynmodules='bind gmysql geoip gpgsql gsqlite3 lmdb opendbx pipe random remote tinydns godbc lua2' \
+    --with-dynmodules='bind gmysql geoip gpgsql gsqlite3 lmdb pipe random remote tinydns godbc lua2' \
     --with-modules='' \
     --with-sqlite3 \
     --with-libsodium \
@@ -516,8 +511,11 @@ test_auth() {
   # run "./timestamp ./start-test-stop 5300 gmysql-nsec3-optout-both"
   run "./timestamp ./start-test-stop 5300 gmysql-nsec3-narrow"
 
+  run "sudo perl -i -pe 's/\]/]\nThreading=1/g' /etc/odbcinst.ini"
+  run "cat /etc/odbcinst.ini"
   run "export GODBC_SQLITE3_DSN=pdns-sqlite3-1"
-  run "./timestamp ./start-test-stop 5300 godbc_sqlite3-nsec3"
+  # this test is unstable on the library versions in the Travis trusty image
+  # run "./timestamp ./start-test-stop 5300 godbc_sqlite3-nsec3"
 
   run "./timestamp ./start-test-stop 5300 gpgsql-nodnssec-both"
   run "./timestamp ./start-test-stop 5300 gpgsql-both"
@@ -530,8 +528,6 @@ test_auth() {
   run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-both"
   # run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-optout-both"
   run "./timestamp ./start-test-stop 5300 gsqlite3-nsec3-narrow"
-
-  run "./timestamp ./start-test-stop 5300 opendbx-sqlite3"
 
   run "./timestamp ./start-test-stop 5300 remotebackend-pipe"
   run "./timestamp ./start-test-stop 5300 remotebackend-pipe-dnssec"
@@ -632,7 +628,9 @@ test_recursor() {
 
 test_dnsdist(){
   run "cd regression-tests.dnsdist"
-  run "DNSDISTBIN=$HOME/dnsdist/bin/dnsdist ./runtests -v --ignore-files='(?:^\.|^_,|^setup\.py$|^test_DOH\.py$|^test_OCSP\.py$|^test_Prometheus\.py$|^test_TLSSessionResumption\.py$)'"
+  export SKIP_DOH_TESTS=1
+  export SKIP_PROMETHEUS_TESTS=1
+  run "DNSDISTBIN=$HOME/dnsdist/bin/dnsdist ./runtests -v --ignore-files='(?:^\.|^_,|^setup\.py$|^test_TLSSessionResumption\.py$)'"
   run "rm -f ./DNSCryptResolver.cert ./DNSCryptResolver.key"
   run "cd .."
 }

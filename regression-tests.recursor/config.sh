@@ -512,6 +512,7 @@ module-dir=../../../regression-tests/modules
 launch=bind
 daemon=no
 local-address=$dir
+## TODO remove when switching circle-ci and travis to 4.3
 local-ipv6=
 bind-config=named.conf
 no-shuffle
@@ -522,7 +523,6 @@ query-cache-ttl=0
 distributor-threads=1
 
 EOF
-
     if [ -e $dir/prequery.lua ]
     then
         echo 'lua-prequery-script=prequery.lua' >> $dir/pdns.conf
@@ -646,7 +646,7 @@ cat > recursor-service3/rpz4.zone <<EOF
 @ SOA $SOA
 @ NS ns.example.net.
 
-defpol-with-ttl.example.net       50       IN      A     192.0.2.35          ; will be overriden by the default policy and the default TTL
+defpol-with-ttl.example.net       50       IN      A     192.0.2.35          ; will be overridden by the default policy and the default TTL
 
 EOF
 
@@ -656,7 +656,7 @@ cat > recursor-service3/rpz5.zone <<EOF
 @ SOA $SOA
 @ NS ns.example.net.
 
-defpol-with-ttl-capped.example.net       100       IN      A     192.0.2.35          ; will be overriden by the default policy and the default TTL (but capped by maxTTL)
+defpol-with-ttl-capped.example.net       100       IN      A     192.0.2.35          ; will be overridden by the default policy and the default TTL (but capped by maxTTL)
 
 EOF
 
@@ -666,7 +666,7 @@ cat > recursor-service3/rpz6.zone <<EOF
 @ SOA $SOA
 @ NS ns.example.net.
 
-defpol-without-ttl.example.net       A     192.0.2.35          ; will be overriden by the default policy, but with the zone's TTL
+defpol-without-ttl.example.net       A     192.0.2.35          ; will be overridden by the default policy, but with the zone's TTL
 
 EOF
 
@@ -676,7 +676,7 @@ cat > recursor-service3/rpz7.zone <<EOF
 @ SOA $SOA
 @ NS ns.example.net.
 
-defpol-without-ttl-capped.example.net       A     192.0.2.35          ; will be overriden by the default policy, but with the zone's TTL capped by maxTTL
+defpol-without-ttl-capped.example.net       A     192.0.2.35          ; will be overridden by the default policy, but with the zone's TTL capped by maxTTL
 
 EOF
 

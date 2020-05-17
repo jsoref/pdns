@@ -74,9 +74,9 @@ bool LMDBKVStore::getValue(const std::string& key, std::string& value)
 {
   try {
     auto transaction = d_env.getROTransaction();
-    auto dbi = transaction.openDB(d_dbName, 0);
+    auto dbi = transaction->openDB(d_dbName, 0);
     MDBOutVal result;
-    int rc = transaction.get(dbi, MDBInVal(key), result);
+    int rc = transaction->get(dbi, MDBInVal(key), result);
     if (rc == 0) {
       value = result.get<std::string>();
       return true;
@@ -95,9 +95,9 @@ bool LMDBKVStore::keyExists(const std::string& key)
 {
   try {
     auto transaction = d_env.getROTransaction();
-    auto dbi = transaction.openDB(d_dbName, 0);
+    auto dbi = transaction->openDB(d_dbName, 0);
     MDBOutVal result;
-    int rc = transaction.get(dbi, MDBInVal(key), result);
+    int rc = transaction->get(dbi, MDBInVal(key), result);
     if (rc == 0) {
       return true;
     }
@@ -117,7 +117,6 @@ bool LMDBKVStore::keyExists(const std::string& key)
 
 CDBKVStore::CDBKVStore(const std::string& fname, time_t refreshDelay): d_fname(fname), d_refreshDelay(refreshDelay)
 {
-  pthread_rwlock_init(&d_lock, nullptr);
   d_refreshing.clear();
 
   time_t now = time(nullptr);
@@ -126,6 +125,9 @@ CDBKVStore::CDBKVStore(const std::string& fname, time_t refreshDelay): d_fname(f
   }
 
   refreshDBIfNeeded(now);
+}
+
+CDBKVStore::~CDBKVStore() {
 }
 
 bool CDBKVStore::reload(const struct stat& st)
@@ -194,7 +196,7 @@ bool CDBKVStore::getValue(const std::string& key, std::string& value)
     }
   }
   catch(const std::exception& e) {
-    warnlog("Error while looking up key '%s' from CDB file '%s': %s", key, d_fname);
+    warnlog("Error while looking up key '%s' from CDB file '%s': %s", key, d_fname, e.what());
   }
   return false;
 }
@@ -218,7 +220,7 @@ bool CDBKVStore::keyExists(const std::string& key)
     }
   }
   catch(const std::exception& e) {
-    warnlog("Error while looking up key '%s' from CDB file '%s': %s", key, d_fname);
+    warnlog("Error while looking up key '%s' from CDB file '%s': %s", key, d_fname, e.what());
   }
   return false;
 }

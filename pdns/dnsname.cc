@@ -41,7 +41,7 @@ std::ostream & operator<<(std::ostream &os, const DNSName& d)
   return os <<d.toLogString();
 }
 
-DNSName::DNSName(const char* p)
+DNSName::DNSName(const char* p, size_t length)
 {
   if(p[0]==0 || (p[0]=='.' && p[1]==0)) {
     d_storage.assign(1, (char)0);
@@ -49,7 +49,7 @@ DNSName::DNSName(const char* p)
     if(!strchr(p, '\\')) {
       unsigned char lenpos=0;
       unsigned char labellen=0;
-      size_t plen=strlen(p);
+      size_t plen=length;
       const char* const pbegin=p, *pend=p+plen;
       d_storage.reserve(plen+1);
       for(auto iter = pbegin; iter != pend; ) {
@@ -76,7 +76,7 @@ DNSName::DNSName(const char* p)
       d_storage.append(1, (char)0);
     }
     else {
-      d_storage=segmentDNSNameRaw(p); 
+      d_storage=segmentDNSNameRaw(p, length);
       if(d_storage.size() > 255) {
         throw std::range_error("name too long");
       }
@@ -455,4 +455,26 @@ void DNSName::appendEscapedLabel(std::string& appendTo, const char* orig, size_t
     }
     ++pos;
   }
+}
+
+bool DNSName::has8bitBytes() const
+{
+  const auto& s = d_storage;
+  string::size_type pos = 0;
+  uint8_t length = s.at(pos);
+  while (length > 0) {
+    for (size_t idx = 0; idx < length; idx++) {
+      ++pos;
+      char c = s.at(pos);
+      if(!((c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z') ||
+           (c >= '0' && c <= '9') ||
+           c =='-' || c == '_' || c=='*' || c=='.' || c=='/' || c=='@' || c==' ' || c=='\\' || c==':'))
+        return true;
+    }
+    ++pos;
+    length = s.at(pos);
+  }
+
+  return false;
 }

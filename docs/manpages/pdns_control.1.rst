@@ -34,6 +34,14 @@ When using the BIND backend, add a zone. This zone is added in-memory
 and served immediately. Note that this does not add the zone to the
 bind-config file. *FILENAME* must be an absolute path.
 
+bind-domain-extended-status [*DOMAIN*...]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Output an extended status of all domains, containing much more information than
+the simple domain status, like the number of records currently loaded, whether pdns
+is master or slave for the domain, the list of masters, various timers, etc
+Optionally, append *DOMAIN*\ s to get the status of specific zones.
+
 bind-domain-status [*DOMAIN*...]
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -55,13 +63,10 @@ ccounts
 
 Show the content of the cache.
 
-current-config
-^^^^^^^^^^^^^^
+current-config [diff]
+^^^^^^^^^^^^^^^^^^^^^
 
-Show the currently running configuration. The output has the same
-format as ``pdns_server --config``. You'll notice that all the
-configuration values are uncommented. This is because PowerDNS
-simply has values, and the default isn't known at runtime.
+Show the currently running configuration. The output has the same format as ``pdns_server --config``. With the diff option only modified options are included in the output.
 
 cycle
 ^^^^^
