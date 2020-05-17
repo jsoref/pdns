@@ -25,7 +25,6 @@
 #include "dolog.hh"
 #include "dnscrypt.hh"
 #include "dnswriter.hh"
-#include "lock.hh"
 
 DNSCryptPrivateKey::DNSCryptPrivateKey()
 {
@@ -125,20 +124,15 @@ DNSCryptQuery::~DNSCryptQuery()
 
 
 DNSCryptContext::~DNSCryptContext() {
-  pthread_rwlock_destroy(&d_lock);
 }
 
 DNSCryptContext::DNSCryptContext(const std::string& pName, const std::vector<CertKeyPaths>& certKeys): d_certKeyPaths(certKeys), providerName(pName)
 {
-  pthread_rwlock_init(&d_lock, 0);
-
   reloadCertificates();
 }
 
 DNSCryptContext::DNSCryptContext(const std::string& pName, const DNSCryptCert& certificate, const DNSCryptPrivateKey& pKey): providerName(pName)
 {
-  pthread_rwlock_init(&d_lock, 0);
-
   addNewCertificate(certificate, pKey);
 }
 
@@ -430,7 +424,7 @@ void DNSCryptContext::getCertificateResponse(time_t now, const DNSName& qname, u
   dh->rcode = RCode::NoError;
 
   ReadLock r(&d_lock);
-  for (const auto pair : d_certs) {
+  for (const auto& pair : d_certs) {
     if (!pair->active || !pair->cert.isValid(now)) {
       continue;
     }
@@ -504,7 +498,7 @@ void DNSCryptQuery::getDecrypted(bool tcp, char* packet, uint16_t packetSize, ui
 
   unsigned char nonce[DNSCRYPT_NONCE_SIZE];
   static_assert(sizeof(nonce) == (2* sizeof(d_header.clientNonce)), "Nonce should be larger than clientNonce (half)");
-  static_assert(sizeof(d_header.clientPK) == DNSCRYPT_PUBLIC_KEY_SIZE, "Client Publick key size is not right");
+  static_assert(sizeof(d_header.clientPK) == DNSCRYPT_PUBLIC_KEY_SIZE, "Client Public key size is not right");
   static_assert(sizeof(d_pair->privateKey.key) == DNSCRYPT_PRIVATE_KEY_SIZE, "Private key size is not right");
 
   memcpy(nonce, &d_header.clientNonce, sizeof(d_header.clientNonce));

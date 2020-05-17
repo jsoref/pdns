@@ -70,6 +70,9 @@ Listen Sockets
   .. versionchanged:: 1.4.0
     Removed ``doTCP`` from the options. A listen socket on TCP is always created.
 
+  .. versionchanged:: 1.5.0
+    Added ``tcpListenQueueSize`` parameter.
+
   Add to the list of listen addresses.
 
   :param str address: The IP Address with an optional port to listen on.
@@ -83,6 +86,7 @@ Listen Sockets
   * ``tcpFastOpenQueueSize=0``: int - Set the TCP Fast Open queue size, enabling TCP Fast Open when available and the value is larger than 0.
   * ``interface=""``: str - Set the network interface to use.
   * ``cpus={}``: table - Set the CPU affinity for this listener thread, asking the scheduler to run it on a single CPU id, or a set of CPU ids. This parameter is only available if the OS provides the pthread_setaffinity_np() function.
+  * ``tcpListenQueueSize=SOMAXCONN``: int - Set the size of the listen queue. Default is ``SOMAXCONN``.
 
   .. code-block:: lua
 
@@ -110,7 +114,7 @@ Listen Sockets
 
   .. versionchanged:: 1.5.0
     ``sendCacheControlHeaders``, ``sessionTimeout``, ``trustForwardedForHeader`` options added.
-    ``url`` now defaults to ``/dns-query`` instead of ``/``
+    ``url`` now defaults to ``/dns-query`` instead of ``/``. Added ``tcpListenQueueSize`` parameter.
 
   Listen on the specified address and TCP port for incoming DNS over HTTPS connections, presenting the specified X.509 certificate.
   If no certificate (or key) files are specified, listen for incoming DNS over HTTP connections instead.
@@ -145,6 +149,7 @@ Listen Sockets
   * ``keyLogFile``: str - Write the TLS keys in the specified file so that an external program can decrypt TLS exchanges, in the format described in https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format. Note that this feature requires OpenSSL >= 1.1.1.
   * ``sendCacheControlHeaders``: bool - Whether to parse the response to find the lowest TTL and set a HTTP Cache-Control header accordingly. Default is true.
   * ``trustForwardedForHeader``: bool - Whether to parse any existing X-Forwarded-For header in the HTTP query and use the right-most value as the client source address and port, for ACL checks, rules, logging and so on. Default is false.
+  * ``tcpListenQueueSize=SOMAXCONN``: int - Set the size of the listen queue. Default is ``SOMAXCONN``.
 
 .. function:: addTLSLocal(address, certFile(s), keyFile(s) [, options])
 
@@ -157,7 +162,7 @@ Listen Sockets
   .. versionchanged:: 1.4.0
     ``ciphersTLS13``, ``minTLSVersion``, ``ocspResponses``, ``preferServerCiphers``, ``keyLogFile`` options added.
   .. versionchanged:: 1.5.0
-    ``sessionTimeout`` option added.
+    ``sessionTimeout`` and ``tcpListenQueueSize`` options added.
 
   Listen on the specified address and TCP port for incoming DNS over TLS connections, presenting the specified X.509 certificate.
 
@@ -174,7 +179,7 @@ Listen Sockets
   * ``interface=""``: str - Set the network interface to use.
   * ``cpus={}``: table - Set the CPU affinity for this listener thread, asking the scheduler to run it on a single CPU id, or a set of CPU ids. This parameter is only available if the OS provides the pthread_setaffinity_np() function.
   * ``provider``: str - The TLS library to use between GnuTLS and OpenSSL, if they were available and enabled at compilation time. Default is to use OpenSSL when available.
-  * ``ciphers``: str - The TLS ciphers to use. The exact format depends on the provider used. When the OpenSSL provder is used, ciphers for TLS 1.3 must be specified via ``ciphersTLS13``.
+  * ``ciphers``: str - The TLS ciphers to use. The exact format depends on the provider used. When the OpenSSL provider is used, ciphers for TLS 1.3 must be specified via ``ciphersTLS13``.
   * ``ciphersTLS13``: str - The ciphers to use for TLS 1.3, when the OpenSSL provider is used. When the GnuTLS provider is used, ``ciphers`` applies regardless of the TLS protocol and this setting is not used.
   * ``numberOfTicketsKeys``: int - The maximum number of tickets keys to keep in memory at the same time, if the provider supports it (GnuTLS doesn't, OpenSSL does). Only one key is marked as active and used to encrypt new tickets while the remaining ones can still be used to decrypt existing tickets after a rotation. Default to 5.
   * ``ticketKeyFile``: str - The path to a file from where TLS tickets keys should be loaded, to support RFC 5077. These keys should be rotated often and never written to persistent storage to preserve forward secrecy. The default is to generate a random key. The OpenSSL provider supports several tickets keys to be able to decrypt existing sessions after the rotation, while the GnuTLS provider only supports one key.
@@ -186,6 +191,7 @@ Listen Sockets
   * ``minTLSVersion``: str - Minimum version of the TLS protocol to support. Possible values are 'tls1.0', 'tls1.1', 'tls1.2' and 'tls1.3'. Default is to require at least TLS 1.0. Note that this value is ignored when the GnuTLS provider is in use, and the ``ciphers`` option should be set accordingly instead. For example, 'NORMAL:!VERS-TLS1.0:!VERS-TLS1.1' will disable TLS 1.0 and 1.1.
   * ``preferServerCiphers``: bool - Whether to prefer the order of ciphers set by the server instead of the one set by the client. Default is true, meaning that the order of the server is used.
   * ``keyLogFile``: str - Write the TLS keys in the specified file so that an external program can decrypt TLS exchanges, in the format described in https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format. Note that this feature requires OpenSSL >= 1.1.1.
+  * ``tcpListenQueueSize=SOMAXCONN``: int - Set the size of the listen queue. Default is ``SOMAXCONN``.
 
 .. function:: setLocal(address[, options])
 
@@ -1144,7 +1150,7 @@ faster than the existing rules.
     :param string reason: The message to show next to the blocks
     :param int blockingTime: The number of seconds this block to expire
     :param int action: The action to take when the dynamic block matches, see :ref:`here <DNSAction>`. (default to the one set with :func:`setDynBlocksAction`)
-    :param function vistitor: The Lua function to call.
+    :param function visitor: The Lua function to call.
 
   .. method:: DynBlockRulesGroup:setSuffixMatchRuleFFI(seconds, reason, blockingTime, action , visitor)
 
@@ -1158,7 +1164,7 @@ faster than the existing rules.
     :param string reason: The message to show next to the blocks
     :param int blockingTime: The number of seconds this block to expire
     :param int action: The action to take when the dynamic block matches, see :ref:`here <DNSAction>`. (default to the one set with :func:`setDynBlocksAction`)
-    :param function vistitor: The Lua FFI function to call.
+    :param function visitor: The Lua FFI function to call.
 
   .. method:: DynBlockRulesGroup:apply()
 
@@ -1272,6 +1278,16 @@ If you are looking for exact name matching, your might want to consider using a 
     :param DNSName name: The suffix to add to the set.
     :param string name: The suffix to add to the set.
     :param table name: The suffixes to add to the set. Elements of the table should be of the same type, either DNSName or string.
+
+  .. method:: SuffixMatchNode:remove(name)
+
+    .. versionadded:: 1.5.0
+
+    Remove a suffix from the current set.
+
+    :param DNSName name: The suffix to remove from the set.
+    :param string name: The suffix to remove from the set.
+    :param table name: The suffixes to remove from the set. Elements of the table should be of the same type, either DNSName or string.
 
   .. method:: SuffixMatchNode:check(name) -> bool
 
@@ -1401,7 +1417,7 @@ record if the received request had one, which is the case by default and can be 
 
 We must, however, provide a responder's maximum payload size in this record, and we can't easily know the
 maximum payload size of the actual backend so we need to provide one. The default value is 1500 and can be
-overriden using :func:`setPayloadSizeOnSelfGeneratedAnswers`.
+overridden using :func:`setPayloadSizeOnSelfGeneratedAnswers`.
 
 .. function:: setAddEDNSToSelfGeneratedResponses(add)
 

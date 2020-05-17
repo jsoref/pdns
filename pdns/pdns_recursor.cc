@@ -90,6 +90,7 @@
 #include "gettime.hh"
 #include "proxy-protocol.hh"
 #include "pubsuffix.hh"
+#include "shuffle.hh"
 #ifdef NOD_ENABLED
 #include "nod.hh"
 #endif /* NOD_ENABLED */
@@ -199,6 +200,8 @@ static std::shared_ptr<SyncRes::domainmap_t> g_initialDomainMap; // new threads 
 static std::shared_ptr<NetmaskGroup> g_initialAllowFrom; // new thread needs to be setup with this
 static NetmaskGroup g_XPFAcl;
 static NetmaskGroup g_proxyProtocolACL;
+static boost::optional<ComboAddress> g_dns64Prefix{boost::none};
+static DNSName g_dns64PrefixReverse;
 static size_t g_proxyProtocolMaximumSize;
 static size_t g_tcpMaxQueriesPerConn;
 static size_t s_maxUDPQueriesPerRound;
@@ -332,6 +335,7 @@ struct DNSComboWriter {
 #endif
   std::string d_query;
   std::unordered_set<std::string> d_policyTags;
+  std::string d_routingTag;
   std::vector<DNSRecord> d_records;
   LuaContext::LuaObject d_data;
   EDNSSubnetOpts d_ednssubnet;
@@ -365,11 +369,6 @@ ArgvMap &arg()
 unsigned int getRecursorThreadId()
 {
   return t_id;
-}
-
-int getMTaskerTID()
-{
-  return MT->getTid();
 }
 
 static bool isDistributorThread()
@@ -1067,7 +1066,7 @@ static bool nodCheckNewDomain(const DNSName& dname)
   bool ret = false;
   // First check the (sub)domain isn't whitelisted for NOD purposes
   if (!g_nodDomainWL.check(dname)) {
-    // Now check the NODDB (note this is probablistic so can have FNs/FPs)
+    // Now check the NODDB (note this is probabilistic so can have FNs/FPs)
     if (t_nodDBp && t_nodDBp->isNewDomain(dname)) {
       if (g_nodLog) {
         // This should probably log to a dedicated log file
@@ -1129,6 +1128,88 @@ int followCNAMERecords(vector<DNSRecord>& ret, const QType& qtype)
   for(DNSRecord& rr :  resolved) {
     ret.push_back(std::move(rr));
   }
+  return rcode;
+}
+
+int getFakeAAAARecords(const DNSName& qname, ComboAddress prefix, vector<DNSRecord>& ret)
+{
+  int rcode = directResolve(qname, QType(QType::A), QClass::IN, ret);
+
+  // Remove double CNAME records
+  std::set<DNSName> seenCNAMEs;
+  ret.erase(std::remove_if(
+        ret.begin(),
+        ret.end(),
+        [&seenCNAMEs](DNSRecord& rr) {
+          if (rr.d_type == QType::CNAME) {
+            auto target = getRR<CNAMERecordContent>(rr);
+            if (target == nullptr) {
+              return false;
+            }
+            if (seenCNAMEs.count(target->getTarget()) > 0) {
+              // We've had this CNAME before, remove it
+              return true;
+            }
+            seenCNAMEs.insert(target->getTarget());
+          }
+          return false;
+        }),
+      ret.end());
+
+  bool seenA = false;
+  for (DNSRecord& rr : ret) {
+    if (rr.d_type == QType::A && rr.d_place == DNSResourceRecord::ANSWER) {
+      if (auto rec = getRR<ARecordContent>(rr)) {
+        ComboAddress ipv4(rec->getCA());
+        memcpy(&prefix.sin6.sin6_addr.s6_addr[12], &ipv4.sin4.sin_addr.s_addr, sizeof(ipv4.sin4.sin_addr.s_addr));
+        rr.d_content = std::make_shared<AAAARecordContent>(prefix);
+        rr.d_type = QType::AAAA;
+      }
+      seenA = true;
+    }
+  }
+
+  if (seenA) {
+    // We've seen an A in the ANSWER section, so there is no need to keep any
+    // SOA in the AUTHORITY section as this is not a NODATA response.
+    ret.erase(std::remove_if(
+          ret.begin(),
+          ret.end(),
+          [](DNSRecord& rr) {
+            return (rr.d_type == QType::SOA && rr.d_place == DNSResourceRecord::AUTHORITY);
+          }),
+        ret.end());
+  }
+  return rcode;
+}
+
+int getFakePTRRecords(const DNSName& qname, vector<DNSRecord>& ret)
+{
+  /* qname has a reverse ordered IPv6 address, need to extract the underlying IPv4 address from it
+     and turn it into an IPv4 in-addr.arpa query */
+  ret.clear();
+  vector<string> parts = qname.getRawLabels();
+
+  if (parts.size() < 8) {
+    return -1;
+  }
+
+  string newquery;
+  for (int n = 0; n < 4; ++n) {
+    newquery +=
+      std::to_string(stoll(parts[n*2], 0, 16) + 16*stoll(parts[n*2+1], 0, 16));
+    newquery.append(1, '.');
+  }
+  newquery += "in-addr.arpa.";
+
+  DNSRecord rr;
+  rr.d_name = qname;
+  rr.d_type = QType::CNAME;
+  rr.d_content = std::make_shared<CNAMERecordContent>(newquery);
+  ret.push_back(rr);
+
+  int rcode = directResolve(DNSName(newquery), QType(QType::PTR), QClass::IN, ret);
+
   return rcode;
 }
 
@@ -1392,7 +1473,12 @@ static void startDoResolve(void *p)
     }
 
     // if there is a RecursorLua active, and it 'took' the query in preResolve, we don't launch beginResolve
-    if(!t_pdl || !t_pdl->preresolve(dq, res)) {
+    if (!t_pdl || !t_pdl->preresolve(dq, res)) {
+
+      if (!g_dns64PrefixReverse.empty() && dq.qtype == QType::PTR && dq.qname.isPartOf(g_dns64PrefixReverse)) {
+        res = getFakePTRRecords(dq.qname, ret);
+        goto haveAnswer;
+      }
 
       sr.setWantsRPZ(wantsRPZ);
       if (wantsRPZ && appliedPolicy.d_kind != DNSFilterEngine::PolicyKind::NoAction) {
@@ -1409,6 +1495,11 @@ static void startDoResolve(void *p)
       try {
         sr.d_appliedPolicy = appliedPolicy;
         sr.d_policyTags = std::move(dc->d_policyTags);
+
+        if (!dc->d_routingTag.empty()) {
+          sr.d_routingTag = dc->d_routingTag;
+        }
+
         res = sr.beginResolve(dc->d_mdp.d_qname, QType(dc->d_mdp.d_qtype), dc->d_mdp.d_qclass, ret);
         shouldNotValidate = sr.wasOutOfBand();
       }
@@ -1445,21 +1536,34 @@ static void startDoResolve(void *p)
         }
       }
 
-      if(t_pdl) {
-        if(res == RCode::NoError) {
-	        auto i=ret.cbegin();
-                for(; i!= ret.cend(); ++i)
-                  if(i->d_type == dc->d_mdp.d_qtype && i->d_place == DNSResourceRecord::ANSWER)
-                          break;
-                if(i == ret.cend() && t_pdl->nodata(dq, res))
-                  shouldNotValidate = true;
+      if (t_pdl || (g_dns64Prefix && dq.qtype == QType::AAAA && dq.validationState != Bogus)) {
+        if (res == RCode::NoError) {
+          auto i = ret.cbegin();
+          for(; i!= ret.cend(); ++i) {
+            if (i->d_type == dc->d_mdp.d_qtype && i->d_place == DNSResourceRecord::ANSWER) {
+              break;
+            }
+          }
+
+          if (i == ret.cend()) {
+            /* no record in the answer section, NODATA */
+            if (t_pdl && t_pdl->nodata(dq, res)) {
+              shouldNotValidate = true;
+            }
+            else if (g_dns64Prefix && dq.qtype == QType::AAAA && dq.validationState != Bogus) {
+              res = getFakeAAAARecords(dq.qname, *g_dns64Prefix, ret);
+              shouldNotValidate = true;
+            }
+          }
 
 	}
-	else if(res == RCode::NXDomain && t_pdl->nxdomain(dq, res))
+	else if(res == RCode::NXDomain && t_pdl && t_pdl->nxdomain(dq, res)) {
           shouldNotValidate = true;
+        }
 
-	if(t_pdl->postresolve(dq, res))
+	if (t_pdl && t_pdl->postresolve(dq, res)) {
           shouldNotValidate = true;
+        }
       }
 
       if (wantsRPZ) { //XXX This block is repeated, see above
@@ -1557,7 +1661,7 @@ static void startDoResolve(void *p)
       }
 
       if(ret.size()) {
-        orderAndShuffle(ret);
+        pdns::orderAndShuffle(ret);
 	if(auto sl = luaconfsLocal->sortlist.getOrderCmp(dc->d_source)) {
 	  stable_sort(ret.begin(), ret.end(), *sl);
 	  variableAnswer=true;
@@ -2178,10 +2282,10 @@ static void handleRunningTCPQuestion(int fd, FDMultiplexer::funcparam_t& var)
           if(t_pdl) {
             try {
               if (t_pdl->d_gettag_ffi) {
-                dc->d_tag = t_pdl->gettag_ffi(dc->d_source, dc->d_ednssubnet.source, dc->d_destination, qname, qtype, &dc->d_policyTags, dc->d_records, dc->d_data, ednsOptions, true, dc->d_proxyProtocolValues, requestorId, deviceId, deviceName, dc->d_rcode, dc->d_ttlCap, dc->d_variable, logQuery, dc->d_logResponse, dc->d_followCNAMERecords);
+                dc->d_tag = t_pdl->gettag_ffi(dc->d_source, dc->d_ednssubnet.source, dc->d_destination, qname, qtype, &dc->d_policyTags, dc->d_records, dc->d_data, ednsOptions, true, dc->d_proxyProtocolValues, requestorId, deviceId, deviceName, dc->d_routingTag, dc->d_rcode, dc->d_ttlCap, dc->d_variable, logQuery, dc->d_logResponse, dc->d_followCNAMERecords);
               }
               else if (t_pdl->d_gettag) {
-                dc->d_tag = t_pdl->gettag(dc->d_source, dc->d_ednssubnet.source, dc->d_destination, qname, qtype, &dc->d_policyTags, dc->d_data, ednsOptions, true, requestorId, deviceId, deviceName, dc->d_proxyProtocolValues);
+                dc->d_tag = t_pdl->gettag(dc->d_source, dc->d_ednssubnet.source, dc->d_destination, qname, qtype, &dc->d_policyTags, dc->d_data, ednsOptions, true, requestorId, deviceId, deviceName, dc->d_routingTag, dc->d_proxyProtocolValues);
               }
             }
             catch(const std::exception& e)  {
@@ -2374,6 +2478,7 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
   string requestorId;
   string deviceId;
   string deviceName;
+  string routingTag;
   bool logQuery = false;
   bool logResponse = false;
 #ifdef HAVE_PROTOBUF
@@ -2436,10 +2541,10 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
         if(t_pdl) {
           try {
             if (t_pdl->d_gettag_ffi) {
-              ctag = t_pdl->gettag_ffi(source, ednssubnet.source, destination, qname, qtype, &policyTags, records, data, ednsOptions, false, proxyProtocolValues, requestorId, deviceId, deviceName, rcode, ttlCap, variable, logQuery, logResponse, followCNAMEs);
+              ctag = t_pdl->gettag_ffi(source, ednssubnet.source, destination, qname, qtype, &policyTags, records, data, ednsOptions, false, proxyProtocolValues, requestorId, deviceId, deviceName, routingTag, rcode, ttlCap, variable, logQuery, logResponse, followCNAMEs);
             }
             else if (t_pdl->d_gettag) {
-              ctag = t_pdl->gettag(source, ednssubnet.source, destination, qname, qtype, &policyTags, data, ednsOptions, false, requestorId, deviceId, deviceName, proxyProtocolValues);
+              ctag = t_pdl->gettag(source, ednssubnet.source, destination, qname, qtype, &policyTags, data, ednsOptions, false, requestorId, deviceId, deviceName, routingTag, proxyProtocolValues);
             }
           }
           catch(const std::exception& e)  {
@@ -2588,6 +2693,7 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
   dc->d_kernelTimestamp = tv;
 #endif
   dc->d_proxyProtocolValues = std::move(proxyProtocolValues);
+  dc->d_routingTag = std::move(routingTag);
 
   MT->makeThread(startDoResolve, (void*) dc.release()); // deletes dc
   return 0;
@@ -3377,19 +3483,13 @@ template<class T> void *voider(const boost::function<T*()>& func)
   return func();
 }
 
-vector<ComboAddress>& operator+=(vector<ComboAddress>&a, const vector<ComboAddress>& b)
+static vector<ComboAddress>& operator+=(vector<ComboAddress>&a, const vector<ComboAddress>& b)
 {
   a.insert(a.end(), b.begin(), b.end());
   return a;
 }
 
-vector<pair<string, uint16_t> >& operator+=(vector<pair<string, uint16_t> >&a, const vector<pair<string, uint16_t> >& b)
-{
-  a.insert(a.end(), b.begin(), b.end());
-  return a;
-}
-
-vector<pair<DNSName, uint16_t> >& operator+=(vector<pair<DNSName, uint16_t> >&a, const vector<pair<DNSName, uint16_t> >& b)
+static vector<pair<DNSName, uint16_t> >& operator+=(vector<pair<DNSName, uint16_t> >&a, const vector<pair<DNSName, uint16_t> >& b)
 {
   a.insert(a.end(), b.begin(), b.end());
   return a;
@@ -3636,7 +3736,7 @@ retryWithName:
   }
 }
 
-FDMultiplexer* getMultiplexer()
+static FDMultiplexer* getMultiplexer()
 {
   FDMultiplexer* ret;
   for(const auto& i : FDMultiplexer::getMultiplexerMap()) {
@@ -3949,7 +4049,7 @@ static void setupNODThread()
   }
 }
 
-void parseNODWhitelist(const std::string& wlist)
+static void parseNODWhitelist(const std::string& wlist)
 {
   vector<string> parts;
   stringtok(parts, wlist, ",; ");
@@ -4205,6 +4305,26 @@ static int serviceMain(int argc, char*argv[])
   g_proxyProtocolACL.toMasks(::arg()["proxy-protocol-from"]);
   g_proxyProtocolMaximumSize = ::arg().asNum("proxy-protocol-maximum-size");
 
+  if (!::arg()["dns64-prefix"].empty()) {
+    try {
+      auto dns64Prefix = Netmask(::arg()["dns64-prefix"]);
+      if (dns64Prefix.getBits() != 96) {
+        g_log << Logger::Error << "Invalid prefix for 'dns64-prefix', the current implementation only supports /96 prefixes: " << ::arg()["dns64-prefix"] << endl;
+        exit(1);
+      }
+      g_dns64Prefix = dns64Prefix.getNetwork();
+      g_dns64PrefixReverse = reverseNameFromIP(*g_dns64Prefix);
+      /* /96 is 24 nibbles + 2 for "ip6.arpa." */
+      while (g_dns64PrefixReverse.countLabels() > 26) {
+        g_dns64PrefixReverse.chopOff();
+      }
+    }
+    catch (const NetmaskException& ne) {
+      g_log << Logger::Error << "Invalid prefix '" << ::arg()["dns64-prefix"] << "' for 'dns64-prefix': " << ne.reason << endl;
+      exit(1);
+    }
+  }
+
   g_networkTimeoutMsec = ::arg().asNum("network-timeout");
 
   g_initialDomainMap = parseAuthAndForwards();
@@ -4339,7 +4459,7 @@ static int serviceMain(int argc, char*argv[])
       For years, this was a safe assumption, but containers change that: in
       most (all?) container implementations, the application itself is running
       as pid 1. This means that sending signals to those applications, will not
-      be handled by default. Results might be "your container not responsing
+      be handled by default. Results might be "your container not responding
       when asking it to stop", or "ctrl-c not working even when the app is
       running in the foreground inside a container".
 
@@ -4643,13 +4763,13 @@ try
     if (threadInfo.isListener) {
       if (g_reusePort) {
         /* then every listener has its own FDs */
-        for(const auto deferred : threadInfo.deferredAdds) {
+        for(const auto& deferred : threadInfo.deferredAdds) {
           t_fdm->addReadFD(deferred.first, deferred.second);
         }
       }
       else {
         /* otherwise all listeners are listening on the same ones */
-        for(const auto deferred : g_deferredAdds) {
+        for(const auto& deferred : g_deferredAdds) {
           t_fdm->addReadFD(deferred.first, deferred.second);
         }
       }
@@ -4930,6 +5050,8 @@ int main(int argc, char **argv)
     ::arg().set("proxy-protocol-from", "A Proxy Protocol header is only allowed from these subnets")="";
     ::arg().set("proxy-protocol-maximum-size", "The maximum size of a proxy protocol payload, including the TLV values")="512";
 
+    ::arg().set("dns64-prefix", "DNS64 prefix")="";
+
     ::arg().set("udp-source-port-min", "Minimum UDP port to bind on")="1024";
     ::arg().set("udp-source-port-max", "Maximum UDP port to bind on")="65535";
     ::arg().set("udp-source-port-avoid", "List of comma separated UDP port number to avoid")="11211";
@@ -4977,7 +5099,7 @@ int main(int argc, char **argv)
       }
       cerr<<" (";
       bool first = true;
-      for (auto const c : ::arg().getCommands()) {
+      for (const auto& c : ::arg().getCommands()) {
         if (!first) {
           cerr<<", ";
         }
