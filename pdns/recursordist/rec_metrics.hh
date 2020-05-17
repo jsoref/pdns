@@ -299,7 +299,7 @@ private:
         "Number of packets dropped because of (Lua) policy decision")},
     {"policy-result-noaction",
       MetricDefinition(PrometheusMetricType::counter,
-        "Number of packets that were not actioned upon by the RPZ/filter engine")},
+        "Number of packets that were not acted upon by the RPZ/filter engine")},
     {"policy-result-drop",
       MetricDefinition(PrometheusMetricType::counter,
         "Number of packets that were dropped by the RPZ/filter engine")},
@@ -441,6 +441,13 @@ private:
     {"udp-sndbuf-errors",
       MetricDefinition(PrometheusMetricType::counter,
         "From /proc/net/snmp SndbufErrors")},
+
+    {"cpu-iowait",
+      MetricDefinition(PrometheusMetricType::counter,
+        "Time spent waiting for I/O to complete by the whole system, in units of USER_HZ")},
+    {"cpu-steal",
+      MetricDefinition(PrometheusMetricType::counter,
+        "Stolen time, which is the time spent by the whole system in other operating systems when running in a virtualized environment, in units of USER_HZ")},
   };
 };
 

@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_GEOIPBACKEND_HH
-#define PDNS_GEOIPBACKEND_HH
-
+#pragma once
 #include "pdns/namespaces.hh"
 
 #include <vector>
@@ -65,9 +63,11 @@ public:
   bool addDomainKey(const DNSName& name, const KeyData& key, int64_t& id) override;
   bool activateDomainKey(const DNSName& name, unsigned int id) override;
   bool deactivateDomainKey(const DNSName& name, unsigned int id) override;
+  bool publishDomainKey(const DNSName& name, unsigned int id) override;
+  bool unpublishDomainKey(const DNSName& name, unsigned int id) override;
 
 private:
-  static pthread_rwlock_t s_state_lock;
+  static ReadWriteLock s_state_lock;
 
   void initialize();
   string format2str(string format, const Netmask &addr, GeoIPNetmask& gl);
@@ -77,5 +77,3 @@ private:
   vector<DNSResourceRecord> d_result;
   vector<GeoIPInterface> d_files;
 };
-
-#endif /* PDNS_GEOIPBACKEND_HH */

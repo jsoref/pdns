@@ -68,7 +68,13 @@ static void dokill(int)
 
 string DLCurrentConfigHandler(const vector<string>&parts, Utility::pid_t ppid)
 {
-  return ::arg().configstring(true);
+  if(parts.size() > 1) {
+    if(parts.size() == 2 && parts[1] == "diff") {
+      return ::arg().configstring(true, false);
+    }
+    return "Syntax: current-config [diff]";
+  }
+  return ::arg().configstring(true, true);
 }
 
 string DLRQuitHandler(const vector<string>&parts, Utility::pid_t ppid)
@@ -248,7 +254,7 @@ string DLNotifyRetrieveHandler(const vector<string>&parts, Utility::pid_t ppid)
   if(di.kind != DomainInfo::Slave || di.masters.empty())
     return "Domain '"+domain.toString()+"' is not a slave domain (or has no master defined)";
 
-  random_shuffle(di.masters.begin(), di.masters.end());
+  shuffle(di.masters.begin(), di.masters.end(), pdns::dns_random_engine());
   Communicator.addSuckRequest(domain, di.masters.front()); 
   return "Added retrieval request for '"+domain.toString()+"' from master "+di.masters.front().toLogString();
 }

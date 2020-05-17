@@ -120,8 +120,9 @@ bool CommunicatorClass::notifyDomain(const DNSName &domain, UeberBackend* B)
     return false;
   }
   queueNotifyDomain(di, B);
-  // call backend and tell them we sent out the notification - even though that is premature    
-  di.backend->setNotified(di.id, di.serial);
+  // call backend and tell them we sent out the notification - even though that is premature
+  if (di.serial != di.notified_serial)
+    di.backend->setNotified(di.id, di.serial);
 
   return true; 
 }
@@ -279,13 +280,13 @@ void CommunicatorClass::sendNotification(int sock, const DNSName& domain, const 
 
 void CommunicatorClass::drillHole(const DNSName &domain, const string &ip)
 {
-  Lock l(&d_holelock);
+  std::lock_guard<std::mutex> l(d_holelock);
   d_holes[make_pair(domain,ip)]=time(0);
 }
 
 bool CommunicatorClass::justNotified(const DNSName &domain, const string &ip)
 {
-  Lock l(&d_holelock);
+  std::lock_guard<std::mutex> l(d_holelock);
   if(d_holes.find(make_pair(domain,ip))==d_holes.end()) // no hole
     return false;
 

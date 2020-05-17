@@ -49,6 +49,7 @@
 #include "ednssubnet.hh"
 #include "filterpo.hh"
 #include "negcache.hh"
+#include "proxy-protocol.hh"
 #include "sholder.hh"
 
 #ifdef HAVE_CONFIG_H
@@ -780,6 +781,9 @@ public:
 
   std::unordered_map<std::string,bool> d_discardedPolicies;
   DNSFilterEngine::Policy d_appliedPolicy;
+  std::unordered_set<std::string> d_policyTags;
+  boost::optional<string> d_routingTag;
+
   unsigned int d_authzonequeries;
   unsigned int d_outqueries;
   unsigned int d_tcpoutqueries;
@@ -965,7 +969,7 @@ struct PacketIDBirthdayCompare: public std::binary_function<PacketID, PacketID, 
     return a.domain < b.domain;
   }
 };
-extern thread_local std::unique_ptr<MemRecursorCache> t_RC;
+extern std::unique_ptr<MemRecursorCache> s_RC;
 extern thread_local std::unique_ptr<RecursorPacketCache> t_packetCache;
 typedef MTasker<PacketID,string> MT_t;
 MT_t* getMT();
@@ -1018,6 +1022,7 @@ struct RecursorStats
   std::map<vState, std::atomic<uint64_t> > dnssecResults;
   std::map<DNSFilterEngine::PolicyKind, std::atomic<uint64_t> > policyResults;
   std::atomic<uint64_t> rebalancedQueries{0};
+  std::atomic<uint64_t> proxyProtocolInvalidCount{0};
 };
 
 //! represents a running TCP/IP client session
@@ -1032,10 +1037,15 @@ public:
     return d_fd;
   }
 
+  std::vector<ProxyProtocolValue> proxyProtocolValues;
   std::string data;
   const ComboAddress d_remote;
+  ComboAddress d_source;
+  ComboAddress d_destination;
   size_t queriesCount{0};
-  enum stateenum {BYTE0, BYTE1, GETQUESTION, DONE} state{BYTE0};
+  size_t proxyProtocolGot{0};
+  ssize_t proxyProtocolNeed{0};
+  enum stateenum {PROXYPROTOCOLHEADER, BYTE0, BYTE1, GETQUESTION, DONE} state{BYTE0};
   uint16_t qlen{0};
   uint16_t bytesread{0};
   uint16_t d_requestsInFlight{0}; // number of mthreads spawned for this connection
@@ -1084,6 +1094,8 @@ void distributeAsyncFunction(const std::string& question, const pipefunc_t& func
 
 int directResolve(const DNSName& qname, const QType& qtype, int qclass, vector<DNSRecord>& ret);
 int followCNAMERecords(std::vector<DNSRecord>& ret, const QType& qtype);
+int getFakeAAAARecords(const DNSName& qname, ComboAddress prefix, vector<DNSRecord>& ret);
+int getFakePTRRecords(const DNSName& qname, vector<DNSRecord>& ret);
 
 template<class T> T broadcastAccFunction(const boost::function<T*()>& func);
 
@@ -1091,16 +1103,13 @@ std::shared_ptr<SyncRes::domainmap_t> parseAuthAndForwards();
 uint64_t* pleaseGetNsSpeedsSize();
 uint64_t* pleaseGetFailedServersSize();
 uint64_t* pleaseGetEDNSStatusesSize();
-uint64_t* pleaseGetCacheSize();
 uint64_t* pleaseGetNegCacheSize();
-uint64_t* pleaseGetCacheHits();
-uint64_t* pleaseGetCacheMisses();
 uint64_t* pleaseGetConcurrentQueries();
 uint64_t* pleaseGetThrottleSize();
 uint64_t* pleaseGetPacketCacheHits();
 uint64_t* pleaseGetPacketCacheSize();
-uint64_t* pleaseWipeCache(const DNSName& canon, bool subtree=false);
-uint64_t* pleaseWipePacketCache(const DNSName& canon, bool subtree);
+uint64_t* pleaseWipeCache(const DNSName& canon, bool subtree=false, uint16_t qtype=0xffff);
+uint64_t* pleaseWipePacketCache(const DNSName& canon, bool subtree, uint16_t qtype=0xffff);
 uint64_t* pleaseWipeAndCountNegCache(const DNSName& canon, bool subtree=false);
 void doCarbonDump(void*);
 void primeHints(void);

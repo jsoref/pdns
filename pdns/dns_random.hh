@@ -19,12 +19,33 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_DNS_RANDOM
-#define PDNS_DNS_RANDOM
+#pragma once
 #include <cstdint>
+#include <limits>
 
 void dns_random_init(const std::string& data = "", bool force_reinit = false);
 uint32_t dns_random(uint32_t n);
 uint16_t dns_random_uint16();
 
-#endif
+namespace pdns {
+  struct dns_random_engine {
+
+    typedef uint32_t result_type;
+
+    static constexpr result_type min()
+    {
+      return 0;
+    }
+
+    static constexpr result_type max()
+    {
+      return std::numeric_limits<result_type>::max() - 1;
+    }
+
+    result_type operator()()
+    {
+      return dns_random(std::numeric_limits<result_type>::max());
+    }
+  };
+}
+

@@ -87,6 +87,7 @@ void declareArguments()
   ::arg().setSwitch("log-dns-details","If PDNS should log DNS non-erroneous details")="no";
   ::arg().setSwitch("log-dns-queries","If PDNS should log all incoming DNS queries")="no";
   ::arg().set("local-address","Local IP addresses to which we bind")="0.0.0.0, ::";
+  ::arg().set("local-ipv6","DEPRECATED, will be removed, move your IPs to local-address")="";
   ::arg().setSwitch("local-address-nonexist-fail","Fail to start if one or more of the local-address's do not exist on this server")="yes";
   ::arg().setSwitch("non-local-bind", "Enable binding to non-local addresses by using FREEBIND / BINDANY socket options")="no";
   ::arg().setSwitch("reuseport","Enable higher performance on compliant kernels by using SO_REUSEPORT allowing each receiver thread to open its own socket")="no";
@@ -209,6 +210,8 @@ void declareArguments()
   ::arg().set("default-zsk-algorithm","Default ZSK algorithm")="";
   ::arg().set("default-zsk-size","Default ZSK size (0 means default)")="0";
   ::arg().set("max-nsec3-iterations","Limit the number of NSEC3 hash iterations")="500"; // RFC5155 10.3
+  ::arg().set("default-publish-cdnskey","Default value for PUBLISH-CDNSKEY")="";
+  ::arg().set("default-publish-cds","Default value for PUBLISH-CDS")="";
 
   ::arg().set("include-dir","Include *.conf files from this directory");
   ::arg().set("security-poll-suffix","Domain name from which to query security update notifications")="secpoll.powerdns.com.";
@@ -233,6 +236,7 @@ void declareArguments()
   ::arg().set("max-generate-steps", "Maximum number of $GENERATE steps when loading a zone from a file")="0";
 
   ::arg().set("rng", "Specify the random number generator to use. Valid values are auto,sodium,openssl,getrandom,arc4random,urandom.")="auto";
+  ::arg().setDefaults();
 }
 
 static time_t s_start=time(0);
@@ -343,6 +347,12 @@ void declareStats(void)
 
   S.declare("sys-msec", "Number of msec spent in system time", getSysUserTimeMsec);
   S.declare("user-msec", "Number of msec spent in user time", getSysUserTimeMsec);
+
+#ifdef __linux__
+  S.declare("cpu-iowait", "Time spent waiting for I/O to complete by the whole system, in units of USER_HZ", getCPUIOWait);
+  S.declare("cpu-steal", "Stolen time, which is the time spent by the whole system in other operating systems when running in a virtualized environment, in units of USER_HZ", getCPUSteal);
+#endif
+
   S.declare("meta-cache-size", "Number of entries in the metadata cache", DNSSECKeeper::dbdnssecCacheSizes);
   S.declare("key-cache-size", "Number of entries in the key cache", DNSSECKeeper::dbdnssecCacheSizes);
   S.declare("signature-cache-size", "Number of entries in the signature cache", signatureCacheSize);
@@ -496,18 +506,14 @@ catch(PDNSException& pe)
   _exit(1);
 }
 
-static void* dummyThread(void *)
+static void dummyThread()
 {
-  void* ignore=0;
-  pthread_exit(ignore);
 }
 
 static void triggerLoadOfLibraries()
 {
-  pthread_t tid;
-  pthread_create(&tid, 0, dummyThread, 0);
-  void* res;
-  pthread_join(tid, &res);
+  std::thread dummy(dummyThread);
+  dummy.join();
 }
 
 void mainthread()
@@ -537,6 +543,7 @@ void mainthread()
    PC.setTTL(::arg().asNum("cache-ttl"));
    PC.setMaxEntries(::arg().asNum("max-packet-cache-entries"));
    QC.setMaxEntries(::arg().asNum("max-cache-entries"));
+   DNSSECKeeper::setMaxEntries(::arg().asNum("max-cache-entries"));
 
    if (!PC.enabled() && ::arg().mustDo("log-dns-queries")) {
      g_log<<Logger::Warning<<"Packet cache disabled, logging queries without HIT/MISS"<<endl;
