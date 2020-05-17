@@ -374,6 +374,7 @@ bool RemoteBackend::getDomainKeys(const DNSName& name, std::vector<DNSBackend::K
      key.id = intFromJson(jsonKey, "id");
      key.flags = intFromJson(jsonKey, "flags");
      key.active = asBool(jsonKey["active"]);
+     key.published = boolFromJson(jsonKey, "published", true);
      key.content = stringFromJson(jsonKey, "content");
      keys.push_back(key);
    }
@@ -411,6 +412,7 @@ bool RemoteBackend::addDomainKey(const DNSName& name, const KeyData& key, int64_
        { "key", Json::object {
          { "flags", static_cast<int>(key.flags) },
          { "active", key.active },
+         { "published", key.published },
          { "content", key.content }
        }}
      }}
@@ -461,6 +463,45 @@ bool RemoteBackend::deactivateDomainKey(const DNSName& name, unsigned int id) {
 
    return true;
 }
+
+bool RemoteBackend::publishDomainKey(const DNSName& name, unsigned int id) {
+   // no point doing dnssec if it's not supported
+   if (d_dnssec == false) return false;
+
+   Json query = Json::object{
+     { "method", "publishDomainKey" },
+     { "parameters", Json::object {
+       { "name", name.toString() },
+       { "id", static_cast<int>(id) }
+     }}
+   };
+
+   Json answer;
+   if (this->send(query) == false || this->recv(answer) == false)
+     return false;
+
+   return true;
+}
+
+bool RemoteBackend::unpublishDomainKey(const DNSName& name, unsigned int id) {
+   // no point doing dnssec if it's not supported
+   if (d_dnssec == false) return false;
+
+   Json query = Json::object{
+     { "method", "unpublishDomainKey" },
+     { "parameters", Json::object {
+       { "name", name.toString() },
+       { "id", static_cast<int>(id) }
+     }}
+   };
+
+   Json answer;
+   if (this->send(query) == false || this->recv(answer) == false)
+     return false;
+
+   return true;
+}
+
 
 bool RemoteBackend::doesDNSSEC() {
    return d_dnssec;
@@ -904,6 +945,13 @@ void RemoteBackend::getAllDomains(vector<DomainInfo> *domains, bool include_disa
   }
 }
 
+void RemoteBackend::alsoNotifies(const DNSName &domain, set<string> *ips)
+{
+  std::vector<std::string> meta;
+  getDomainMetadata(domain, "ALSO-NOTIFY", meta);
+  ips->insert(meta.begin(), meta.end());
+}
+
 void RemoteBackend::getUpdatedMasters(vector<DomainInfo>* domains)
 {
   Json query = Json::object{
@@ -923,6 +971,40 @@ void RemoteBackend::getUpdatedMasters(vector<DomainInfo>* domains)
     this->parseDomainInfo(row, di);
     domains->push_back(di);
   }
+}
+
+void RemoteBackend::getUnfreshSlaveInfos(vector<DomainInfo>* domains) {
+  Json query = Json::object{
+   { "method", "getUnfreshSlaveInfos" },
+   { "parameters", Json::object{ } },
+  };
+
+  Json answer;
+  if (this->send(query) == false || this->recv(answer) == false)
+    return;
+
+  if (answer["result"].is_array() == false)
+    return;
+
+  for(const auto& row: answer["result"].array_items()) {
+    DomainInfo di;
+    this->parseDomainInfo(row, di);
+    domains->push_back(di);
+  }
+}
+
+void RemoteBackend::setFresh(uint32_t domain_id) {
+   Json query = Json::object{
+     { "method", "setFresh" },
+     { "parameters", Json::object {
+       { "id", static_cast<double>(domain_id) }
+     }}
+   };
+
+   Json answer;
+   if (this->send(query) == false || this->recv(answer) == false) {
+      g_log<<Logger::Error<<kBackendId<<" Failed to execute RPC for RemoteBackend::setFresh("<<domain_id<<")"<<endl;
+   }
 }
 
 DNSBackend *RemoteBackend::maker()

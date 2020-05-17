@@ -21,6 +21,7 @@
  */
 #pragma once
 
+#include <mutex>
 #include "lock.hh"
 
 // this function can clean any cache that has a getTTD() method on its entries, a preRemoval() method and a 'sequence' index as its second index
@@ -56,7 +57,7 @@ template <typename S, typename C, typename T> void pruneCollection(C& container,
   for(; iter != sidx.end() && tried < lookAt ; ++tried) {
     if(iter->getTTD() < now) {
       container.preRemoval(*iter);
-      sidx.erase(iter++);
+      iter = sidx.erase(iter);
       erased++;
     }
     else
@@ -111,7 +112,33 @@ template <typename S, typename T> void moveCacheItemToBack(T& collection, typena
   moveCacheItemToFrontOrBack<S>(collection, iter, false);
 }
 
-template <typename S, typename T> uint64_t pruneLockedCollectionsVector(vector<T>& maps, uint64_t maxCached, uint64_t cacheSize)
+template <typename S, typename T> uint64_t pruneLockedCollectionsVector(vector<T>& maps)
+{
+  uint64_t totErased = 0;
+  time_t now = time(nullptr);
+
+  for(auto& mc : maps) {
+    WriteLock wl(&mc.d_mut);
+
+    uint64_t lookAt = (mc.d_map.size() + 9) / 10; // Look at 10% of this shard
+    uint64_t erased = 0;
+
+    auto& sidx = boost::multi_index::get<S>(mc.d_map);
+    for(auto i = sidx.begin(); i != sidx.end() && lookAt > 0; lookAt--) {
+      if(i->ttd < now) {
+        i = sidx.erase(i);
+        erased++;
+      } else {
+        ++i;
+      }
+    }
+    totErased += erased;
+  }
+
+  return totErased;
+}
+
+template <typename S, typename C, typename T> uint64_t pruneMutexCollectionsVector(C& container, vector<T>& maps, uint64_t maxCached, uint64_t cacheSize)
 {
   time_t now = time(nullptr);
   uint64_t totErased = 0;
@@ -120,34 +147,68 @@ template <typename S, typename T> uint64_t pruneLockedCollectionsVector(vector<T
 
   // two modes - if toTrim is 0, just look through 10%  of the cache and nuke everything that is expired
   // otherwise, scan first 5*toTrim records, and stop once we've nuked enough
-  if (maxCached && cacheSize > maxCached) {
+  if (cacheSize > maxCached) {
     toTrim = cacheSize - maxCached;
     lookAt = 5 * toTrim;
   } else {
     lookAt = cacheSize / 10;
   }
 
-  for(auto& mc : maps) {
-    WriteLock wl(&mc.d_mut);
+  uint64_t maps_size = maps.size();
+  if (maps_size == 0)
+      return 0;
+
+  for (auto& mc : maps) {
+    const typename C::lock l(mc);
+    mc.d_cachecachevalid = false;
     auto& sidx = boost::multi_index::get<S>(mc.d_map);
     uint64_t erased = 0, lookedAt = 0;
-    for(auto i = sidx.begin(); i != sidx.end(); lookedAt++) {
-      if(i->ttd < now) {
+    for (auto i = sidx.begin(); i != sidx.end(); lookedAt++) {
+      if (i->getTTD() < now) {
+        container.preRemoval(*i);
         i = sidx.erase(i);
         erased++;
+        mc.d_entriesCount--;
       } else {
         ++i;
       }
 
-      if(toTrim && erased > toTrim / maps.size())
+      if (toTrim && erased >= toTrim / maps_size)
         break;
 
-      if(lookedAt > lookAt / maps.size())
+      if (lookedAt > lookAt / maps_size)
         break;
     }
     totErased += erased;
+    if (toTrim && totErased >= toTrim)
+      break;
   }
 
+  if (totErased >= toTrim) { // done
+    return totErased;
+  }
+
+  toTrim -= totErased;
+
+  while (toTrim > 0) {
+    size_t pershard = toTrim / maps_size + 1;
+    for (auto& mc : maps) {
+      const typename C::lock l(mc);
+      mc.d_cachecachevalid = false;
+      auto& sidx = boost::multi_index::get<S>(mc.d_map);
+      size_t removed = 0;
+      for (auto i = sidx.begin(); i != sidx.end() && removed < pershard; removed++) {
+        container.preRemoval(*i);
+        i = sidx.erase(i);
+        mc.d_entriesCount--;
+        totErased++;
+        toTrim--;
+        if (toTrim == 0) {
+          break;
+        }
+      }
+    }
+  }
   return totErased;
 }
 

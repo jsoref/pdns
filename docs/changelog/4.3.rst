@@ -2,15 +2,247 @@ Changelogs for 4.3.x
 ====================
 
 .. changelog::
+  :version: 4.3.0
+  :released: 7th of April 2020
+
+  This is version 4.3.0 of the Authoritative Server.
+  It contains all changes mentioned in the alpha, beta and RC versions below, plus two more bugfixes.
+
+  If you are upgrading from beta2 or rc2, AND ONLY THEN, please read `pull request #8975 <https://github.com/PowerDNS/pdns/pull/8975>`__ very carefully.
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8977
+
+    avoid IXFR-in corruption when deltas come in close together (please see the :ref:`ixfr-in-corruption-4.3.0` upgrade notes)
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8975
+
+    improve sql schema updates
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8951
+
+    reduce the number of temporary memory allocations
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8973
+
+    Fix NSECx for unpublished DNSKEYs properly
+
+.. changelog::
+  :version: 4.3.0-rc2
+  :released: 18th of March 2020
+
+  This is the first Release Candidate for version 4.3.0 of the Authoritative Server.
+  The version called 4.3.0-rc1 was never released because of the cache cleanup change mentioned below.
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8924
+
+    Make sure we look at 10% of all cached items during cleanup (Kees Monshouwer)
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8936
+
+    emit correct NSEC/NSEC3 bitmaps in hidden key situations (Robin Geuze)
+
+.. changelog::
+  :version: 4.3.0-beta2
+  :released: 21st of February 2020
+
+  This is the second beta for version 4.3.0 of the Authoritative Server.
+  We expect this to be the final beta.
+  Please see :doc:`the upgrade notes <../upgrading>` for some breaking changes including a mandatory schema upgrade for database backends.
+
+  Some minor fixes have been left out from the list below; some other bugs may have been fixed accidentally as a result of the tremendous amount of work that goes into each of our major releases.
+
+  As announced in `Backend removals in the upcoming Authoritative Server release <https://blog.powerdns.com/2019/10/17/backend-removals-in-the-upcoming-authoritative-server-release/>`_, we have removed five backends.
+
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8811
+
+    adjust NSEC TTLs to negative TTL
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8776
+
+    Add more SQL schema files to packages and tarballs (Matt Nordhoff)
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8828
+    :tickets: 7970
+
+    only log "No question section in packet" at Debug logging level
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8096
+
+    do not update identical notified serials (Kees Monshouwer)
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8826
+
+    Refuse NSEC records with a bitmap length > 32
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8094
+
+    add full option to 'pdns_control show-config' (Kees Monshouwer)
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8815
+
+    YaHTTP: Support bracketed IPv6 addresses
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8779
+
+    IXFR: only sign SOA in empty response for +DO queries
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8793
+
+    Prepare the caches' buckets in advance
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8355
+
+    Rework NetmaskTree for better CPU and memory efficiency. (Stephan Bosch)
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8783
+
+    Add 'IO wait' and 'steal' metrics on Linux
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8788
+
+    Make sure the default-publish-cds and default-publish-cdnskey options are respected for AXFR (Robin Geuze)
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8784
+
+    API: add includerings option to statistics endpoint
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8682
+
+    Add an extended status report in the bind backend
+
+
+.. changelog::
+  :version: 4.3.0-beta1
+  :released: 31st of January 2020
+
+  This is the first beta for version 4.3.0 of the Authoritative Server.
+  Please see :doc:`the upgrade notes <../upgrading>` for some minor breaking changes.
+
+  Some minor fixes have been left out from the list below; some other bugs may have been fixed accidentally as a result of the tremendous amount of work that goes into each of our major releases.
+
+  As announced in `Backend removals in the upcoming Authoritative Server release <https://blog.powerdns.com/2019/10/17/backend-removals-in-the-upcoming-authoritative-server-release/>`_, we have removed five backends.
+
+  .. change::
+    :tags: Changes
+    :pullreq: 8754
+
+    remove the implicit 5->7 algorithm upgrade
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8749
+
+    allow local-ipv6 until 4.4.0
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8594
+
+    add default-publish-{cds|cdnskey} options
+
+  .. change::
+    :tags: Changes
+    :pullreq: 8744
+
+    Make Lua mandatory for Auth (Chris Hofstaedtler)
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8681
+
+    Add metrics about the size of our in-memory rings
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8628
+
+    make sure records from LMDB backend end up in the right packet section (Kees Monshouwer)
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8627
+
+    gpgsqlbackend: stop using prepared statements (Chris Hofstaedtler)
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8713
+
+    Enforce a strict maximum size for the packet and records caches
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8701, 8732
+
+    remotebackend: Support alsoNotifies, setFresh, getUnfreshSlaveInfos
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8649
+
+    Clear the TSIG algo between iterations in the API
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8177
+
+    Add support for managing unpublished DNSSEC keys (Robin Geuze, TransIP)
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8668
+
+    HTTP API: Allow DNAME in apex with SOA and NS records
+
+.. changelog::
   :version: 4.3.0-alpha1
   :released: 10th of December 2019
 
   This is the first alpha for version 4.3.0 of the Authoritative Server.
   Please see :doc:`the upgrade notes <../upgrading>` for some minor breaking changes.
 
-  Some minor fixes have been left out from the list below; some other bugs may have been fixed accidentally as a result of the tremendous amount of work that goes into each of our major releases.
 
-  As announced in `Backend removals in the upcoming Authoritative Server release <https://blog.powerdns.com/2019/10/17/backend-removals-in-the-upcoming-authoritative-server-release/>`_, we have removed five backends.
 
   .. change::
     :tags: Removed Features

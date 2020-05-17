@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_EDNSOPTIONS_HH
-#define PDNS_EDNSOPTIONS_HH
-
+#pragma once
 #include "namespaces.hh"
 
 struct EDNSOptionCode
@@ -47,7 +45,7 @@ typedef std::map<uint16_t, EDNSOptionView> EDNSOptionViewMap;
 
 /* extract all EDNS0 options from a pointer on the beginning rdLen of the OPT RR */
 int getEDNSOptions(const char* optRR, size_t len, EDNSOptionViewMap& options);
+/* extract all EDNS0 options from the content (so after rdLen) of the OPT RR */
+bool getEDNSOptionsFromContent(const std::string& content, std::vector<std::pair<uint16_t, std::string>>& options);
 
 void generateEDNSOption(uint16_t optionCode, const std::string& payload, std::string& res);
-
-#endif
