@@ -49,6 +49,13 @@ LdapBackend::LdapBackend( const string &suffix )
 
     setArgPrefix( "ldap" + suffix );
 
+    d_dnssec = mustDo( "dnssec" );
+    if ( d_dnssec ) {
+      d_metadata_searchdn = getArg( "metadata-searchdn" );
+      if ( d_metadata_searchdn.empty() )
+        throw PDNSException( "Please set 'ldap-metadata-searchdn' to use DNSSEC" );
+    }
+
     d_getdn = false;
     d_reconnect_attempts = getArgAsNum( "reconnect-attempts" );
     d_list_fcnt = &LdapBackend::list_simple;
@@ -175,6 +182,10 @@ void LdapBackend::extract_common_attributes( DNSResult &result ) {
     // Here too we have to erase this attribute.
     d_result.erase( "modifyTimestamp" );
   }
+
+  if ( d_result.count( "PdnsDomainId" ) && !d_result["PdnsDomainId"].empty() ) {
+    result.domain_id = pdns_stou( d_result["PdnsDomainId"][0] );
+  }
 }
 
 
@@ -231,8 +242,10 @@ void LdapBackend::extract_entry_results( const DNSName& domain, const DNSResult&
 
         // Ordername
         if ( d_result.count( "PdnsRecordOrdername" ) && !d_result["PdnsRecordOrdername"].empty() ) {
-          std::string defaultOrdername;
+          std::string defaultOrdername = d_result["PdnsRecordOrdername"][0];
+          bool hasON = true;
 
+<<<<<<< working copy
           for ( const auto& rdata : d_result["PdnsRecordOrdername"] ) {
             std::string qtype2;
             std::size_t pos = rdata.find_first_of( '|', 0 );
@@ -240,16 +253,40 @@ void LdapBackend::extract_entry_results( const DNSName& domain, const DNSResult&
               // This is the default ordername for all records in this entry
               defaultOrdername = rdata;
               continue;
+||||||| base
+          for ( const auto& rdata : d_result["PdnsRecordOrdername"] ) {
+            std::string qtype;
+            std::size_t pos = rdata.find_first_of( '|', 0 );
+            if ( pos == std::string::npos ) {
+              // This is the default ordername for all records in this entry
+              defaultOrdername = rdata;
+              continue;
+=======
+          if ( d_result.count( "PdnsRecordNoOrdername" ) ) {
+            for ( const auto& rdata : d_result["PdnsRecordNoOrdername"] ) {
+              if ( rdata == QType( local_result.qtype ).getName() )
+                hasON = false;
+>>>>>>> merge rev
             }
+<<<<<<< working copy
 
             qtype2 = rdata.substr( 0, pos );
             if ( qtype2 != QType( local_result.qtype ).getName() )
               continue;
 
             local_result.ordername = rdata.substr( pos + 1 );
+||||||| base
+
+            qtype = rdata.substr( 0, pos );
+            if ( qtype != QType( local_result.qtype ).getName() )
+              continue;
+
+            local_result.ordername = rdata.substr( pos + 1 );
+=======
+>>>>>>> merge rev
           }
 
-          if ( local_result.ordername.empty() && !defaultOrdername.empty() )
+          if ( hasON )
             local_result.ordername = defaultOrdername;
         }
 
@@ -294,6 +331,11 @@ class LdapFactory : public BackendFactory
       declare( suffix, "filter-lookup", "LDAP filter for limiting IP or name lookups", "(:target:)" );
       declare( suffix, "disable-ptrrecord", "Deprecated, use ldap-method=strict instead", "no" );
       declare( suffix, "reconnect-attempts", "Number of attempts to re-establish a lost LDAP connection", "5" );
+      declare( suffix, "lookup-zone-rebase", "Whether or not to search for a zone record under the zone entry", "no" );
+      // DNSSEC related settings
+      declare( suffix, "dnssec", "Enable DNSSEC lookups in the backend", "no" );
+      declare( suffix, "metadata-searchdn", "The DN under which the metadata for a given domain can be found", "" );
+      declare( suffix, "metadata-searchfilter", "The filter that will return the domain DN for the metadata searches", "(&(objectClass=organizationalUnit)(ou=:domain:))" );
     }
 
 

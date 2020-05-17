@@ -286,6 +286,44 @@ install_auth() {
   run 'echo ${HOME}/.odbc.ini'
   run 'cat ${HOME}/.odbc.ini'
 
+<<<<<<< working copy
+||||||| base
+  # ldap-backend test setup
+  run "sudo apt-get -qq --no-install-recommends install \
+    slapd \
+    ldap-utils"
+  run "mkdir /tmp/ldap-dns"
+  run "pushd /tmp/ldap-dns"
+  run 'for schema in /etc/ldap/schema/{core,cosine}.schema ${TRAVIS_BUILD_DIR}/modules/ldapbackend/{dnsdomain2,pdns-domaininfo}.schema ; do echo include $schema ; done > ldap.conf'
+  run "mkdir slapd.d"
+  run "slaptest -f ldap.conf -F slapd.d"
+  run "sudo cp slapd.d/cn=config/cn=schema/cn={*dns*.ldif /etc/ldap/slapd.d/cn=config/cn=schema/"
+  run "sudo chown -R openldap:openldap /etc/ldap/slapd.d/"
+  run "sudo service slapd restart"
+  run "popd"
+  run "sudo -u openldap mkdir -p /var/lib/ldap/powerdns"
+  run "sudo ldapadd -Y EXTERNAL -H ldapi:/// -f ./modules/ldapbackend/testfiles/add.ldif"
+
+=======
+  # ldap-backend test setup
+  run "sudo apt-get -qq --no-install-recommends install \
+    slapd \
+    ldap-utils"
+  run "mkdir /tmp/ldap-dns"
+  run "pushd /tmp/ldap-dns"
+  run 'for schema in /etc/ldap/schema/{core,cosine}.schema ${TRAVIS_BUILD_DIR}/modules/ldapbackend/{dnsdomain2,pdns-domaininfo}.schema ; do echo include $schema ; done > ldap.conf'
+  run "mkdir slapd.d"
+  run "slaptest -f ldap.conf -F slapd.d"
+  run "sudo cp slapd.d/cn=config/cn=schema/cn={*dns*.ldif /etc/ldap/slapd.d/cn=config/cn=schema/"
+  run "sudo chown -R openldap:openldap /etc/ldap/slapd.d/"
+  run "sudo service slapd restart"
+  run "popd"
+  run "sudo -u openldap mkdir -p /var/lib/ldap/powerdns"
+  run "sudo ldapmodify -Y EXTERNAL -H ldapi:/// -f ./modules/ldapbackend/testfiles/load-sssvlv.ldif"
+  run "sudo ldapadd -Y EXTERNAL -H ldapi:/// -f ./modules/ldapbackend/testfiles/add-mdb.ldif"
+  run "sudo ldapadd -Y EXTERNAL -H ldapi:/// -f ./modules/ldapbackend/testfiles/add-content.ldif"
+
+>>>>>>> merge rev
   # remote-backend tests requirements
   run "sudo apt-get -qq --no-install-recommends install \
     ruby-json \
@@ -325,6 +363,10 @@ install_auth() {
 install_ixfrdist() {
   run "sudo apt-get -qq --no-install-recommends install \
     libyaml-cpp-dev"
+}
+ 
+install_auth_ldap() {
+  install_auth
 }
 
 install_recursor() {
@@ -407,6 +449,7 @@ build_auth() {
   run "find /tmp/pdns-install-dir -ls"
 }
 
+<<<<<<< working copy
 build_ixfrdist() {
   run "autoreconf -vi"
   run "./configure \
@@ -423,6 +466,13 @@ build_ixfrdist() {
   run "cd .."
 }
 
+||||||| base
+=======
+build_auth_ldap() {
+  build_auth
+}
+
+>>>>>>> merge rev
 build_recursor() {
   export PDNS_RECURSOR_DIR=$HOME/pdns_recursor
   run "cd pdns/recursordist"
@@ -473,6 +523,13 @@ build_dnsdist(){
   run "find $HOME/dnsdist -ls"
   run "rm -rf pdns/dnsdistdist/dnsdist-*/"
 
+}
+
+ldap_clean() {
+  run "sudo service slapd stop"
+  run "sudo rm /var/lib/ldap/powerdns/*"
+  run "sudo service slapd start"
+  run "sudo ldapadd -Y EXTERNAL -H ldapi:/// -f ${TRAVIS_BUILD_DIR}/modules/ldapbackend/testfiles/add-content.ldif"
 }
 
 test_auth() {
@@ -602,12 +659,46 @@ test_auth() {
   run "rm -f regression-tests/zones/*-slave.*" #FIXME
 }
 
+<<<<<<< working copy
 test_ixfrdist(){
   run "cd regression-tests.ixfrdist"
   run "IXFRDISTBIN=${TRAVIS_BUILD_DIR}/pdns/ixfrdist ./runtests -v || (cat ixfrdist.log; false)"
   run "cd .."
 }
 
+||||||| base
+=======
+test_auth_ldap() {
+  run "make -j3 check"
+  run "test -f pdns/test-suite.log && cat pdns/test-suite.log || true"
+  run "test -f modules/remotebackend/test-suite.log && cat modules/remotebackend/test-suite.log || true"
+
+  run 'make -k -j3 -C pdns $(grep "(EXEEXT):" pdns/Makefile | cut -f1 -d\$ | grep -E -v "dnspcap2protobuf|dnsdist|calidns|speedtest")'
+
+  run "cd regression-tests"
+
+  #travis unbound is too old for this test (unbound 1.6.0 required)
+  run "touch tests/ent-asterisk/fail.nsec"
+
+  run "./timestamp ./start-test-stop 5300 ldap-tree"
+  ldap_clean
+  run "./timestamp ./start-test-stop 5300 ldap-simple"
+  ldap_clean
+  run "./timestamp ./start-test-stop 5300 ldap-strict"
+  ldap_clean
+  run "./timestamp ./start-test-stop 5300 ldap-simple-nsec"
+  ldap_clean
+  run "./timestamp ./start-test-stop 5300 ldap-simple-nsec3"
+  ldap_clean
+  run "./timestamp ./start-test-stop 5300 ldap-simple-nsec3-optout"
+  ldap_clean
+  run "./timestamp ./start-test-stop 5300 ldap-simple-nsec3-narrow"
+  ldap_clean
+
+  run "rm tests/ent-asterisk/fail.nsec"
+}
+
+>>>>>>> merge rev
 test_recursor() {
   export PDNSRECURSOR="${PDNS_RECURSOR_DIR}/sbin/pdns_recursor"
   export DNSBULKTEST="/usr/bin/dnsbulktest"
