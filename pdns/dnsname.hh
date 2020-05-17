@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #pragma once
+#include <cstring>
 #include <string>
 #include <vector>
 #include <set>
@@ -62,9 +63,27 @@ class DNSName
 {
 public:
   DNSName()  {}          //!< Constructs an *empty* DNSName, NOT the root!
-  explicit DNSName(const char* p);      //!< Constructs from a human formatted, escaped presentation
-  explicit DNSName(const std::string& str) : DNSName(str.c_str()) {}; //!< Constructs from a human formatted, escaped presentation
-  DNSName(const char* p, int len, int offset, bool uncompress, uint16_t* qtype=0, uint16_t* qclass=0, unsigned int* consumed=0, uint16_t minOffset=0); //!< Construct from a DNS Packet, taking the first question if offset=12
+  // Work around assertion in some boost versions that do not like self-assignment of boost::container::string
+  DNSName& operator=(const DNSName& rhs)
+  {
+    if (this != &rhs) {
+      d_storage = rhs.d_storage;
+    }
+    return *this;
+  }
+  DNSName& operator=(const DNSName&& rhs)
+  {
+    if (this != &rhs) {
+      d_storage = std::move(rhs.d_storage);
+    }
+    return *this;
+  }
+  DNSName(const DNSName& a) = default;
+  DNSName(DNSName&& a) = default;
+  explicit DNSName(const char* p): DNSName(p, std::strlen(p)) {} //!< Constructs from a human formatted, escaped presentation
+  explicit DNSName(const char* p, size_t len);      //!< Constructs from a human formatted, escaped presentation
+  explicit DNSName(const std::string& str) : DNSName(str.c_str(), str.length()) {}; //!< Constructs from a human formatted, escaped presentation
+  DNSName(const char* p, int len, int offset, bool uncompress, uint16_t* qtype=nullptr, uint16_t* qclass=nullptr, unsigned int* consumed=nullptr, uint16_t minOffset=0); //!< Construct from a DNS Packet, taking the first question if offset=12. If supplied, consumed is set to the number of bytes consumed from the packet, which will not be equal to the wire length of the resulting name in case of compression.
   
   bool isPartOf(const DNSName& rhs) const;   //!< Are we part of the rhs name?
   inline bool operator==(const DNSName& rhs) const; //!< DNS-native comparison (case insensitive) - empty compares to empty
@@ -146,6 +165,9 @@ public:
   const string_t& getStorage() const {
     return d_storage;
   }
+
+  bool has8bitBytes() const; /* returns true if at least one byte of the labels forming the name is not included in [A-Za-z0-9_*./@ \\:-] */
+
 private:
   string_t d_storage;
 
@@ -468,7 +490,7 @@ namespace std {
     };
 }
 
-DNSName::string_t segmentDNSNameRaw(const char* input); // from ragel
+DNSName::string_t segmentDNSNameRaw(const char* input, size_t inputlen); // from ragel
 bool DNSName::operator==(const DNSName& rhs) const
 {
   if(rhs.empty() != empty() || rhs.d_storage.size() != d_storage.size())

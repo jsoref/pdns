@@ -7,6 +7,7 @@
 #include <atomic>
 #include <fstream>
 #include <cstring>
+#include <mutex>
 #include <pthread.h>
 
 #include <openssl/conf.h>
@@ -19,18 +20,20 @@
 #include <sodium.h>
 #endif /* HAVE_LIBSODIUM */
 
-#if (OPENSSL_VERSION_NUMBER < 0x1010000fL || defined LIBRESSL_VERSION_NUMBER)
+#if (OPENSSL_VERSION_NUMBER < 0x1010000fL || (defined LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x2090100fL)
 /* OpenSSL < 1.1.0 needs support for threading/locking in the calling application. */
-static pthread_mutex_t *openssllocks{nullptr};
+
+#include "lock.hh"
+static std::vector<std::mutex> openssllocks;
 
 extern "C" {
 static void openssl_pthreads_locking_callback(int mode, int type, const char *file, int line)
 {
   if (mode & CRYPTO_LOCK) {
-    pthread_mutex_lock(&(openssllocks[type]));
+    openssllocks.at(type).lock();
 
   } else {
-    pthread_mutex_unlock(&(openssllocks[type]));
+    openssllocks.at(type).unlock();
   }
 }
 
@@ -42,27 +45,18 @@ static unsigned long openssl_pthreads_id_callback()
 
 static void openssl_thread_setup()
 {
-  openssllocks = (pthread_mutex_t*)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
-
-  for (int i = 0; i < CRYPTO_num_locks(); i++)
-    pthread_mutex_init(&(openssllocks[i]), NULL);
-
-  CRYPTO_set_id_callback(openssl_pthreads_id_callback);
-  CRYPTO_set_locking_callback(openssl_pthreads_locking_callback);
+  openssllocks = std::vector<std::mutex>(CRYPTO_num_locks());
+  CRYPTO_set_id_callback(&openssl_pthreads_id_callback);
+  CRYPTO_set_locking_callback(&openssl_pthreads_locking_callback);
 }
 
 static void openssl_thread_cleanup()
 {
-  CRYPTO_set_locking_callback(NULL);
-
-  for (int i=0; i<CRYPTO_num_locks(); i++) {
-    pthread_mutex_destroy(&(openssllocks[i]));
-  }
-
-  OPENSSL_free(openssllocks);
+  CRYPTO_set_locking_callback(nullptr);
+  openssllocks.clear();
 }
 
-#endif /* (OPENSSL_VERSION_NUMBER < 0x1010000fL || defined LIBRESSL_VERSION_NUMBER) */
+#endif /* (OPENSSL_VERSION_NUMBER < 0x1010000fL || (defined LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x2090100fL) */
 
 static std::atomic<uint64_t> s_users;
 static int s_ticketsKeyIndex{-1};
@@ -72,7 +66,13 @@ static int s_keyLogIndex{-1};
 void registerOpenSSLUser()
 {
   if (s_users.fetch_add(1) == 0) {
-#if (OPENSSL_VERSION_NUMBER < 0x1010000fL || defined LIBRESSL_VERSION_NUMBER)
+#ifdef HAVE_OPENSSL_INIT_CRYPTO
+    /* load the default configuration file (or one specified via OPENSSL_CONF),
+       which can then be used to load engines */
+    OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, nullptr);
+#endif
+
+#if (OPENSSL_VERSION_NUMBER < 0x1010000fL || (defined LIBRESSL_VERSION_NUMBER && LIBRESSL_VERSION_NUMBER < 0x2090100fL))
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms();
     openssl_thread_setup();
@@ -100,7 +100,7 @@ void registerOpenSSLUser()
 void unregisterOpenSSLUser()
 {
   if (s_users.fetch_sub(1) == 1) {
-#if (OPENSSL_VERSION_NUMBER < 0x1010000fL || defined LIBRESSL_VERSION_NUMBER)
+#if (OPENSSL_VERSION_NUMBER < 0x1010000fL || (defined LIBRESSL_VERSION_NUMBER && LIBRESSL_VERSION_NUMBER < 0x2090100fL))
     ERR_free_strings();
 
     EVP_cleanup();
@@ -327,7 +327,7 @@ std::map<int, std::string> libssl_load_ocsp_responses(const std::vector<std::str
 
 int libssl_get_last_key_type(std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)>& ctx)
 {
-#if (OPENSSL_VERSION_NUMBER >= 0x10002000L && !defined LIBRESSL_VERSION_NUMBER)
+#ifdef HAVE_SSL_CTX_GET0_PRIVATEKEY
   auto pkey = SSL_CTX_get0_privatekey(ctx.get());
 #else
   auto temp = std::unique_ptr<SSL, void(*)(SSL*)>(SSL_new(ctx.get()), SSL_free);
@@ -426,8 +426,9 @@ const std::string& libssl_tls_version_to_string(LibsslTLSVersion version)
 
 bool libssl_set_min_tls_version(std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)>& ctx, LibsslTLSVersion version)
 {
-#if (OPENSSL_VERSION_NUMBER >= 0x1010000fL && !defined LIBRESSL_VERSION_NUMBER)
-  /* these functions have been introduced in 1.1.0, and the use of SSL_OP_NO_* is deprecated */
+#if defined(HAVE_SSL_CTX_SET_MIN_PROTO_VERSION) || defined(SSL_CTX_set_min_proto_version)
+  /* These functions have been introduced in 1.1.0, and the use of SSL_OP_NO_* is deprecated
+     Warning: SSL_CTX_set_min_proto_version is a function-like macro in OpenSSL */
   int vers;
   switch(version) {
   case LibsslTLSVersion::TLS10:
@@ -480,13 +481,11 @@ bool libssl_set_min_tls_version(std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)>& ctx
 
 OpenSSLTLSTicketKeysRing::OpenSSLTLSTicketKeysRing(size_t capacity)
 {
-  pthread_rwlock_init(&d_lock, nullptr);
   d_ticketKeys.set_capacity(capacity);
 }
 
 OpenSSLTLSTicketKeysRing::~OpenSSLTLSTicketKeysRing()
 {
-  pthread_rwlock_destroy(&d_lock);
 }
 
 void OpenSSLTLSTicketKeysRing::addKey(std::shared_ptr<OpenSSLTLSTicketKey> newKey)
@@ -656,6 +655,10 @@ std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)> libssl_init_server_context(const TLS
 #endif /* HAVE_SSL_CTX_SET_NUM_TICKETS */
   }
 
+  if (config.d_sessionTimeout > 0) {
+    SSL_CTX_set_timeout(ctx.get(), config.d_sessionTimeout);
+  }
+
   if (config.d_preferServerCiphers) {
     sslOptions |= SSL_OP_CIPHER_SERVER_PREFERENCE;
   }
@@ -738,6 +741,7 @@ static void libssl_key_log_file_callback(const SSL* ssl, const char* line)
   }
 
   fprintf(fp, "%s\n", line);
+  fflush(fp);
 }
 #endif /* HAVE_SSL_CTX_SET_KEYLOG_CALLBACK */
 

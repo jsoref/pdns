@@ -50,7 +50,6 @@ godbc_sqlite3-nodnssec godbc_sqlite3 godbc_sqlite3-nsec3 godbc_sqlite3-nsec3-opt
 gpgsql-nodnssec gpgsql gpgsql-nsec3 gpgsql-nsec3-optout gpgsql-nsec3-narrow
 gsqlite3-nodnssec gsqlite3 gsqlite3-nsec3 gsqlite3-nsec3-optout gsqlite3-nsec3-narrow
 lmdb-nodnssec lmdb
-opendbx-sqlite3
 remotebackend-pipe remotebackend-unix remotebackend-http remotebackend-zeromq
 remotebackend-pipe-dnssec remotebackend-unix-dnssec remotebackend-http-dnssec remotebackend-zeromq-dnssec
 #remotebackend-pipe-nsec3 remotebackend-unix-nsec3 remotebackend-http-nsec3
@@ -58,7 +57,6 @@ remotebackend-pipe-dnssec remotebackend-unix-dnssec remotebackend-http-dnssec re
 tinydns
 ldap-tree ldap-simple ldap-strict
 lua2 lua2-dnssec lua2-nsec3 lua2-nsec3-narrow
-lua-minimal
 #ext-nsd ext-nsd-nsec ext-nsd-nsec3 ext-bind ext-bind-nsec ext-bind-nsec3
 
 * Add -presigned to any ext-nsd, ext-bind, bind, gmysql or gsqlite3 test (except narrow)

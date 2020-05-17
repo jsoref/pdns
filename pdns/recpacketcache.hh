@@ -19,8 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_RECPACKETCACHE_HH
-#define PDNS_RECPACKETCACHE_HH
+#pragma once
 #include <string>
 #include <inttypes.h>
 #include "dns.hh"
@@ -98,11 +97,12 @@ private:
     }
   };
 
+  struct SequencedTag{};
   typedef multi_index_container<
     Entry,
     indexed_by  <
       hashed_non_unique<tag<HashTag>, composite_key<Entry, member<Entry,uint32_t,&Entry::d_tag>, member<Entry,uint32_t,&Entry::d_qhash> > >,
-      sequenced<> ,
+      sequenced<tag<SequencedTag>> ,
       ordered_non_unique<tag<NameTag>, member<Entry,DNSName,&Entry::d_name>, CanonDNSNameCompare >
       >
   > packetCache_t;
@@ -117,5 +117,3 @@ public:
   {
   }
 };
-
-#endif

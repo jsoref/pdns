@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_DNSSECINFRA_HH
-#define PDNS_DNSSECINFRA_HH
-
+#pragma once
 #include "dnsrecords.hh"
 
 #include <string>
@@ -147,7 +145,15 @@ struct CanonicalCompare: public std::binary_function<string, string, bool>
   }
 };
 
-string getMessageForRRSET(const DNSName& qname, const RRSIGRecordContent& rrc, std::vector<std::shared_ptr<DNSRecordContent> >& signRecords, bool processRRSIGLabels = false);
+struct sharedDNSSECRecordCompare {
+    bool operator() (const shared_ptr<DNSRecordContent>& a, const shared_ptr<DNSRecordContent>& b) const {
+      return a->serialize(g_rootdnsname, true, true) < b->serialize(g_rootdnsname, true, true);
+    }
+};
+
+typedef std::set<std::shared_ptr<DNSRecordContent>, sharedDNSSECRecordCompare> sortedRecords_t;
+
+string getMessageForRRSET(const DNSName& qname, const RRSIGRecordContent& rrc, const sortedRecords_t& signRecords, bool processRRSIGLabels = false);
 
 DSRecordContent makeDSFromDNSKey(const DNSName& qname, const DNSKEYRecordContent& drc, uint8_t digest);
 
@@ -167,4 +173,3 @@ void addTSIG(DNSPacketWriter& pw, TSIGRecordContent& trc, const DNSName& tsigkey
 bool validateTSIG(const std::string& packet, size_t sigPos, const TSIGTriplet& tt, const TSIGRecordContent& trc, const std::string& previousMAC, const std::string& theirMAC, bool timersOnly, unsigned int dnsHeaderOffset=0);
 
 uint64_t signatureCacheSize(const std::string& str);
-#endif

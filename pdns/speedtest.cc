@@ -105,7 +105,7 @@ struct GetTimeTest
   }
 };
 
-pthread_mutex_t s_testlock=PTHREAD_MUTEX_INITIALIZER;
+std::mutex s_testlock;
 
 struct GetLockUncontendedTest
 {
@@ -116,8 +116,8 @@ struct GetLockUncontendedTest
 
   void operator()() const
   {
-    pthread_mutex_lock(&s_testlock);
-    pthread_mutex_unlock(&s_testlock);
+    s_testlock.lock();
+    s_testlock.unlock();
   }
 };
 
@@ -598,7 +598,6 @@ struct ParsePacketTest
             bool d_aabit;
             int d_rcode;
     } lwr;
-    DNSResourceRecord rr;
     for(MOADNSParser::answers_t::const_iterator i=mdp.d_answers.begin(); i!=mdp.d_answers.end(); ++i) {          
       DNSResourceRecord rr;
       rr.qtype=i->first.d_type;

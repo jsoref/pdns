@@ -19,15 +19,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef UEBERBACKEND_HH
-#define UEBERBACKEND_HH
-
+#pragma once
 #include <vector>
 #include <map>
 #include <string>
 #include <algorithm>
-#include <pthread.h>
 #include <semaphore.h>
+#include <mutex>
+#include <condition_variable>
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -58,7 +57,7 @@ public:
       existing threads of new modules 
   */
   static vector<UeberBackend *>instances;
-  static pthread_mutex_t instances_lock;
+  static std::mutex instances_lock;
 
   static bool loadmodule(const string &name);
   static bool loadModules(const vector<string>& modules, const string& path);
@@ -122,6 +121,8 @@ public:
   bool removeDomainKey(const DNSName& name, unsigned int id);
   bool activateDomainKey(const DNSName& name, unsigned int id);
   bool deactivateDomainKey(const DNSName& name, unsigned int id);
+  bool publishDomainKey(const DNSName& name, unsigned int id);
+  bool unpublishDomainKey(const DNSName& name, unsigned int id);
 
   bool getTSIGKey(const DNSName& name, DNSName* algorithm, string* content);
   bool setTSIGKey(const DNSName& name, const DNSName& algorithm, const string& content);
@@ -134,13 +135,12 @@ public:
   bool searchRecords(const string &pattern, int maxResults, vector<DNSResourceRecord>& result);
   bool searchComments(const string &pattern, int maxResults, vector<Comment>& result);
 private:
-  pthread_t d_tid;
   handle d_handle;
   vector<DNSZoneRecord> d_answers;
   vector<DNSZoneRecord>::const_iterator d_cachehandleiter;
 
-  static pthread_mutex_t d_mut;
-  static pthread_cond_t d_cond;
+  static std::mutex d_mut;
+  static std::condition_variable d_cond;
 
   struct Question
   {
@@ -160,8 +160,6 @@ private:
 
   int cacheHas(const Question &q, vector<DNSZoneRecord> &rrs);
   void addNegCache(const Question &q);
-  void addCache(const Question &q, const vector<DNSZoneRecord> &rrs);
+  void addCache(const Question &q, vector<DNSZoneRecord>&& rrs);
   
 };
-
-#endif

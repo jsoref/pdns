@@ -339,14 +339,14 @@ static bool provesNSEC3NoWildCard(DNSName wildcard, uint16_t const qtype, const 
   - If `wantsNoDataProof` is set but a NSEC proves that the whole name does not exist, the function will return
   NXQTYPE is the name is proven to be ENT and NXDOMAIN otherwise.
   - If `needWildcardProof` is false, the proof that a wildcard covering this qname|qtype is not checked. It is
-  useful when we have a positive answer synthetized from a wildcard and we only need to prove that the exact
+  useful when we have a positive answer synthesized from a wildcard and we only need to prove that the exact
   name does not exist.
 */
 dState getDenial(const cspmap_t &validrrsets, const DNSName& qname, const uint16_t qtype, bool referralToUnsigned, bool wantsNoDataProof, bool needWildcardProof, unsigned int wildcardLabelsCount)
 {
   bool nsec3Seen = false;
   if (!needWildcardProof && wildcardLabelsCount == 0) {
-    throw PDNSException("Invalid wildcard labels count for the validation of a positive answer synthetized from a wildcard");
+    throw PDNSException("Invalid wildcard labels count for the validation of a positive answer synthesized from a wildcard");
   }
 
   for(const auto& v : validrrsets) {
@@ -535,7 +535,7 @@ dState getDenial(const cspmap_t &validrrsets, const DNSName& qname, const uint16
   if (needWildcardProof) {
     /* We now need to look for a NSEC3 covering the closest (provable) encloser
        RFC 5155 section-7.2.1
-       FRC 7129 section-5.5
+       RFC 7129 section-5.5
     */
     LOG("Now looking for the closest encloser for "<<qname<<endl);
 
@@ -599,7 +599,7 @@ dState getDenial(const cspmap_t &validrrsets, const DNSName& qname, const uint16
 
   if (found == true) {
     /* now that we have found the closest (provable) encloser,
-       we can construct the next closer (FRC7129 section-5.5) name
+       we can construct the next closer (RFC7129 section-5.5) name
        and look for a NSEC3 RR covering it */
     unsigned int labelIdx = qname.countLabels() - closestEncloser.countLabels();
     if (labelIdx >= 1) {
@@ -627,7 +627,7 @@ dState getDenial(const cspmap_t &validrrsets, const DNSName& qname, const uint16
               LOG("Denies existence of name "<<qname<<"/"<<QType(qtype).getName());
               nextCloserFound = true;
 
-              if (qtype == QType::DS && nsec3->d_flags & 1) {
+              if ((qtype == QType::DS || qtype == 0) && nsec3->d_flags & 1) {
                 LOG(" but is opt-out!");
                 isOptOut = true;
               }
@@ -693,7 +693,7 @@ static const vector<DNSName> getZoneCuts(const DNSName& begin, const DNSName& en
     qname.prependRawLabel(labelsToAdd.back());
     labelsToAdd.pop_back();
     auto records = dro.get(qname, (uint16_t)QType::NS);
-    for (const auto record : records) {
+    for (const auto& record : records) {
       if(record.d_type != QType::NS || record.d_name != qname)
         continue;
       foundCut = true;
@@ -733,7 +733,7 @@ static bool checkSignatureWithKey(time_t now, const shared_ptr<RRSIGRecordConten
   return result;
 }
 
-bool validateWithKeySet(time_t now, const DNSName& name, const vector<shared_ptr<DNSRecordContent> >& records, const vector<shared_ptr<RRSIGRecordContent> >& signatures, const skeyset_t& keys, bool validateAllSigs)
+bool validateWithKeySet(time_t now, const DNSName& name, const sortedRecords_t& toSign, const vector<shared_ptr<RRSIGRecordContent> >& signatures, const skeyset_t& keys, bool validateAllSigs)
 {
   bool isValid = false;
 
@@ -742,8 +742,6 @@ bool validateWithKeySet(time_t now, const DNSName& name, const vector<shared_ptr
     if (signature->d_labels > labelCount) {
       LOG(name<<": Discarding invalid RRSIG whose label count is "<<signature->d_labels<<" while the RRset owner name has only "<<labelCount<<endl);
     }
-
-    vector<shared_ptr<DNSRecordContent> > toSign = records;
 
     auto r = getByTag(keys, signature->d_tag, signature->d_algorithm);
 
@@ -810,7 +808,7 @@ cspmap_t harvestCSPFromRecs(const vector<DNSRecord>& recs)
       }
     }
     else {
-      cspmap[{rec.d_name, rec.d_type}].records.push_back(rec.d_content);
+      cspmap[{rec.d_name, rec.d_type}].records.insert(rec.d_content);
     }
   }
   return cspmap;
@@ -840,7 +838,7 @@ bool haveNegativeTrustAnchor(const map<DNSName,std::string>& negAnchors, const D
   return true;
 }
 
-void validateDNSKeysAgainstDS(time_t now, const DNSName& zone, const dsmap_t& dsmap, const skeyset_t& tkeys, vector<shared_ptr<DNSRecordContent> >& toSign, const vector<shared_ptr<RRSIGRecordContent> >& sigs, skeyset_t& validkeys)
+void validateDNSKeysAgainstDS(time_t now, const DNSName& zone, const dsmap_t& dsmap, const skeyset_t& tkeys, const sortedRecords_t& toSign, const vector<shared_ptr<RRSIGRecordContent> >& sigs, skeyset_t& validkeys)
 {
   /*
    * Check all DNSKEY records against all DS records and place all DNSKEY records
@@ -978,7 +976,7 @@ vState getKeysFor(DNSRecordOracle& dro, const DNSName& zone, skeyset_t& keyset)
   for(auto zoneCutIter = zoneCuts.cbegin(); zoneCutIter != zoneCuts.cend(); ++zoneCutIter)
   {
     vector<shared_ptr<RRSIGRecordContent> > sigs;
-    vector<shared_ptr<DNSRecordContent> > toSign;
+    sortedRecords_t toSign;
 
     skeyset_t tkeys; // tentative keys
     validkeys.clear();
@@ -1007,7 +1005,7 @@ vState getKeysFor(DNSRecordOracle& dro, const DNSName& zone, skeyset_t& keyset)
           tkeys.insert(drc);
           LOG("Inserting key with tag "<<drc->getTag()<<" and algorithm "<<DNSSECKeeper::algorithm2name(drc->d_algorithm)<<": "<<drc->getZoneRepresentation()<<endl);
 
-          toSign.push_back(rec.d_content);
+          toSign.insert(rec.d_content);
         }
       }
     }
@@ -1092,7 +1090,7 @@ bool isSupportedDS(const DSRecordContent& ds)
 
 DNSName getSigner(const std::vector<std::shared_ptr<RRSIGRecordContent> >& signatures)
 {
-  for (const auto sig : signatures) {
+  for (const auto& sig : signatures) {
     if (sig) {
       return sig->d_signer;
     }

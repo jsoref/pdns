@@ -49,8 +49,11 @@ def eq_zone_rrsets(rrsets, expected):
 
 class Zones(ApiTestCase):
 
-    def test_list_zones(self):
-        r = self.session.get(self.url("/api/v1/servers/localhost/zones"))
+    def _test_list_zones(self, dnssec=True):
+        path = "/api/v1/servers/localhost/zones"
+        if not dnssec:
+            path = path + "?dnssec=false"
+        r = self.session.get(self.url(path))
         self.assert_success_json(r)
         domains = r.json()
         example_com = [domain for domain in domains if domain['name'] in ('example.com', 'example.com.')]
@@ -59,13 +62,23 @@ class Zones(ApiTestCase):
         print(example_com)
         required_fields = ['id', 'url', 'name', 'kind']
         if is_auth():
-            required_fields = required_fields + ['masters', 'last_check', 'notified_serial', 'edited_serial', 'serial', 'account']
+            required_fields = required_fields + ['masters', 'last_check', 'notified_serial', 'serial', 'account']
+            if dnssec:
+                required_fields = required_fields = ['dnssec', 'edited_serial']
             self.assertNotEquals(example_com['serial'], 0)
+            if not dnssec:
+                self.assertNotIn('dnssec', example_com)
         elif is_recursor():
             required_fields = required_fields + ['recursion_desired', 'servers']
         for field in required_fields:
             self.assertIn(field, example_com)
 
+    def test_list_zones_with_dnssec(self):
+        if is_auth():
+            self._test_list_zones(True)
+
+    def test_list_zones_without_dnssec(self):
+        self._test_list_zones(False)
 
 class AuthZonesHelperMixin(object):
     def create_zone(self, name=None, **kwargs):
@@ -1285,7 +1298,6 @@ $ORIGIN %NAME%
 
     @parameterized.expand([
         ('CNAME', ),
-        ('DNAME', ),
     ])
     def test_rrset_exclusive_and_other(self, qtype):
         name, payload, zone = self.create_zone()
@@ -1309,7 +1321,6 @@ $ORIGIN %NAME%
 
     @parameterized.expand([
         ('CNAME', ),
-        ('DNAME', ),
     ])
     def test_rrset_other_and_exclusive(self, qtype):
         name, payload, zone = self.create_zone()
@@ -1350,7 +1361,6 @@ $ORIGIN %NAME%
     @parameterized.expand([
         ('SOA', ['ns1.example.org. test@example.org. 10 10800 3600 604800 3600', 'ns2.example.org. test@example.org. 10 10800 3600 604800 3600']),
         ('CNAME', ['01.example.org.', '02.example.org.']),
-        ('DNAME', ['01.example.org.', '02.example.org.']),
     ])
     def test_rrset_single_qtypes(self, qtype, contents):
         name, payload, zone = self.create_zone()
@@ -1375,6 +1385,111 @@ $ORIGIN %NAME%
                                headers={'content-type': 'application/json'})
         self.assertEquals(r.status_code, 422)
         self.assertIn('IN ' + qtype + ' has more than one record', r.json()['error'])
+
+    def test_rrset_zone_apex(self):
+        name, payload, zone = self.create_zone()
+        rrset1 = {
+            'changetype': 'replace',
+            'name': name,
+            'type': 'SOA',
+            'ttl': 3600,
+            'records': [
+                {
+                    "content": 'ns1.example.org. test@example.org. 10 10800 3600 604800 3600',
+                    "disabled": False
+                },
+            ]
+        }
+        rrset2 = {
+            'changetype': 'replace',
+            'name': name,
+            'type': 'DNAME',
+            'ttl': 3600,
+            'records': [
+                {
+                    "content": 'example.com.',
+                    "disabled": False
+                },
+            ]
+        }
+
+        payload = {'rrsets': [rrset1, rrset2]}
+        r = self.session.patch(self.url("/api/v1/servers/localhost/zones/" + name), data=json.dumps(payload),
+                               headers={'content-type': 'application/json'})
+        self.assert_success(r)  # user should be able to create DNAME at APEX as per RFC 6672 section 2.3
+
+    def test_rrset_ns_dname_exclude(self):
+        name, payload, zone = self.create_zone()
+        rrset = {
+            'changetype': 'replace',
+            'name': 'delegation.'+name,
+            'type': 'NS',
+            'ttl': 3600,
+            'records': [
+                {
+                    "content": "ns.example.org.",
+                    "disabled": False
+                }
+            ]
+        }
+        payload = {'rrsets': [rrset]}
+        r = self.session.patch(self.url("/api/v1/servers/localhost/zones/" + name), data=json.dumps(payload),
+                               headers={'content-type': 'application/json'})
+        self.assert_success(r)
+        rrset = {
+            'changetype': 'replace',
+            'name': 'delegation.'+name,
+            'type': 'DNAME',
+            'ttl': 3600,
+            'records': [
+                {
+                    "content": "example.com.",
+                    "disabled": False
+                }
+            ]
+        }
+        payload = {'rrsets': [rrset]}
+        r = self.session.patch(self.url("/api/v1/servers/localhost/zones/" + name), data=json.dumps(payload),
+                               headers={'content-type': 'application/json'})
+        self.assertEquals(r.status_code, 422)
+        self.assertIn('Cannot have both NS and DNAME except in zone apex', r.json()['error'])
+
+## FIXME: Enable this when it's time for it
+#    def test_rrset_dname_nothing_under(self):
+#        name, payload, zone = self.create_zone()
+#        rrset = {
+#            'changetype': 'replace',
+#            'name': 'delegation.'+name,
+#            'type': 'DNAME',
+#            'ttl': 3600,
+#            'records': [
+#                {
+#                    "content": "example.com.",
+#                    "disabled": False
+#                }
+#            ]
+#        }
+#        payload = {'rrsets': [rrset]}
+#        r = self.session.patch(self.url("/api/v1/servers/localhost/zones/" + name), data=json.dumps(payload),
+#                               headers={'content-type': 'application/json'})
+#        self.assert_success(r)
+#        rrset = {
+#            'changetype': 'replace',
+#            'name': 'sub.delegation.'+name,
+#            'type': 'A',
+#            'ttl': 3600,
+#            'records': [
+#                {
+#                    "content": "1.2.3.4",
+#                    "disabled": False
+#                }
+#            ]
+#        }
+#        payload = {'rrsets': [rrset]}
+#        r = self.session.patch(self.url("/api/v1/servers/localhost/zones/" + name), data=json.dumps(payload),
+#                               headers={'content-type': 'application/json'})
+#        self.assertEquals(r.status_code, 422)
+#        self.assertIn('You cannot have record(s) under CNAME/DNAME', r.json()['error'])
 
     def test_create_zone_with_leading_space(self):
         # Actual regression.
@@ -2097,6 +2212,7 @@ class AuthZoneKeys(ApiTestCase, AuthZonesHelperMixin):
             u'type': u'Cryptokey',
             u'keytype': u'csk',
             u'flags': 257,
+            u'published': True,
             u'id': 1}
         self.assertEquals(key0, expected)
 

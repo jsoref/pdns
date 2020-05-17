@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_COMMUNICATOR_HH
-#define PDNS_COMMUNICATOR_HH
-
+#pragma once
 #include <pthread.h>
 #include <string>
 #include <semaphore.h>
@@ -151,9 +149,6 @@ class CommunicatorClass
 public:
   CommunicatorClass() 
   {
-    pthread_mutex_init(&d_lock,0);
-    pthread_mutex_init(&d_holelock,0);
-
     d_tickinterval=60;
     d_masterschanged=d_slaveschanged=true;
     d_nsock4 = -1;
@@ -173,17 +168,6 @@ public:
   void mainloop();
   void retrievalLoopThread();
   void sendNotification(int sock, const DNSName &domain, const ComboAddress& remote, uint16_t id, UeberBackend* B);
-
-  static void *launchhelper(void *p)
-  {
-    static_cast<CommunicatorClass *>(p)->mainloop();
-    return 0;
-  }
-  static void *retrieveLaunchhelper(void *p)
-  {
-    static_cast<CommunicatorClass *>(p)->retrievalLoopThread();
-    return 0;
-  }
   bool notifyDomain(const DNSName &domain, UeberBackend* B);
 private:
   void loadArgsIntoSet(const char *listname, set<string> &listset);
@@ -191,14 +175,14 @@ private:
   void queueNotifyDomain(const DomainInfo& di, UeberBackend* B);
   int d_nsock4, d_nsock6;
   map<pair<DNSName,string>,time_t>d_holes;
-  pthread_mutex_t d_holelock;
+  std::mutex d_holelock;
   void suck(const DNSName &domain, const ComboAddress& remote);
   void ixfrSuck(const DNSName &domain, const TSIGTriplet& tt, const ComboAddress& laddr, const ComboAddress& remote, std::unique_ptr<AuthLua4>& pdl,
                 ZoneStatus& zs, vector<DNSRecord>* axfr);
 
   void slaveRefresh(PacketHandler *P);
   void masterUpdateCheck(PacketHandler *P);
-  pthread_mutex_t d_lock;
+  std::mutex d_lock;
   
   UniQueue d_suckdomains;
   set<DNSName> d_inprogress;
@@ -234,7 +218,7 @@ private:
     ~RemoveSentinel()
     {
       try {
-        Lock l(&d_cc->d_lock);
+        std::lock_guard<std::mutex> l(d_cc->d_lock);
         d_cc->d_inprogress.erase(d_dn);
       }
       catch(...) {
@@ -290,6 +274,3 @@ private:
     }
   }
 };
-
-
-#endif
