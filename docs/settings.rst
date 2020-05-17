@@ -409,6 +409,20 @@ See the :ref:`metadata-publish-cdnskey-publish-cds` docs for more information.
 Use this soa-edit value for all zones if no
 :ref:`metadata-soa-edit` metadata value is set.
 
+
+.. _setting-default-soa-edit-api:
+
+``default-soa-edit-api``
+------------------------
+
+- String
+- Default 
+
+Sets the default :ref:`metadata-soa-edit-api` metadata on a domain,
+when it is created via the API. If the value is empty, no :ref:`metadata-soa-edit-api`
+will be set. If soa-edit-api is provided in the request body (of the create request), then the 
+provided soa-edit-api is used.
+
 .. _setting-default-soa-edit-signed:
 
 ``default-soa-edit-signed``
@@ -1143,6 +1157,7 @@ Do not attempt to shuffle query results, used for regression testing.
 ------------------
 
 -  Boolean
+<<<<<<< working copy
 -  Default: no
 
 Bind to addresses even if one or more of the
@@ -1151,6 +1166,112 @@ Setting this option will enable the needed socket options to allow
 binding to non-local addresses. This feature is intended to facilitate
 ip-failover setups, but it may also mask configuration issues and for
 this reason it is disabled by default.
+||||||| base
+-  Default: No
+
+On Linux 3.9 and some BSD kernels the ``SO_REUSEPORT`` option allows
+each receiver-thread to open a new socket on the same port which allows
+for much higher performance on multi-core boxes. Setting this option
+will enable use of ``SO_REUSEPORT`` when available and seamlessly fall
+back to a single socket when it is not available. A side-effect is that
+you can start multiple servers on the same IP/port combination which may
+or may not be a good idea. You could use this to enable transparent
+restarts, but it may also mask configuration issues and for this reason
+it is disabled by default.
+
+.. _setting-rng:
+``rng``
+-------
+
+- String
+- Default: auto
+
+Specify which random number generator to use. Permissible choises are
+ - auto - choose automatically
+ - sodium - Use libsodium ``randombytes_uniform``
+ - openssl - Use libcrypto ``RAND_bytes``
+ - getrandom - Use libc getrandom, falls back to urandom if it does not really work
+ - arc4random - Use BSD ``arc4random_uniform``
+ - urandom - Use ``/dev/urandom``
+ - kiss - Use simple settable deterministic RNG. **FOR TESTING PURPOSES ONLY!**
+
+.. note::
+  Not all choises are available on all systems.
+
+.. _setting-security-poll-suffix:
+
+``security-poll-suffix``
+------------------------
+
+-  String
+-  Default: secpoll.powerdns.com.
+
+Domain name from which to query security update notifications. Setting
+this to an empty string disables secpoll.
+
+.. _setting-server-id:
+
+``server-id``
+-------------
+
+-  String
+-  Default: The hostname of the server
+
+This is the server ID that will be returned on an EDNS NSID query.
+=======
+-  Default: No
+
+On Linux 3.9 and some BSD kernels the ``SO_REUSEPORT`` option allows
+each receiver-thread to open a new socket on the same port which allows
+for much higher performance on multi-core boxes. Setting this option
+will enable use of ``SO_REUSEPORT`` when available and seamlessly fall
+back to a single socket when it is not available. A side-effect is that
+you can start multiple servers on the same IP/port combination which may
+or may not be a good idea. You could use this to enable transparent
+restarts, but it may also mask configuration issues and for this reason
+it is disabled by default.
+
+.. _setting-rng:
+
+``rng``
+-------
+
+- String
+- Default: auto
+
+Specify which random number generator to use. Permissible choises are
+ - auto - choose automatically
+ - sodium - Use libsodium ``randombytes_uniform``
+ - openssl - Use libcrypto ``RAND_bytes``
+ - getrandom - Use libc getrandom, falls back to urandom if it does not really work
+ - arc4random - Use BSD ``arc4random_uniform``
+ - urandom - Use ``/dev/urandom``
+ - kiss - Use simple settable deterministic RNG. **FOR TESTING PURPOSES ONLY!**
+
+.. note::
+  Not all choises are available on all systems.
+
+.. _setting-security-poll-suffix:
+
+``security-poll-suffix``
+------------------------
+
+-  String
+-  Default: secpoll.powerdns.com.
+
+Domain name from which to query security update notifications. Setting
+this to an empty string disables secpoll.
+
+.. _setting-server-id:
+
+``server-id``
+-------------
+
+-  String
+-  Default: The hostname of the server
+
+This is the server ID that will be returned on an EDNS NSID query.
+>>>>>>> merge rev
 
 .. _setting-only-notify:
 
@@ -1574,14 +1695,27 @@ This path will also contain the pidfile for this instance of PowerDNS
 called ``pdns.pid`` by default. See :ref:`setting-config-name`
 and :doc:`Virtual Hosting <guides/virtual-instances>` how this can differ.
 
+<<<<<<< working copy
 .. _setting-superslave:
 
 ``superslave``
 ---------------
+||||||| base
+.. _setting-supermaster:
+
+``supermaster``
+------------
+=======
+.. _setting-supermaster:
+
+``supermaster``
+---------------
+>>>>>>> merge rev
 
 -  Boolean
 -  Default: no
 
+<<<<<<< working copy
 .. versionadded:: 4.1.9
   In versions before 4.1.9, this setting did not exist and supermaster support
   was enabled by default.
@@ -1590,6 +1724,15 @@ and :doc:`Virtual Hosting <guides/virtual-instances>` how this can differ.
   Before 4.2.0, the default was yes.
 
 Turn on supermaster support. See :ref:`supermaster-operation`.
+||||||| base
+.. versionadded:: 4.2.0
+
+Turn on supermaster support. See :ref:`supemaster-operation`.
+=======
+.. versionadded:: 4.2.0
+
+Turn on supermaster support. See :ref:`supermaster-operation`.
+>>>>>>> merge rev
 
 .. _setting-tcp-control-address:
 
