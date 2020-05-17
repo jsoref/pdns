@@ -5,7 +5,7 @@
 
 BOOST_AUTO_TEST_SUITE(syncres_cc2)
 
-void do_test_referral_depth(bool limited)
+static void do_test_referral_depth(bool limited)
 {
   std::unique_ptr<SyncRes> sr;
   initSR(sr);
@@ -1288,7 +1288,7 @@ BOOST_AUTO_TEST_CASE(test_cache_hit)
     return 0;
   });
 
-  /* we populate the cache with eveything we need */
+  /* we populate the cache with everything we need */
   time_t now = sr->getNow().tv_sec;
   std::vector<DNSRecord> records;
   std::vector<shared_ptr<RRSIGRecordContent>> sigs;

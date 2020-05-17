@@ -82,7 +82,7 @@ static int ldapGssapiAuthenticatorSaslInteractCallback( LDAP *conn, unsigned fla
 }
 
 LdapGssapiAuthenticator::LdapGssapiAuthenticator( const std::string& kt, const std::string &ccache, int tmout )
-  : d_logPrefix( "[LDAP GSSAPI] " ), d_keytabFile( kt ), d_cCacheFile( ccache ), d_timeout( tmout )
+  : d_logPrefix( "[LDAP GSSAPI] " ), d_keytabFile( kt ), d_cCacheFile( ccache )
 {
   krb5_error_code code;
 
@@ -118,7 +118,7 @@ bool LdapGssapiAuthenticator::authenticate( LDAP *conn )
     return false;
   }
   else if ( code == -2 ) {
-    // Here it may be possible to retry after obtainting a fresh ticket
+    // Here it may be possible to retry after obtaining a fresh ticket
     g_log<<Logger::Debug << d_logPrefix << "No TGT found, trying to acquire a new one" << std::endl;
     code = updateTgt();
 

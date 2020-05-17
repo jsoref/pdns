@@ -211,6 +211,7 @@ pdns_server_SOURCES = \
 	secpoll-auth.cc secpoll-auth.hh \
 	serialtweaker.cc \
 	sha.hh \
+	shuffle.cc shuffle.hh \
 	signingpipe.cc signingpipe.hh \
 	sillyrecords.cc \
 	slavecommunicator.cc \
@@ -323,6 +324,7 @@ pdnsutil_SOURCES = \
 	qtype.cc \
 	rcpgenerator.cc rcpgenerator.hh \
 	serialtweaker.cc \
+	shuffle.cc shuffle.hh \
 	signingpipe.cc \
 	sillyrecords.cc \
 	sstuff.hh \
@@ -917,7 +919,9 @@ dnsbulktest_SOURCES = \
 	rcpgenerator.cc \
 	sillyrecords.cc \
 	statbag.cc \
-	unix_utility.cc
+	unix_utility.cc \
+	arguments.cc arguments.hh \
+	dns_random.cc dns_random.hh
 
 dnsbulktest_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -1080,6 +1084,7 @@ pdns_notify_LDADD = \
 
 if LIBSODIUM
 pdns_notify_LDADD += $(LIBSODIUM_LIBS)
+dnsbulktest_LDADD += $(LIBSODIUM_LIBS)
 endif
 
 dnsscope_SOURCES = \
@@ -1298,6 +1303,7 @@ testrunner_SOURCES = \
 	rcpgenerator.cc \
 	responsestats.cc \
 	responsestats-auth.cc \
+	shuffle.cc shuffle.hh \
 	sillyrecords.cc \
 	statbag.cc \
 	test-arguments_cc.cc \

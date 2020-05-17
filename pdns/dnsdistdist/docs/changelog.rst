@@ -2,8 +2,128 @@ Changelog
 =========
 
 .. changelog::
+  :version: 1.5.0-rc2
+  :released: 13th of May 2020
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 9031
+    :tickets: 9025
+
+    Fix compilation of the ports event multiplexer
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9042
+
+    Avoid copies in for loops
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9054
+
+    Build with -Wmissing-declarations -Wredundant-decls
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9016
+    :tickets: 9004
+
+    Use std::shuffle instead of std::random_shuffle
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9053
+
+    Get rid of a naked pointer in the /dev/poll event multiplexer
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9059
+
+    A few warnings fixed, reported by clang on OpenBSD
+
+  .. change::
+    :tags: Bug Fixes, DNS over HTTPS
+    :pullreq: 9068
+
+    Fix duplicated HTTP/1 counter in 'showDOHFrontends()'
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 9057
+
+    Gracefully handle a failure to remove FD on (re)-connection
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9067
+
+    Wrap pthread objects
+
+  .. change::
+    :tags: Improvements, Metrics
+    :pullreq: 9084
+
+    Add the unit to the help for latency buckets
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9078
+
+    NetmaskTree: do not test node for null, the loop guarantees node is not null.
+
+.. changelog::
+  :version: 1.5.0-rc1
+  :released: 16th of April 2020
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8955
+
+    On OpenBSD string_view is both in boost and std
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8956
+
+    Expose SuffixMatchNode::remove in Lua
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8962
+
+    Remove a std::move() preventing Return-Value Optimization in lmdb-safe.cc
+
+  .. change::
+    :tags: Bug Fixes, DNSCrypt
+    :pullreq: 8974
+
+    Keep accepting fragmented UDP datagrams on DNSCrypt binds
+
+  .. change::
+    :tags: Bug Fixes, DNSCrypt
+    :pullreq: 8976
+    :tickets: 8974
+
+    Accept UDP datagrams larger than 1500 bytes for DNSCrypt
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8996
+
+    Drop responses with the QR bit set to 0
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8994
+    :tickets: 8986
+
+    Add an option to control the size of the TCP listen queue
+
+.. changelog::
   :version: 1.5.0-alpha1
-  :released: 20th of March 2010
+  :released: 20th of March 2020
 
   .. change::
     :tags: Improvements
@@ -334,7 +454,7 @@ Changelog
     :tags: Improvements
     :pullreq: 8440
 
-    Fix -WShadow warnings (Aki Tuomi)
+    Fix -Wshadow warnings (Aki Tuomi)
 
   .. change::
     :tags: Improvements
@@ -2348,7 +2468,7 @@ Changelog
     :tags: Improvements, Performance
     :pullreq: 5185
 
-    Add the possiblity to fill a :class:`NetmaskGroup` (using :meth:`NetmaskGroup:addMask`) from `exceeds*` results.
+    Add the possibility to fill a :class:`NetmaskGroup` (using :meth:`NetmaskGroup:addMask`) from `exceeds*` results.
 
   .. change::
     :tags: Improvements
