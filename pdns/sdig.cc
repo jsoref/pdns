@@ -1,6 +1,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#include "base64.hh"
 #include "dnsparser.hh"
 #include "dnsrecords.hh"
 #include "dnswriter.hh"
@@ -300,17 +301,39 @@ try {
 
   if (doh) {
 #ifdef HAVE_LIBCURL
+<<<<<<< working copy
     vector<uint8_t> packet;
     fillPacket(packet, name, type, dnssec, ednsnm, recurse, xpfcode, xpfversion,
       xpfproto, xpfsrc, xpfdst, qclass);
+||||||| base
+=======
+    string method = argv[2];
+>>>>>>> merge rev
     MiniCurl mc;
     MiniCurl::MiniCurlHeaders mch;
-    mch.insert(std::make_pair("Content-Type", "application/dns-message"));
     mch.insert(std::make_pair("Accept", "application/dns-message"));
+<<<<<<< working copy
     string question(packet.begin(), packet.end());
     // FIXME: how do we use proxyheader here?
     reply = mc.postURL(argv[1], question, mch);
     printReply(reply, showflags, hidesoadetails);
+||||||| base
+    reply = mc.postURL(argv[1], question, mch);
+=======
+    if (method == "POST") {
+      mch.insert(std::make_pair("Content-Type", "application/dns-message"));
+      reply = mc.postURL(argv[1], question, mch);
+    } else if (method == "GET") {
+      string url = argv[1];
+      string b64question = Base64Encode(question);
+      boost::replace_all(b64question, "+", "-");
+      boost::replace_all(b64question, "/", "_");
+      url = url + "?dns=" + b64question;
+      reply = mc.getURL(url, mch);
+    } else {
+      throw PDNSException("unknown HTTP method '"+method+"'");
+    }
+>>>>>>> merge rev
 #else
     throw PDNSException("please link sdig against libcurl for DoH support");
 #endif
