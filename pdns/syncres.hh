@@ -782,6 +782,8 @@ public:
   std::unordered_map<std::string,bool> d_discardedPolicies;
   DNSFilterEngine::Policy d_appliedPolicy;
   std::unordered_set<std::string> d_policyTags;
+  boost::optional<string> d_routingTag;
+
   unsigned int d_authzonequeries;
   unsigned int d_outqueries;
   unsigned int d_tcpoutqueries;
@@ -1092,6 +1094,8 @@ void distributeAsyncFunction(const std::string& question, const pipefunc_t& func
 
 int directResolve(const DNSName& qname, const QType& qtype, int qclass, vector<DNSRecord>& ret);
 int followCNAMERecords(std::vector<DNSRecord>& ret, const QType& qtype);
+int getFakeAAAARecords(const DNSName& qname, ComboAddress prefix, vector<DNSRecord>& ret);
+int getFakePTRRecords(const DNSName& qname, vector<DNSRecord>& ret);
 
 template<class T> T broadcastAccFunction(const boost::function<T*()>& func);
 

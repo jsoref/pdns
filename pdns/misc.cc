@@ -65,8 +65,6 @@
 #  include <sched.h>
 #endif
 
-bool g_singleThreaded;
-
 size_t writen2(int fd, const void *buf, size_t count)
 {
   const char *ptr = (char*)buf;
@@ -585,83 +583,6 @@ string makeHexDump(const string& str)
   return ret;
 }
 
-// shuffle, maintaining some semblance of order
-void shuffle(vector<DNSZoneRecord>& rrs)
-{
-  vector<DNSZoneRecord>::iterator first, second;
-  for(first=rrs.begin();first!=rrs.end();++first)
-    if(first->dr.d_place==DNSResourceRecord::ANSWER && first->dr.d_type != QType::CNAME) // CNAME must come first
-      break;
-  for(second=first;second!=rrs.end();++second)
-    if(second->dr.d_place!=DNSResourceRecord::ANSWER)
-      break;
-
-  if(second-first > 1)
-    random_shuffle(first,second);
-
-  // now shuffle the additional records
-  for(first=second;first!=rrs.end();++first)
-    if(first->dr.d_place==DNSResourceRecord::ADDITIONAL && first->dr.d_type != QType::CNAME) // CNAME must come first
-      break;
-  for(second=first;second!=rrs.end();++second)
-    if(second->dr.d_place!=DNSResourceRecord::ADDITIONAL)
-      break;
-
-  if(second-first>1)
-    random_shuffle(first,second);
-
-  // we don't shuffle the rest
-}
-
-
-// shuffle, maintaining some semblance of order
-void shuffle(vector<DNSRecord>& rrs)
-{
-  vector<DNSRecord>::iterator first, second;
-  for(first=rrs.begin();first!=rrs.end();++first)
-    if(first->d_place==DNSResourceRecord::ANSWER && first->d_type != QType::CNAME) // CNAME must come first
-      break;
-  for(second=first;second!=rrs.end();++second)
-    if(second->d_place!=DNSResourceRecord::ANSWER || second->d_type == QType::RRSIG) // leave RRSIGs at the end
-      break;
-
-  if(second-first>1)
-    random_shuffle(first,second);
-
-  // now shuffle the additional records
-  for(first=second;first!=rrs.end();++first)
-    if(first->d_place==DNSResourceRecord::ADDITIONAL && first->d_type != QType::CNAME) // CNAME must come first
-      break;
-  for(second=first; second!=rrs.end(); ++second)
-    if(second->d_place!=DNSResourceRecord::ADDITIONAL)
-      break;
-
-  if(second-first>1)
-    random_shuffle(first,second);
-
-  // we don't shuffle the rest
-}
-
-static uint16_t mapTypesToOrder(uint16_t type)
-{
-  if(type == QType::CNAME)
-    return 0;
-  if(type == QType::RRSIG)
-    return 65535;
-  else
-    return 1;
-}
-
-// make sure rrs is sorted in d_place order to avoid surprises later
-// then shuffle the parts that desire shuffling
-void orderAndShuffle(vector<DNSRecord>& rrs)
-{
-  std::stable_sort(rrs.begin(), rrs.end(), [](const DNSRecord&a, const DNSRecord& b) { 
-      return std::make_tuple(a.d_place, mapTypesToOrder(a.d_type)) < std::make_tuple(b.d_place, mapTypesToOrder(b.d_type));
-    });
-  shuffle(rrs);
-}
-
 void normalizeTV(struct timeval& tv)
 {
   if(tv.tv_usec > 1000000) {
@@ -777,9 +698,8 @@ int makeIPv6sockaddr(const std::string& addr, struct sockaddr_in6* ret)
     hints.ai_family = AF_INET6;
     hints.ai_flags = AI_NUMERICHOST;
 
-    int error;
     // getaddrinfo has anomalous return codes, anything nonzero is an error, positive or negative
-    if((error=getaddrinfo(ourAddr.c_str(), 0, &hints, &res))) {
+    if (getaddrinfo(ourAddr.c_str(), 0, &hints, &res) != 0) {
       return -1;
     }
 
@@ -1612,4 +1532,31 @@ bool setPipeBufferSize(int fd, size_t size)
   errno = ENOSYS;
   return false;
 #endif /* F_SETPIPE_SZ */
+}
+
+DNSName reverseNameFromIP(const ComboAddress& ip)
+{
+  if (ip.isIPv4()) {
+    std::string result("in-addr.arpa.");
+    auto ptr = reinterpret_cast<const uint8_t*>(&ip.sin4.sin_addr.s_addr);
+    for (size_t idx = 0; idx < sizeof(ip.sin4.sin_addr.s_addr); idx++) {
+      result = std::to_string(ptr[idx]) + "." + result;
+    }
+    return DNSName(result);
+  }
+  else if (ip.isIPv6()) {
+    std::string result("ip6.arpa.");
+    auto ptr = reinterpret_cast<const uint8_t*>(&ip.sin6.sin6_addr.s6_addr[0]);
+    for (size_t idx = 0; idx < sizeof(ip.sin6.sin6_addr.s6_addr); idx++) {
+      std::stringstream stream;
+      stream << std::hex << (ptr[idx] & 0x0F);
+      stream << '.';
+      stream << std::hex << (((ptr[idx]) >> 4) & 0x0F);
+      stream << '.';
+      result = stream.str() + result;
+    }
+    return DNSName(result);
+  }
+
+  throw std::runtime_error("Calling reverseNameFromIP() for an address which is neither an IPv4 nor an IPv6");
 }

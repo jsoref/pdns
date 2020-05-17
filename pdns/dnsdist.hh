@@ -574,15 +574,13 @@ typedef std::function<std::tuple<bool, string>(const DNSQuestion* dq)> QueryCoun
 struct QueryCount {
   QueryCount()
   {
-    pthread_rwlock_init(&queryLock, nullptr);
   }
   ~QueryCount()
   {
-    pthread_rwlock_destroy(&queryLock);
   }
   QueryCountRecords records;
   QueryCountFilter filter;
-  pthread_rwlock_t queryLock;
+  ReadWriteLock queryLock;
   bool enabled{false};
 };
 
@@ -622,6 +620,7 @@ struct ClientState
   std::atomic<double> tcpAvgConnectionDuration{0.0};
   int udpFD{-1};
   int tcpFD{-1};
+  int tcpListenQueueSize{SOMAXCONN};
   int fastOpenQueueSize{0};
   bool muted{false};
   bool tcp;
@@ -770,11 +769,10 @@ struct DownstreamState
         fd = -1;
       }
     }
-    pthread_rwlock_destroy(&d_lock);
   }
   boost::uuids::uuid id;
   std::vector<unsigned int> hashes;
-  mutable pthread_rwlock_t d_lock;
+  mutable ReadWriteLock d_lock;
   std::vector<int> sockets;
   const std::string sourceItfName;
   std::mutex socketsLock;
@@ -912,11 +910,9 @@ struct ServerPool
 {
   ServerPool()
   {
-    pthread_rwlock_init(&d_lock, nullptr);
   }
   ~ServerPool()
   {
-    pthread_rwlock_destroy(&d_lock);
   }
 
   const std::shared_ptr<DNSDistPacketCache> getCache() const { return packetCache; };
@@ -996,7 +992,7 @@ struct ServerPool
 
 private:
   ServerPolicy::NumberedServerVector d_servers;
-  pthread_rwlock_t d_lock;
+  ReadWriteLock d_lock;
   bool d_useECS{false};
 };
 
@@ -1096,7 +1092,6 @@ struct LocalHolders
 
 struct dnsheader;
 
-void controlThread(int fd, ComboAddress local);
 vector<std::function<void(void)>> setupLua(bool client, const std::string& config);
 
 struct WebserverConfig
