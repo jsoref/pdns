@@ -55,7 +55,6 @@ public:
   bool get(DNSResourceRecord &rr) override;
   bool get(DNSZoneRecord& dzr) override;
 
-  bool getSOA(const DNSName &domain, SOAData &sd) override;
   void getUnfreshSlaveInfos(vector<DomainInfo>* domains) override;
   
   bool setMaster(const DNSName &domain, const string &ip) override;
@@ -89,6 +88,8 @@ public:
   bool addDomainKey(const DNSName& name, const KeyData& key, int64_t& id) override;
   bool activateDomainKey(const DNSName& name, unsigned int id) override;
   bool deactivateDomainKey(const DNSName& name, unsigned int id) override;
+  bool publishDomainKey(const DNSName& name, unsigned int id) override;
+  bool unpublishDomainKey(const DNSName& name, unsigned int id) override;
 
   // TSIG
   bool getTSIGKey(const DNSName& name, DNSName* algorithm, string* content) override;
@@ -195,6 +196,7 @@ public:
     std::string content;
     unsigned int flags;
     bool active;
+    bool published;
   };
 
 private:
@@ -259,11 +261,7 @@ private:
   
   bool get_list(DNSZoneRecord &rr);
   bool get_lookup(DNSZoneRecord &rr);
-  bool d_inlist{false};
-  QType d_lookuptype;                   // for get after lookup
   std::string d_matchkey;
-  int32_t d_lookupdomainid;            // for get after lookup
-  DNSName d_lookupqname;
   DNSName d_lookupdomain;
   
   DNSName d_transactiondomain;

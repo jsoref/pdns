@@ -19,10 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef DNSPACKET_HH
-
-#define DNSPACKET_HH
-
+#pragma once
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -100,7 +97,7 @@ public:
   /** Add a DNSZoneRecord to this packet. A DNSPacket (as does a DNS Packet) has 4 kinds of resource records. Questions, 
       Answers, Authority and Additional. See RFC 1034 and 1035 for details. You can specify where a record needs to go in the
       DNSZoneRecord d_place field */
-  void addRecord(const DNSZoneRecord &);  // adds to 'rrs'
+  void addRecord(DNSZoneRecord&&);  // adds to 'rrs'
 
   void setQuestion(int op, const DNSName &qdomain, int qtype);  // wipes 'd', sets a random id, creates start of packet (domain, type, class etc)
 
@@ -193,5 +190,3 @@ private:
   bool d_haveednssection{false};
   bool d_isQuery;
 };
-
-#endif

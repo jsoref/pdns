@@ -71,15 +71,13 @@ private:
     std::atomic<time_t> lastAccess{0};
   };
 
-  pthread_rwlock_t d_lock;
+  ReadWriteLock d_lock;
 public:
   IsUpOracle()
   {
-    pthread_rwlock_init(&d_lock, nullptr);
   }
   ~IsUpOracle()
   {
-    pthread_rwlock_destroy(&d_lock);
   }
   bool isUp(const ComboAddress& remote, const opts_t& opts);
   bool isUp(const ComboAddress& remote, const std::string& url, const opts_t& opts);
@@ -284,7 +282,7 @@ bool doCompare(const T& var, const std::string& res, const C& cmp)
 }
 
 
-std::string getGeo(const std::string& ip, GeoIPInterface::GeoIPQueryAttribute qa)
+static std::string getGeo(const std::string& ip, GeoIPInterface::GeoIPQueryAttribute qa)
 {
   static bool initialized;
   extern std::function<std::string(const std::string& ip, int)> g_getGeo;
@@ -344,6 +342,10 @@ static ComboAddress pickwhashed(const ComboAddress& bestwho, vector<pair<int,Com
     sum += i.first;
     pick.push_back({sum, i.second});
   }
+  if (sum == 0) {
+    /* we should not have any weight of zero, but better safe than sorry */
+    return ComboAddress();
+  }
   ComboAddress::addressOnlyHash aoh;
   int r = aoh(bestwho) % sum;
   auto p = upper_bound(pick.begin(), pick.end(), r, [](int rarg, const decltype(pick)::value_type& a) { return rarg < a.first; });
@@ -368,7 +370,7 @@ static bool getLatLon(const std::string& ip, string& loc)
   double latsec, lonsec;
   char lathem='X', lonhem='X';
 
-  double lat, lon;
+  double lat = 0, lon = 0;
   if(!getLatLon(ip, lat, lon))
     return false;
 
@@ -527,12 +529,12 @@ typedef struct AuthLuaRecordContext
 
 static thread_local unique_ptr<lua_record_ctx_t> s_lua_record_ctx;
 
-void setupLuaRecords()
+static void setupLuaRecords()
 {
   LuaContext& lua = *s_LUA->getLua();
 
   lua.writeFunction("latlon", []() {
-      double lat, lon;
+      double lat = 0, lon = 0;
       getLatLon(s_lua_record_ctx->bestwho.toString(), lat, lon);
       return std::to_string(lat)+" "+std::to_string(lon);
     });
@@ -559,7 +561,7 @@ void setupLuaRecords()
       auto labels= s_lua_record_ctx->qname.getRawLabels();
       if(labels.size()<4)
         return std::string("unknown");
-      double lat, lon;
+      double lat = 0, lon = 0;
       getLatLon(labels[3]+"."+labels[2]+"."+labels[1]+"."+labels[0], lat, lon);
       return std::to_string(lat)+" "+std::to_string(lon);
     });
@@ -701,7 +703,7 @@ void setupLuaRecords()
    * Simplistic test to see if an IP address listens on a certain port
    * Will return a single IP address from the set of available IP addresses. If
    * no IP address is available, will return a random element of the set of
-   * addresses suppplied for testing.
+   * addresses supplied for testing.
    *
    * @example ifportup(443, { '1.2.3.4', '5.4.3.2' })"
    */

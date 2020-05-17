@@ -134,10 +134,10 @@ shared_ptr<DNSCryptoKeyEngine> DNSCryptoKeyEngine::makeFromISCString(DNSKEYRecor
 
 std::string DNSCryptoKeyEngine::convertToISC() const
 {
-  storvector_t stormap = this->convertToISCVector();
+  storvector_t storvector = this->convertToISCVector();
   ostringstream ret;
   ret<<"Private-key-format: v1.2\n";
-  for(const stormap_t::value_type& value :  stormap) {
+  for(const storvector_t::value_type& value :  storvector) {
     if(value.first != "Algorithm" && value.first != "PIN" && 
        value.first != "Slot" && value.first != "Engine" &&
        value.first != "Label" && value.first != "PubLabel")
@@ -632,7 +632,7 @@ static bool constantTimeStringEquals(const std::string& a, const std::string& b)
     return false;
   }
   const size_t size = a.size();
-#if OPENSSL_VERSION_NUMBER >= 0x0090819fL
+#ifdef HAVE_CRYPTO_MEMCMP
   return CRYPTO_memcmp(a.c_str(), b.c_str(), size) == 0;
 #else
   const volatile unsigned char *_a = (const volatile unsigned char *) a.c_str();

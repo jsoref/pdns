@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_CASE(test_cache_auth)
   /* check that we correctly cached only the answer entry, not the additional one */
   const ComboAddress who;
   vector<DNSRecord> cached;
-  BOOST_REQUIRE_GT(t_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
+  BOOST_REQUIRE_GT(s_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
   BOOST_REQUIRE_EQUAL(QType(cached.at(0).d_type).getName(), QType(QType::A).getName());
   BOOST_CHECK_EQUAL(getRR<ARecordContent>(cached.at(0))->getCA().toString(), ComboAddress("192.0.2.2").toString());
@@ -317,7 +317,7 @@ BOOST_AUTO_TEST_CASE(test_answer_no_aa)
   const ComboAddress who;
   vector<DNSRecord> cached;
   vector<std::shared_ptr<RRSIGRecordContent>> signatures;
-  BOOST_REQUIRE_EQUAL(t_RC->get(now, target, QType(QType::A), false, &cached, who, &signatures), -1);
+  BOOST_REQUIRE_EQUAL(s_RC->get(now, target, QType(QType::A), false, &cached, who, boost::none, &signatures), -1);
 }
 
 BOOST_AUTO_TEST_CASE(test_special_types)
@@ -521,9 +521,7 @@ BOOST_AUTO_TEST_CASE(test_nameserver_ipv4_rpz)
   g_luaconfs.setState(luaconfsCopy);
 
   vector<DNSRecord> ret;
-  int res = sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
-  BOOST_CHECK_EQUAL(res, -2);
-  BOOST_CHECK_EQUAL(ret.size(), 0U);
+  BOOST_CHECK_THROW(sr->beginResolve(target, QType(QType::A), QClass::IN, ret), PolicyHitException);
 }
 
 BOOST_AUTO_TEST_CASE(test_nameserver_ipv6_rpz)
@@ -564,9 +562,7 @@ BOOST_AUTO_TEST_CASE(test_nameserver_ipv6_rpz)
   g_luaconfs.setState(luaconfsCopy);
 
   vector<DNSRecord> ret;
-  int res = sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
-  BOOST_CHECK_EQUAL(res, -2);
-  BOOST_CHECK_EQUAL(ret.size(), 0U);
+  BOOST_CHECK_THROW(sr->beginResolve(target, QType(QType::A), QClass::IN, ret), PolicyHitException);
 }
 
 BOOST_AUTO_TEST_CASE(test_nameserver_name_rpz)
@@ -608,9 +604,7 @@ BOOST_AUTO_TEST_CASE(test_nameserver_name_rpz)
   g_luaconfs.setState(luaconfsCopy);
 
   vector<DNSRecord> ret;
-  int res = sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
-  BOOST_CHECK_EQUAL(res, -2);
-  BOOST_CHECK_EQUAL(ret.size(), 0U);
+  BOOST_CHECK_THROW(sr->beginResolve(target, QType(QType::A), QClass::IN, ret), PolicyHitException);
 }
 
 BOOST_AUTO_TEST_CASE(test_nameserver_name_rpz_disabled)
