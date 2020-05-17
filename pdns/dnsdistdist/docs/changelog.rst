@@ -2,6 +2,427 @@ Changelog
 =========
 
 .. changelog::
+  :version: 1.5.0-rc2
+  :released: 13th of May 2020
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 9031
+    :tickets: 9025
+
+    Fix compilation of the ports event multiplexer
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9042
+
+    Avoid copies in for loops
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9054
+
+    Build with -Wmissing-declarations -Wredundant-decls
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9016
+    :tickets: 9004
+
+    Use std::shuffle instead of std::random_shuffle
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9053
+
+    Get rid of a naked pointer in the /dev/poll event multiplexer
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9059
+
+    A few warnings fixed, reported by clang on OpenBSD
+
+  .. change::
+    :tags: Bug Fixes, DNS over HTTPS
+    :pullreq: 9068
+
+    Fix duplicated HTTP/1 counter in 'showDOHFrontends()'
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 9057
+
+    Gracefully handle a failure to remove FD on (re)-connection
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9067
+
+    Wrap pthread objects
+
+  .. change::
+    :tags: Improvements, Metrics
+    :pullreq: 9084
+
+    Add the unit to the help for latency buckets
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 9078
+
+    NetmaskTree: do not test node for null, the loop guarantees node is not null.
+
+.. changelog::
+  :version: 1.5.0-rc1
+  :released: 16th of April 2020
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8955
+
+    On OpenBSD string_view is both in boost and std
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8956
+
+    Expose SuffixMatchNode::remove in Lua
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8962
+
+    Remove a std::move() preventing Return-Value Optimization in lmdb-safe.cc
+
+  .. change::
+    :tags: Bug Fixes, DNSCrypt
+    :pullreq: 8974
+
+    Keep accepting fragmented UDP datagrams on DNSCrypt binds
+
+  .. change::
+    :tags: Bug Fixes, DNSCrypt
+    :pullreq: 8976
+    :tickets: 8974
+
+    Accept UDP datagrams larger than 1500 bytes for DNSCrypt
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8996
+
+    Drop responses with the QR bit set to 0
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8994
+    :tickets: 8986
+
+    Add an option to control the size of the TCP listen queue
+
+.. changelog::
+  :version: 1.5.0-alpha1
+  :released: 20th of March 2020
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 7820
+
+    Don't start as root within a systemd environment
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8115
+    :tickets: 8098
+
+    Fix ECS addition when the OPT record is not the last one
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8171
+    :tickets: 4747
+
+    Add SetNegativeAndSOAAction() and its Lua binding
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8274
+
+    Implement dynamic blocking on ratio of rcode/total responses
+
+  .. change::
+    :tags: Improvements, Performance
+    :pullreq: 8355
+
+    Rework NetmaskTree for better CPU and memory efficiency. (Stephan Bosch)
+
+  .. change::
+    :tags: Improvements, DNS over TLS
+    :pullreq: 8380
+
+    Switch the default DoT provider from GnuTLS to OpenSSL
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8456
+
+    Separate the check-config and client modes
+
+  .. change::
+    :tags: Improvements, Performance
+    :pullreq: 8491
+
+    Implement parallel health checks
+
+  .. change::
+    :tags: New Features, Performance
+    :pullreq: 8505
+    :tickets: 7617
+
+    Implement LuaFFIRule, LuaFFIAction and LuaFFIResponseAction
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8529
+
+    Add the number of received bytes to StatNode entries
+
+  .. change::
+    :tags: Improvements, Performance
+    :pullreq: 8538
+
+    Use move semantics when updating the content of the StateHolder
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8556
+    :tickets: 8534
+
+    Support setting the value of AA, AD and RA when self-generating answers
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8567
+    :tickets: 7387
+
+    Add bounded loads to the consistent hashing policy
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8580
+
+    pthread_rwlock_init() should be matched by pthread_rwlock_destroy()
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8591
+
+    Wait longer for the TLS ticket to arrive in our tests
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8604
+
+    Add missing exception message in KVS error
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8631
+
+    Replace include guard ifdef/define with pragma once (Chris Hofstaedtler)
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8654
+
+    Dnsdist: LogResponseAction (phonedph1)
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8657
+
+    Allow retrieving and deleting a backend via its UUID
+
+  .. change::
+    :tags: Bug Fixes, DNS over TLS
+    :pullreq: 8662
+
+    Display the correct DoT provider
+
+  .. change::
+    :tags: Improvements, Protobuf
+    :pullreq: 8702
+
+    Add the source and destination ports to the protobuf msg
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8722
+
+    Add spoofRawAction() to craft answers from raw bytes
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8733
+
+    Load an openssl configuration file, if any, during startup
+
+  .. change::
+    :tags: Improvements, DNS over HTTPS
+    :pullreq: 8760
+    :tickets: 8573
+
+    Don't accept sub-paths of configured DoH URLs
+
+  .. change::
+    :tags: Bug Fixes, DNS over TLS
+    :pullreq: 8761
+
+    Use ref counting for the DoT TLS context
+
+  .. change::
+    :tags: Improvements, DNS over HTTPS
+    :pullreq: 8762
+    :tickets: 8586
+
+    Implement Cache-Control headers in DoH
+
+  .. change::
+    :tags: Improvements, Metrics
+    :pullreq: 8772
+    :tickets: 8746
+
+    Add backend status to prometheus metrics
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8782
+
+    Add getTag()/setTag() Lua bindings for a DNSResponse
+
+  .. change::
+    :tags: Improvements, Metrics
+    :pullreq: 8783
+
+    Add 'IO wait' and 'steal' metrics on Linux
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8787
+    :tickets: 8442
+
+    Fix key logging for DNS over TLS
+
+  .. change::
+    :tags: Improvements, Performance
+    :pullreq: 8812
+
+    Keep a masked network in the Netmask class
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8874
+
+    Add support for Proxy Protocol between dnsdist and the recursor
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8848
+
+    Add get*BindCount() functions
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8855
+
+    Fix a typo in the help/completion for getDNSCryptBindCount
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8856
+
+    Implement rmACL() (swoga)
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8879
+
+    Remove unused lambda capture reported by clang++
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8882
+
+    Add sessionTimeout setting for TLS session lifetime (Matti Hiljanen)
+
+  .. change::
+    :tags: Bug Fixes, Protobuf
+    :pullreq: 8883
+    :tickets: 8629
+
+    Add 'queue full' metrics for our remote logger, log at debug only
+
+  .. change::
+    :tags: Improvements, Protobuf
+    :pullreq: 8887
+
+    Better handling of reconnections in Remote Logger
+
+  .. change::
+    :tags: Improvements, DNS over HTTPS, DNS over TLS
+    :pullreq: 8899
+    :tickets: 8806
+
+    Document that the 'keyLogFile' option requires OpenSSL >= 1.1.1
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8900
+    :tickets: 8739
+
+    Detect {Libre,Open}SSL functions availability during configure
+
+  .. change::
+    :tags: Improvements, DNS over HTTPS
+    :pullreq: 8905
+    :tickets: 8819
+
+    Change the default DoH path from / to /dns-query
+
+  .. change::
+    :tags: New Features
+    :pullreq: 8909
+
+    Implement bounded loads for the whashed and wrandom policies
+
+  .. change::
+    :tags: Improvements, DNSTAP, Performance
+    :pullreq: 8937
+
+    Make FrameStream IO parameters configurable
+
+  .. change::
+    :tags: Improvements, DNS over HTTPS
+    :pullreq: 8945
+    :tickets: 8661
+
+    Add support for the processing of X-Forwarded-For headers
+
+  .. change::
+    :tags: Bug Fixes, DNS over HTTPS
+    :pullreq: 8949
+
+    Set the DoH ticket rotation delay before loading tickets
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8950
+    :tickets: 8669
+
+    Warn on startup about low weight values with chashed
+
+.. changelog::
   :version: 1.4.0
   :released: 20th of November 2019
 
@@ -33,7 +454,7 @@ Changelog
     :tags: Improvements
     :pullreq: 8440
 
-    Fix -WShadow warnings (Aki Tuomi)
+    Fix -Wshadow warnings (Aki Tuomi)
 
   .. change::
     :tags: Improvements
@@ -2047,7 +2468,7 @@ Changelog
     :tags: Improvements, Performance
     :pullreq: 5185
 
-    Add the possiblity to fill a :class:`NetmaskGroup` (using :meth:`NetmaskGroup:addMask`) from `exceeds*` results.
+    Add the possibility to fill a :class:`NetmaskGroup` (using :meth:`NetmaskGroup:addMask`) from `exceeds*` results.
 
   .. change::
     :tags: Improvements
@@ -2443,7 +2864,7 @@ Improvements
 -  `#3722 <https://github.com/PowerDNS/pdns/pull/3722>`__ Use LT\_INIT
    and disable static objects (Ruben Kerkhof)
 -  `#3724 <https://github.com/PowerDNS/pdns/pull/3724>`__ Include
-   PDNS\_CHECK\_OS in configure (Christian Hofstaedtler)
+   PDNS\_CHECK\_OS in configure (Chris Hofstaedtler)
 -  `#3728 <https://github.com/PowerDNS/pdns/pull/3728>`__ Document
    libedit Ctrl-R workaround for CentOS 6
 -  `#3730 <https://github.com/PowerDNS/pdns/pull/3730>`__ Make

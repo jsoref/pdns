@@ -37,6 +37,7 @@
 #include <editline/readline.h>
 #endif
 
+#include "dnsdist-systemd.hh"
 #ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
 #endif
@@ -45,7 +46,9 @@
 #include "dnsdist-cache.hh"
 #include "dnsdist-console.hh"
 #include "dnsdist-ecs.hh"
+#include "dnsdist-healthchecks.hh"
 #include "dnsdist-lua.hh"
+#include "dnsdist-proxy-protocol.hh"
 #include "dnsdist-rings.hh"
 #include "dnsdist-secpoll.hh"
 #include "dnsdist-xpf.hh"
@@ -55,7 +58,6 @@
 #include "dolog.hh"
 #include "dnsname.hh"
 #include "dnsparser.hh"
-#include "dnswriter.hh"
 #include "ednsoptions.hh"
 #include "gettime.hh"
 #include "lock.hh"
@@ -81,10 +83,8 @@ using std::thread;
 bool g_verbose;
 
 struct DNSDistStats g_stats;
-MetricDefinitionStorage g_metricDefinitions;
 
 uint16_t g_maxOutstanding{std::numeric_limits<uint16_t>::max()};
-bool g_verboseHealthChecks{false};
 uint32_t g_staleCacheEntriesTTL{0};
 bool g_syslog{true};
 bool g_allowEmptyResponse{false};
@@ -102,10 +102,6 @@ std::vector<std::shared_ptr<DynBPFFilter> > g_dynBPFFilters;
 std::vector<std::unique_ptr<ClientState>> g_frontends;
 GlobalStateHolder<pools_t> g_pools;
 size_t g_udpVectorSize{1};
-
-bool g_snmpEnabled{false};
-bool g_snmpTrapsEnabled{false};
-DNSDistSNMPAgent* g_snmpAgent{nullptr};
 
 /* UDP: the grand design. Per socket we listen on for incoming queries there is one thread.
    Then we have a bunch of connected sockets for talking to downstream servers. 
@@ -142,7 +138,6 @@ bool g_servFailOnNoPolicy{false};
 bool g_truncateTC{false};
 bool g_fixupCase{false};
 bool g_preserveTrailingData{false};
-bool g_roundrobinFailOnNoServer{false};
 
 std::set<std::string> g_capabilitiesToRetain;
 
@@ -194,6 +189,30 @@ struct DelayedPacket
 
 DelayPipe<DelayedPacket>* g_delay = nullptr;
 
+std::string DNSQuestion::getTrailingData() const
+{
+  const char* message = reinterpret_cast<const char*>(this->dh);
+  const uint16_t messageLen = getDNSPacketLength(message, this->len);
+  return std::string(message + messageLen, this->len - messageLen);
+}
+
+bool DNSQuestion::setTrailingData(const std::string& tail)
+{
+  char* message = reinterpret_cast<char*>(this->dh);
+  const uint16_t messageLen = getDNSPacketLength(message, this->len);
+  const uint16_t tailLen = tail.size();
+  if (tailLen > (this->size - messageLen)) {
+    return false;
+  }
+
+  /* Update length and copy data from the Lua string. */
+  this->len = messageLen + tailLen;
+  if(tailLen > 0) {
+    tail.copy(message + messageLen, tailLen);
+  }
+  return true;
+}
+
 void doLatencyStats(double udiff)
 {
   if(udiff < 1000) ++g_stats.latency0_1;
@@ -221,6 +240,11 @@ bool responseContentMatches(const char* response, const uint16_t responseLen, co
   }
 
   const struct dnsheader* dh = reinterpret_cast<const struct dnsheader*>(response);
+  if (dh->qr == 0) {
+    ++g_stats.nonCompliantResponses;
+    return false;
+  }
+
   if (dh->qdcount == 0) {
     if ((dh->rcode != RCode::NoError && dh->rcode != RCode::NXDomain) || g_allowEmptyResponse) {
       return true;
@@ -684,382 +708,46 @@ catch(...)
   errlog("UDP responder thread died because of an exception: %s", "unknown");
 }
 
-bool DownstreamState::reconnect()
-{
-  std::unique_lock<std::mutex> tl(connectLock, std::try_to_lock);
-  if (!tl.owns_lock()) {
-    /* we are already reconnecting */
-    return false;
-  }
-
-  connected = false;
-  for (auto& fd : sockets) {
-    if (fd != -1) {
-      if (sockets.size() > 1) {
-        std::lock_guard<std::mutex> lock(socketsLock);
-        mplexer->removeReadFD(fd);
-      }
-      /* shutdown() is needed to wake up recv() in the responderThread */
-      shutdown(fd, SHUT_RDWR);
-      close(fd);
-      fd = -1;
-    }
-    if (!IsAnyAddress(remote)) {
-      fd = SSocket(remote.sin4.sin_family, SOCK_DGRAM, 0);
-      if (!IsAnyAddress(sourceAddr)) {
-        SSetsockopt(fd, SOL_SOCKET, SO_REUSEADDR, 1);
-        if (!sourceItfName.empty()) {
-#ifdef SO_BINDTODEVICE
-          int res = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, sourceItfName.c_str(), sourceItfName.length());
-          if (res != 0) {
-            infolog("Error setting up the interface on backend socket '%s': %s", remote.toStringWithPort(), stringerror());
-          }
-#endif
-        }
-
-        SBind(fd, sourceAddr);
-      }
-      try {
-        SConnect(fd, remote);
-        if (sockets.size() > 1) {
-          std::lock_guard<std::mutex> lock(socketsLock);
-          mplexer->addReadFD(fd, [](int, boost::any) {});
-        }
-        connected = true;
-      }
-      catch(const std::runtime_error& error) {
-        infolog("Error connecting to new server with address %s: %s", remote.toStringWithPort(), error.what());
-        connected = false;
-        break;
-      }
-    }
-  }
-
-  /* if at least one (re-)connection failed, close all sockets */
-  if (!connected) {
-    for (auto& fd : sockets) {
-      if (fd != -1) {
-        if (sockets.size() > 1) {
-          std::lock_guard<std::mutex> lock(socketsLock);
-          mplexer->removeReadFD(fd);
-        }
-        /* shutdown() is needed to wake up recv() in the responderThread */
-        shutdown(fd, SHUT_RDWR);
-        close(fd);
-        fd = -1;
-      }
-    }
-  }
-
-  return connected;
-}
-void DownstreamState::hash()
-{
-  vinfolog("Computing hashes for id=%s and weight=%d", id, weight);
-  auto w = weight;
-  WriteLock wl(&d_lock);
-  hashes.clear();
-  while (w > 0) {
-    std::string uuid = boost::str(boost::format("%s-%d") % id % w);
-    unsigned int wshash = burtleCI((const unsigned char*)uuid.c_str(), uuid.size(), g_hashperturb);
-    hashes.insert(wshash);
-    --w;
-  }
-}
-
-void DownstreamState::setId(const boost::uuids::uuid& newId)
-{
-  id = newId;
-  // compute hashes only if already done
-  if (!hashes.empty()) {
-    hash();
-  }
-}
-
-void DownstreamState::setWeight(int newWeight)
-{
-  if (newWeight < 1) {
-    errlog("Error setting server's weight: downstream weight value must be greater than 0.");
-    return ;
-  }
-  weight = newWeight;
-  if (!hashes.empty()) {
-    hash();
-  }
-}
-
-DownstreamState::DownstreamState(const ComboAddress& remote_, const ComboAddress& sourceAddr_, unsigned int sourceItf_, const std::string& sourceItfName_, size_t numberOfSockets): sourceItfName(sourceItfName_), remote(remote_), sourceAddr(sourceAddr_), sourceItf(sourceItf_)
-{
-  pthread_rwlock_init(&d_lock, nullptr);
-  id = getUniqueID();
-  threadStarted.clear();
-
-  mplexer = std::unique_ptr<FDMultiplexer>(FDMultiplexer::getMultiplexerSilent());
-
-  sockets.resize(numberOfSockets);
-  for (auto& fd : sockets) {
-    fd = -1;
-  }
-
-  if (!IsAnyAddress(remote)) {
-    reconnect();
-    idStates.resize(g_maxOutstanding);
-    sw.start();
-    infolog("Added downstream server %s", remote.toStringWithPort());
-  }
-
-}
-
 std::mutex g_luamutex;
 LuaContext g_lua;
-
-GlobalStateHolder<ServerPolicy> g_policy;
-
-shared_ptr<DownstreamState> firstAvailable(const NumberedServerVector& servers, const DNSQuestion* dq)
-{
-  for(auto& d : servers) {
-    if(d.second->isUp() && d.second->qps.check())
-      return d.second;
-  }
-  return leastOutstanding(servers, dq);
-}
-
-// get server with least outstanding queries, and within those, with the lowest order, and within those: the fastest
-shared_ptr<DownstreamState> leastOutstanding(const NumberedServerVector& servers, const DNSQuestion* dq)
-{
-  if (servers.size() == 1 && servers[0].second->isUp()) {
-    return servers[0].second;
-  }
-
-  vector<pair<tuple<int,int,double>, shared_ptr<DownstreamState>>> poss;
-  /* so you might wonder, why do we go through this trouble? The data on which we sort could change during the sort,
-     which would suck royally and could even lead to crashes. So first we snapshot on what we sort, and then we sort */
-  poss.reserve(servers.size());
-  for(auto& d : servers) {
-    if(d.second->isUp()) {
-      poss.push_back({make_tuple(d.second->outstanding.load(), d.second->order, d.second->latencyUsec), d.second});
-    }
-  }
-  if(poss.empty())
-    return shared_ptr<DownstreamState>();
-  nth_element(poss.begin(), poss.begin(), poss.end(), [](const decltype(poss)::value_type& a, const decltype(poss)::value_type& b) { return a.first < b.first; });
-  return poss.begin()->second;
-}
-
-shared_ptr<DownstreamState> valrandom(unsigned int val, const NumberedServerVector& servers, const DNSQuestion* dq)
-{
-  vector<pair<int, shared_ptr<DownstreamState>>> poss;
-  int sum = 0;
-  int max = std::numeric_limits<int>::max();
-
-  for(auto& d : servers) {      // w=1, w=10 -> 1, 11
-    if(d.second->isUp()) {
-      // Don't overflow sum when adding high weights
-      if(d.second->weight > max - sum) {
-        sum = max;
-      } else {
-        sum += d.second->weight;
-      }
-
-      poss.push_back({sum, d.second});
-    }
-  }
-
-  // Catch poss & sum are empty to avoid SIGFPE
-  if(poss.empty())
-    return shared_ptr<DownstreamState>();
-
-  int r = val % sum;
-  auto p = upper_bound(poss.begin(), poss.end(),r, [](int r_, const decltype(poss)::value_type& a) { return  r_ < a.first;});
-  if(p==poss.end())
-    return shared_ptr<DownstreamState>();
-  return p->second;
-}
-
-shared_ptr<DownstreamState> wrandom(const NumberedServerVector& servers, const DNSQuestion* dq)
-{
-  return valrandom(random(), servers, dq);
-}
-
-uint32_t g_hashperturb;
-double g_consistentHashBalancingFactor = 0;
-shared_ptr<DownstreamState> whashed(const NumberedServerVector& servers, const DNSQuestion* dq)
-{
-  return valrandom(dq->qname->hash(g_hashperturb), servers, dq);
-}
-
-shared_ptr<DownstreamState> chashed(const NumberedServerVector& servers, const DNSQuestion* dq)
-{
-  unsigned int qhash = dq->qname->hash(g_hashperturb);
-  unsigned int sel = std::numeric_limits<unsigned int>::max();
-  unsigned int min = std::numeric_limits<unsigned int>::max();
-  shared_ptr<DownstreamState> ret = nullptr, first = nullptr;
-
-  double targetLoad = std::numeric_limits<double>::max();
-  if (g_consistentHashBalancingFactor > 0) {
-    /* we start with one, representing the query we are currently handling */
-    double currentLoad = 1;
-    for (const auto& pair : servers) {
-      currentLoad += pair.second->outstanding;
-    }
-    targetLoad = (currentLoad / servers.size()) * g_consistentHashBalancingFactor;
-  }
-
-  for (const auto& d: servers) {
-    if (d.second->isUp() && d.second->outstanding <= targetLoad) {
-      // make sure hashes have been computed
-      if (d.second->hashes.empty()) {
-        d.second->hash();
-      }
-      {
-        ReadLock rl(&(d.second->d_lock));
-        const auto& server = d.second;
-        // we want to keep track of the last hash
-        if (min > *(server->hashes.begin())) {
-          min = *(server->hashes.begin());
-          first = server;
-        }
-
-        auto hash_it = server->hashes.lower_bound(qhash);
-        if (hash_it != server->hashes.end()) {
-          if (*hash_it < sel) {
-            sel = *hash_it;
-            ret = server;
-          }
-        }
-      }
-    }
-  }
-  if (ret != nullptr) {
-    return ret;
-  }
-  if (first != nullptr) {
-    return first;
-  }
-  return shared_ptr<DownstreamState>();
-}
-
-shared_ptr<DownstreamState> roundrobin(const NumberedServerVector& servers, const DNSQuestion* dq)
-{
-  NumberedServerVector poss;
-
-  for(auto& d : servers) {
-    if(d.second->isUp()) {
-      poss.push_back(d);
-    }
-  }
-
-  const auto *res=&poss;
-  if(poss.empty() && !g_roundrobinFailOnNoServer)
-    res = &servers;
-
-  if(res->empty())
-    return shared_ptr<DownstreamState>();
-
-  static unsigned int counter;
- 
-  return (*res)[(counter++) % res->size()].second;
-}
-
 ComboAddress g_serverControl{"127.0.0.1:5199"};
 
-std::shared_ptr<ServerPool> createPoolIfNotExists(pools_t& pools, const string& poolName)
-{
-  std::shared_ptr<ServerPool> pool;
-  pools_t::iterator it = pools.find(poolName);
-  if (it != pools.end()) {
-    pool = it->second;
-  }
-  else {
-    if (!poolName.empty())
-      vinfolog("Creating pool %s", poolName);
-    pool = std::make_shared<ServerPool>();
-    pools.insert(std::pair<std::string,std::shared_ptr<ServerPool> >(poolName, pool));
-  }
-  return pool;
-}
 
-void setPoolPolicy(pools_t& pools, const string& poolName, std::shared_ptr<ServerPolicy> policy)
-{
-  std::shared_ptr<ServerPool> pool = createPoolIfNotExists(pools, poolName);
-  if (!poolName.empty()) {
-    vinfolog("Setting pool %s server selection policy to %s", poolName, policy->name);
-  } else {
-    vinfolog("Setting default pool server selection policy to %s", policy->name);
-  }
-  pool->policy = policy;
-}
-
-void addServerToPool(pools_t& pools, const string& poolName, std::shared_ptr<DownstreamState> server)
-{
-  std::shared_ptr<ServerPool> pool = createPoolIfNotExists(pools, poolName);
-  if (!poolName.empty()) {
-    vinfolog("Adding server to pool %s", poolName);
-  } else {
-    vinfolog("Adding server to default pool");
-  }
-  pool->addServer(server);
-}
-
-void removeServerFromPool(pools_t& pools, const string& poolName, std::shared_ptr<DownstreamState> server)
-{
-  std::shared_ptr<ServerPool> pool = getPool(pools, poolName);
-
-  if (!poolName.empty()) {
-    vinfolog("Removing server from pool %s", poolName);
-  }
-  else {
-    vinfolog("Removing server from default pool");
-  }
-
-  pool->removeServer(server);
-}
-
-std::shared_ptr<ServerPool> getPool(const pools_t& pools, const std::string& poolName)
-{
-  pools_t::const_iterator it = pools.find(poolName);
-
-  if (it == pools.end()) {
-    throw std::out_of_range("No pool named " + poolName);
-  }
-
-  return it->second;
-}
-
-NumberedServerVector getDownstreamCandidates(const pools_t& pools, const std::string& poolName)
-{
-  std::shared_ptr<ServerPool> pool = getPool(pools, poolName);
-  return pool->getServers();
-}
-
-static void spoofResponseFromString(DNSQuestion& dq, const string& spoofContent)
+static void spoofResponseFromString(DNSQuestion& dq, const string& spoofContent, bool raw)
 {
   string result;
 
-  std::vector<std::string> addrs;
-  stringtok(addrs, spoofContent, " ,");
-
-  if (addrs.size() == 1) {
-    try {
-      ComboAddress spoofAddr(spoofContent);
-      SpoofAction sa({spoofAddr});
-      sa(&dq, &result);
-    }
-    catch(const PDNSException &e) {
-      SpoofAction sa(spoofContent); // CNAME then
-      sa(&dq, &result);
-    }
-  } else {
-    std::vector<ComboAddress> cas;
-    for (const auto& addr : addrs) {
-      try {
-        cas.push_back(ComboAddress(addr));
-      }
-      catch (...) {
-      }
-    }
-    SpoofAction sa(cas);
+  if (raw) {
+    SpoofAction sa(spoofContent);
     sa(&dq, &result);
+  }
+  else {
+    std::vector<std::string> addrs;
+    stringtok(addrs, spoofContent, " ,");
+
+    if (addrs.size() == 1) {
+      try {
+        ComboAddress spoofAddr(spoofContent);
+        SpoofAction sa({spoofAddr});
+        sa(&dq, &result);
+      }
+      catch(const PDNSException &e) {
+        DNSName cname(spoofContent);
+        SpoofAction sa(cname); // CNAME then
+        sa(&dq, &result);
+      }
+    } else {
+      std::vector<ComboAddress> cas;
+      for (const auto& addr : addrs) {
+        try {
+          cas.push_back(ComboAddress(addr));
+        }
+        catch (...) {
+        }
+      }
+      SpoofAction sa(cas);
+      sa(&dq, &result);
+    }
   }
 }
 
@@ -1093,12 +781,19 @@ bool processRulesResult(const DNSAction::Action& action, DNSQuestion& dq, std::s
     return true;
     break;
   case DNSAction::Action::Spoof:
-    spoofResponseFromString(dq, ruleresult);
+    spoofResponseFromString(dq, ruleresult, false);
+    return true;
+    break;
+  case DNSAction::Action::SpoofRaw:
+    spoofResponseFromString(dq, ruleresult, true);
     return true;
     break;
   case DNSAction::Action::Truncate:
     dq.dh->tc = true;
     dq.dh->qr = true;
+    dq.dh->ra = dq.dh->rd;
+    dq.dh->aa = false;
+    dq.dh->ad = false;
     return true;
     break;
   case DNSAction::Action::HeaderModify:
@@ -1186,6 +881,9 @@ static bool applyRulesToQuery(LocalHolders& holders, DNSQuestion& dq, const stru
           vinfolog("Query from %s truncated because of dynamic block", dq.remote->toStringWithPort());
           dq.dh->tc = true;
           dq.dh->qr = true;
+          dq.dh->ra = dq.dh->rd;
+          dq.dh->aa = false;
+          dq.dh->ad = false;
           return true;
         }
         else {
@@ -1241,6 +939,9 @@ static bool applyRulesToQuery(LocalHolders& holders, DNSQuestion& dq, const stru
           vinfolog("Query from %s for %s truncated because of dynamic block", dq.remote->toStringWithPort(), dq.qname->toLogString());
           dq.dh->tc = true;
           dq.dh->qr = true;
+          dq.dh->ra = dq.dh->rd;
+          dq.dh->aa = false;
+          dq.dh->ad = false;
           return true;
         }
         else {
@@ -1481,13 +1182,7 @@ ProcessQueryResult processQuery(DNSQuestion& dq, ClientState& cs, LocalHolders& 
       policy = *(serverPool->policy);
     }
     auto servers = serverPool->getServers();
-    if (policy.isLua) {
-      std::lock_guard<std::mutex> lock(g_luamutex);
-      selectedBackend = policy.policy(servers, &dq);
-    }
-    else {
-      selectedBackend = policy.policy(servers, &dq);
-    }
+    selectedBackend = getSelectedBackendFromPolicy(policy, servers, dq);
 
     uint16_t cachedResponseSize = dq.size;
     uint32_t allowExpired = selectedBackend ? 0 : g_staleCacheEntriesTTL;
@@ -1517,7 +1212,7 @@ ProcessQueryResult processQuery(DNSQuestion& dq, ClientState& cs, LocalHolders& 
         }
       }
 
-      if (!handleEDNSClientSubnet(dq, &(dq.ednsAdded), &(dq.ecsAdded), g_preserveTrailingData)) {
+      if (!handleEDNSClientSubnet(dq, dq.ednsAdded, dq.ecsAdded, g_preserveTrailingData)) {
         vinfolog("Dropping query from %s because we couldn't insert the ECS value", dq.remote->toStringWithPort());
         return ProcessQueryResult::Drop;
       }
@@ -1678,6 +1373,10 @@ static void processUDPQuery(ClientState& cs, LocalHolders& holders, const struct
 
     dh->id = idOffset;
 
+    if (ss->useProxyProtocol) {
+      addProxyProtocol(dq);
+    }
+
     int fd = pickBackendSocketForSending(ss);
     ssize_t ret = udpClientSendRequestToBackend(ss, fd, query, dq.len);
 
@@ -1720,7 +1419,7 @@ static void MultipleMessagesUDPClientThread(ClientState* cs, LocalHolders& holde
   /* initialize the structures needed to receive our messages */
   for (size_t idx = 0; idx < vectSize; idx++) {
     recvData[idx].remote.sin4.sin_family = cs->local.sin4.sin_family;
-    fillMSGHdr(&msgVec[idx].msg_hdr, &recvData[idx].iov, &recvData[idx].cbuf, sizeof(recvData[idx].cbuf), recvData[idx].packet, s_udpIncomingBufferSize, &recvData[idx].remote);
+    fillMSGHdr(&msgVec[idx].msg_hdr, &recvData[idx].iov, &recvData[idx].cbuf, sizeof(recvData[idx].cbuf), recvData[idx].packet, cs->dnscryptCtx ? sizeof(recvData[idx].packet) : s_udpIncomingBufferSize, &recvData[idx].remote);
   }
 
   /* go now */
@@ -1804,7 +1503,7 @@ try
     ComboAddress remote;
     ComboAddress dest;
     remote.sin4.sin_family = cs->local.sin4.sin_family;
-    fillMSGHdr(&msgh, &iov, &cbuf, sizeof(cbuf), packet, s_udpIncomingBufferSize, &remote);
+    fillMSGHdr(&msgh, &iov, &cbuf, sizeof(cbuf), packet, cs->dnscryptCtx ? sizeof(packet) : s_udpIncomingBufferSize, &remote);
 
     for(;;) {
       ssize_t got = recvmsg(cs->udpFD, &msgh, 0);
@@ -1834,152 +1533,17 @@ catch(...)
 uint16_t getRandomDNSID()
 {
 #ifdef HAVE_LIBSODIUM
-  return (randombytes_random() % 65536);
+  return randombytes_uniform(65536);
 #else
   return (random() % 65536);
 #endif
-}
-
-static bool upCheck(const shared_ptr<DownstreamState>& ds)
-try
-{
-  DNSName checkName = ds->checkName;
-  uint16_t checkType = ds->checkType.getCode();
-  uint16_t checkClass = ds->checkClass;
-  dnsheader checkHeader;
-  memset(&checkHeader, 0, sizeof(checkHeader));
-
-  checkHeader.qdcount = htons(1);
-  checkHeader.id = getRandomDNSID();
-
-  checkHeader.rd = true;
-  if (ds->setCD) {
-    checkHeader.cd = true;
-  }
-
-  if (ds->checkFunction) {
-    std::lock_guard<std::mutex> lock(g_luamutex);
-    auto ret = ds->checkFunction(checkName, checkType, checkClass, &checkHeader);
-    checkName = std::get<0>(ret);
-    checkType = std::get<1>(ret);
-    checkClass = std::get<2>(ret);
-  }
-
-  vector<uint8_t> packet;
-  DNSPacketWriter dpw(packet, checkName, checkType, checkClass);
-  dnsheader * requestHeader = dpw.getHeader();
-  *requestHeader = checkHeader;
-
-  Socket sock(ds->remote.sin4.sin_family, SOCK_DGRAM);
-  sock.setNonBlocking();
-  if (!IsAnyAddress(ds->sourceAddr)) {
-    sock.setReuseAddr();
-    if (!ds->sourceItfName.empty()) {
-#ifdef SO_BINDTODEVICE
-      int res = setsockopt(sock.getHandle(), SOL_SOCKET, SO_BINDTODEVICE, ds->sourceItfName.c_str(), ds->sourceItfName.length());
-      if (res != 0 && g_verboseHealthChecks) {
-        infolog("Error setting SO_BINDTODEVICE on the health check socket for backend '%s': %s", ds->getNameWithAddr(), stringerror());
-      }
-#endif
-    }
-    sock.bind(ds->sourceAddr);
-  }
-  sock.connect(ds->remote);
-  ssize_t sent = udpClientSendRequestToBackend(ds, sock.getHandle(), reinterpret_cast<char*>(&packet[0]), packet.size(), true);
-  if (sent < 0) {
-    int ret = errno;
-    if (g_verboseHealthChecks)
-      infolog("Error while sending a health check query to backend %s: %d", ds->getNameWithAddr(), ret);
-    return false;
-  }
-
-  int ret = waitForRWData(sock.getHandle(), true, /* ms to seconds */ ds->checkTimeout / 1000, /* remaining ms to us */ (ds->checkTimeout % 1000) * 1000);
-  if(ret < 0 || !ret) { // error, timeout, both are down!
-    if (ret < 0) {
-      ret = errno;
-      if (g_verboseHealthChecks)
-        infolog("Error while waiting for the health check response from backend %s: %d", ds->getNameWithAddr(), ret);
-    }
-    else {
-      if (g_verboseHealthChecks)
-        infolog("Timeout while waiting for the health check response from backend %s", ds->getNameWithAddr());
-    }
-    return false;
-  }
-
-  string reply;
-  ComboAddress from;
-  sock.recvFrom(reply, from);
-
-  /* we are using a connected socket but hey.. */
-  if (from != ds->remote) {
-    if (g_verboseHealthChecks)
-      infolog("Invalid health check response received from %s, expecting one from %s", from.toStringWithPort(), ds->remote.toStringWithPort());
-    return false;
-  }
-
-  const dnsheader * responseHeader = reinterpret_cast<const dnsheader *>(reply.c_str());
-
-  if (reply.size() < sizeof(*responseHeader)) {
-    if (g_verboseHealthChecks)
-      infolog("Invalid health check response of size %d from backend %s, expecting at least %d", reply.size(), ds->getNameWithAddr(), sizeof(*responseHeader));
-    return false;
-  }
-
-  if (responseHeader->id != requestHeader->id) {
-    if (g_verboseHealthChecks)
-      infolog("Invalid health check response id %d from backend %s, expecting %d", responseHeader->id, ds->getNameWithAddr(), requestHeader->id);
-    return false;
-  }
-
-  if (!responseHeader->qr) {
-    if (g_verboseHealthChecks)
-      infolog("Invalid health check response from backend %s, expecting QR to be set", ds->getNameWithAddr());
-    return false;
-  }
-
-  if (responseHeader->rcode == RCode::ServFail) {
-    if (g_verboseHealthChecks)
-      infolog("Backend %s responded to health check with ServFail", ds->getNameWithAddr());
-    return false;
-  }
-
-  if (ds->mustResolve && (responseHeader->rcode == RCode::NXDomain || responseHeader->rcode == RCode::Refused)) {
-    if (g_verboseHealthChecks)
-      infolog("Backend %s responded to health check with %s while mustResolve is set", ds->getNameWithAddr(), responseHeader->rcode == RCode::NXDomain ? "NXDomain" : "Refused");
-    return false;
-  }
-
-  uint16_t receivedType;
-  uint16_t receivedClass;
-  DNSName receivedName(reply.c_str(), reply.size(), sizeof(dnsheader), false, &receivedType, &receivedClass);
-
-  if (receivedName != checkName || receivedType != checkType || receivedClass != checkClass) {
-    if (g_verboseHealthChecks)
-      infolog("Backend %s responded to health check with an invalid qname (%s vs %s), qtype (%s vs %s) or qclass (%d vs %d)", ds->getNameWithAddr(), receivedName.toLogString(), checkName.toLogString(), QType(receivedType).getName(), QType(checkType).getName(), receivedClass, checkClass);
-    return false;
-  }
-
-  return true;
-}
-catch(const std::exception& e)
-{
-  if (g_verboseHealthChecks)
-    infolog("Error checking the health of backend %s: %s", ds->getNameWithAddr(), e.what());
-  return false;
-}
-catch(...)
-{
-  if (g_verboseHealthChecks)
-    infolog("Unknown exception while checking the health of backend %s", ds->getNameWithAddr());
-  return false;
 }
 
 uint64_t g_maxTCPClientThreads{10};
 std::atomic<uint16_t> g_cacheCleaningDelay{60};
 std::atomic<uint16_t> g_cacheCleaningPercentage{100};
 
-void maintThread()
+static void maintThread()
 {
   setThreadName("dnsdist/main");
   int interval = 1;
@@ -2071,68 +1635,27 @@ static void healthChecksThread()
 {
   setThreadName("dnsdist/healthC");
 
-  int interval = 1;
+  static const int interval = 1;
 
   for(;;) {
     sleep(interval);
 
-    if(g_tcpclientthreads->getQueuedCount() > 1 && !g_tcpclientthreads->hasReachedMaxThreads())
+    if(g_tcpclientthreads->getQueuedCount() > 1 && !g_tcpclientthreads->hasReachedMaxThreads()) {
       g_tcpclientthreads->addTCPClientThread();
+    }
 
+    auto mplexer = std::shared_ptr<FDMultiplexer>(FDMultiplexer::getMultiplexerSilent());
     auto states = g_dstates.getLocal(); // this points to the actual shared_ptrs!
     for(auto& dss : *states) {
-      if(++dss->lastCheck < dss->checkInterval)
+      if(++dss->lastCheck < dss->checkInterval) {
         continue;
+      }
+
       dss->lastCheck = 0;
-      if(dss->availability==DownstreamState::Availability::Auto) {
-        bool newState=upCheck(dss);
-        if (newState) {
-          /* check succeeded */
-          dss->currentCheckFailures = 0;
 
-          if (!dss->upStatus) {
-            /* we were marked as down */
-            dss->consecutiveSuccessfulChecks++;
-            if (dss->consecutiveSuccessfulChecks < dss->minRiseSuccesses) {
-              /* if we need more than one successful check to rise
-                 and we didn't reach the threshold yet,
-                 let's stay down */
-              newState = false;
-            }
-          }
-        }
-        else {
-          /* check failed */
-          dss->consecutiveSuccessfulChecks = 0;
-
-          if (dss->upStatus) {
-            /* we are currently up */
-            dss->currentCheckFailures++;
-            if (dss->currentCheckFailures < dss->maxCheckFailures) {
-              /* we need more than one failure to be marked as down,
-                 and we did not reach the threshold yet, let's stay down */
-              newState = true;
-            }
-          }
-        }
-
-        if(newState != dss->upStatus) {
-          warnlog("Marking downstream %s as '%s'", dss->getNameWithAddr(), newState ? "up" : "down");
-
-          if (newState && !dss->connected) {
-            newState = dss->reconnect();
-
-            if (dss->connected && !dss->threadStarted.test_and_set()) {
-              dss->tid = thread(responderThread, dss);
-            }
-          }
-
-          dss->upStatus = newState;
-          dss->currentCheckFailures = 0;
-          dss->consecutiveSuccessfulChecks = 0;
-          if (g_snmpAgent && g_snmpTrapsEnabled) {
-            g_snmpAgent->sendBackendStatusChangeTrap(dss);
-          }
+      if (dss->availability == DownstreamState::Availability::Auto) {
+        if (!queueHealthCheck(mplexer, dss)) {
+          updateHealthCheckResult(dss, false);
         }
       }
 
@@ -2142,7 +1665,7 @@ static void healthChecksThread()
       dss->prev.queries.store(dss->queries.load());
       dss->prev.reuseds.store(dss->reuseds.load());
       
-      for(IDState& ids  : dss->idStates) { // timeouts
+      for (IDState& ids  : dss->idStates) { // timeouts
         int64_t usageIndicator = ids.usageIndicator;
         if(IDState::isInUse(usageIndicator) && ids.age++ > g_udpTimeout) {
           /* We mark the state as unused as soon as possible
@@ -2163,7 +1686,7 @@ static void healthChecksThread()
           --dss->outstanding;
           ++g_stats.downstreamTimeouts; // this is an 'actively' discovered timeout
           vinfolog("Had a downstream timeout from %s (%s) for query for %s|%s from %s",
-                   dss->remote.toStringWithPort(), dss->name,
+                   dss->remote.toStringWithPort(), dss->getName(),
                    ids.qname.toLogString(), QType(ids.qtype).getName(), ids.origRemote.toStringWithPort());
 
           struct timespec ts;
@@ -2177,6 +1700,8 @@ static void healthChecksThread()
         }          
       }
     }
+
+    handleQueuedHealthChecks(mplexer);
   }
 }
 
@@ -2324,14 +1849,15 @@ static void setUpLocalBind(std::unique_ptr<ClientState>& cs)
 #endif
   }
 
-  if (!cs->tcp) {
-    if (cs->local.isIPv4()) {
-      try {
-        setSocketIgnorePMTU(cs->udpFD);
-      }
-      catch(const std::exception& e) {
-        warnlog("Failed to set IP_MTU_DISCOVER on UDP server socket for local address '%s': %s", cs->local.toStringWithPort(), e.what());
-      }
+  /* Only set this on IPv4 UDP sockets.
+     Don't set it for DNSCrypt binds. DNSCrypt pads queries for privacy
+     purposes, so we do receive large, sometimes fragmented datagrams. */
+  if (!cs->tcp && cs->local.isIPv4() && !cs->dnscryptCtx) {
+    try {
+      setSocketIgnorePMTU(cs->udpFD);
+    }
+    catch(const std::exception& e) {
+      warnlog("Failed to set IP_MTU_DISCOVER on UDP server socket for local address '%s': %s", cs->local.toStringWithPort(), e.what());
     }
   }
 
@@ -2370,7 +1896,8 @@ static void setUpLocalBind(std::unique_ptr<ClientState>& cs)
   SBind(fd, cs->local);
 
   if (cs->tcp) {
-    SListen(cs->tcpFD, SOMAXCONN);
+    SListen(cs->tcpFD, cs->tcpListenQueueSize);
+
     if (cs->tlsFrontend != nullptr) {
       warnlog("Listening on %s for TLS", cs->local.toStringWithPort());
     }
@@ -2626,7 +2153,7 @@ try
 
   g_policy.setState(leastOutstandingPol);
   if(g_cmdLine.beClient || !g_cmdLine.command.empty()) {
-    setupLua(true, g_cmdLine.config);
+    setupLua(true, false, g_cmdLine.config);
     if (clientAddress != ComboAddress())
       g_serverControl = clientAddress;
     doClient(g_serverControl, g_cmdLine.command);
@@ -2647,13 +2174,13 @@ try
   g_consoleACL.setState(consoleACL);
 
   if (g_cmdLine.checkConfig) {
-    setupLua(true, g_cmdLine.config);
+    setupLua(false, true, g_cmdLine.config);
     // No exception was thrown
     infolog("Configuration '%s' OK!", g_cmdLine.config);
     _exit(EXIT_SUCCESS);
   }
 
-  auto todo=setupLua(false, g_cmdLine.config);
+  auto todo=setupLua(false, false, g_cmdLine.config);
 
   auto localPools = g_pools.getCopy();
   {
@@ -2673,6 +2200,10 @@ try
       // pre compute hashes
       auto backends = g_dstates.getLocal();
       for (auto& backend: *backends) {
+        if (backend->weight < 100) {
+          vinfolog("Warning, the backend '%s' has a very low weight (%d), which will not yield a good distribution of queries with the 'chashed' policy. Please consider raising it to at least '100'.", backend->getName(), backend->weight);
+        }
+
         backend->hash();
       }
     }
@@ -2745,8 +2276,8 @@ try
   }
 #endif
 
-  uid_t newgid=0;
-  gid_t newuid=0;
+  uid_t newgid=getegid();
+  gid_t newuid=geteuid();
 
   if(!g_cmdLine.gid.empty())
     newgid = strToGID(g_cmdLine.gid.c_str());
@@ -2754,8 +2285,22 @@ try
   if(!g_cmdLine.uid.empty())
     newuid = strToUID(g_cmdLine.uid.c_str());
 
-  dropGroupPrivs(newgid);
-  dropUserPrivs(newuid);
+  if (getegid() != newgid) {
+    if (running_in_service_mgr()) {
+      errlog("--gid/-g set on command-line, but dnsdist was started as a systemd service. Use the 'Group' setting in the systemd unit file to set the group to run as");
+      _exit(EXIT_FAILURE);
+    }
+    dropGroupPrivs(newgid);
+  }
+
+  if (geteuid() != newuid) {
+    if (running_in_service_mgr()) {
+      errlog("--uid/-u set on command-line, but dnsdist was started as a systemd service. Use the 'User' setting in the systemd unit file to set the user to run as");
+      _exit(EXIT_FAILURE);
+    }
+    dropUserPrivs(newuid);
+  }
+
   try {
     /* we might still have capabilities remaining,
        for example if we have been started as root
@@ -2803,13 +2348,16 @@ try
 
   checkFileDescriptorsLimits(udpBindsCount, tcpBindsCount);
 
+  auto mplexer = std::shared_ptr<FDMultiplexer>(FDMultiplexer::getMultiplexerSilent());
   for(auto& dss : g_dstates.getCopy()) { // it is a copy, but the internal shared_ptrs are the real deal
-    if(dss->availability==DownstreamState::Availability::Auto) {
-      bool newState=upCheck(dss);
-      warnlog("Marking downstream %s as '%s'", dss->getNameWithAddr(), newState ? "up" : "down");
-      dss->upStatus = newState;
+    if (dss->availability == DownstreamState::Availability::Auto) {
+      if (!queueHealthCheck(mplexer, dss, true)) {
+        dss->upStatus = false;
+        warnlog("Marking downstream %s as 'down'", dss->getNameWithAddr());
+      }
     }
   }
+  handleQueuedHealthChecks(mplexer, true);
 
   for(auto& cs : g_frontends) {
     if (cs->dohFrontend != nullptr) {

@@ -59,10 +59,9 @@ static void makePtr(const DNSResourceRecord& rr, DNSResourceRecord* ptr);
 // QTypes that MUST NOT have multiple records of the same type in a given RRset.
 static const std::set<uint16_t> onlyOneEntryTypes = { QType::CNAME, QType::DNAME, QType::SOA };
 // QTypes that MUST NOT be used with any other QType on the same name.
-static const std::set<uint16_t> exclusiveEntryTypes = { QType::CNAME, QType::DNAME };
+static const std::set<uint16_t> exclusiveEntryTypes = { QType::CNAME };
 
 AuthWebServer::AuthWebServer() :
-  d_tid(0),
   d_start(time(nullptr)),
   d_min10(0),
   d_min5(0),
@@ -87,8 +86,10 @@ AuthWebServer::AuthWebServer() :
 void AuthWebServer::go()
 {
   S.doRings();
-  pthread_create(&d_tid, 0, webThreadHelper, this);
-  pthread_create(&d_tid, 0, statThreadHelper, this);
+  std::thread webT(std::bind(&AuthWebServer::webThread, this));
+  webT.detach();
+  std::thread statT(std::bind(&AuthWebServer::statThread, this));
+  statT.detach();
 }
 
 void AuthWebServer::statThread()
@@ -108,20 +109,6 @@ void AuthWebServer::statThread()
     g_log<<Logger::Error<<"Webserver statThread caught an exception, dying"<<endl;
     _exit(1);
   }
-}
-
-void *AuthWebServer::statThreadHelper(void *p)
-{
-  AuthWebServer *self=static_cast<AuthWebServer *>(p);
-  self->statThread();
-  return 0; // never reached
-}
-
-void *AuthWebServer::webThreadHelper(void *p)
-{
-  AuthWebServer *self=static_cast<AuthWebServer *>(p);
-  self->webThread();
-  return 0; // never reached
 }
 
 static string htmlescape(const string &s) {
@@ -147,7 +134,7 @@ static string htmlescape(const string &s) {
   return result;
 }
 
-void printtable(ostringstream &ret, const string &ringname, const string &title, int limit=10)
+static void printtable(ostringstream &ret, const string &ringname, const string &title, int limit=10)
 {
   int tot=0;
   int entries=0;
@@ -325,8 +312,10 @@ static inline string makeBackendRecordContent(const QType& qtype, const string& 
 static Json::object getZoneInfo(const DomainInfo& di, DNSSECKeeper* dk) {
   string zoneId = apiZoneNameToId(di.zone);
   vector<string> masters;
-  for(const auto& m : di.masters)
+  masters.reserve(di.masters.size());
+  for(const auto& m : di.masters) {
     masters.push_back(m.toStringWithPortExcept(53));
+  }
 
   auto obj = Json::object {
     // id is the canonical lookup key, which doesn't actually match the name (in some cases)
@@ -335,7 +324,7 @@ static Json::object getZoneInfo(const DomainInfo& di, DNSSECKeeper* dk) {
     { "name", di.zone.toString() },
     { "kind", di.getKindString() },
     { "account", di.account },
-    { "masters", masters },
+    { "masters", std::move(masters) },
     { "serial", (double)di.serial },
     { "notified_serial", (double)di.notified_serial },
     { "last_check", (double)di.last_check }
@@ -1055,6 +1044,7 @@ static void apiZoneCryptokeysGET(DNSName zonename, int inquireKeyId, HttpRespons
         { "type", "Cryptokey" },
         { "id", (int)value.second.id },
         { "active", value.second.active },
+        { "published", value.second.published },
         { "keytype", keyType },
         { "flags", (uint16_t)value.first.d_flags },
         { "dnskey", value.first.getDNSKEY().getZoneRepresentation() },
@@ -1153,6 +1143,7 @@ static void apiZoneCryptokeysPOST(DNSName zonename, HttpRequest *req, HttpRespon
     privatekey_fieldname = "content";
   }
   bool active = boolFromJson(document, "active", false);
+  bool published = boolFromJson(document, "published", true);
   bool keyOrZone;
 
   if (stringFromJson(document, "keytype") == "ksk" || stringFromJson(document, "keytype") == "csk") {
@@ -1188,7 +1179,7 @@ static void apiZoneCryptokeysPOST(DNSName zonename, HttpRequest *req, HttpRespon
     }
 
     try {
-      if (!dk->addKey(zonename, keyOrZone, algorithm, insertedId, bits, active)) {
+      if (!dk->addKey(zonename, keyOrZone, algorithm, insertedId, bits, active, published)) {
         throw ApiException("Adding key failed, perhaps DNSSEC not enabled in configuration?");
       }
     } catch (std::runtime_error& error) {
@@ -1217,7 +1208,7 @@ static void apiZoneCryptokeysPOST(DNSName zonename, HttpRequest *req, HttpRespon
     catch (std::runtime_error& error) {
       throw ApiException("Key could not be parsed. Make sure your key format is correct.");
     } try {
-      if (!dk->addKey(zonename, dpk,insertedId, active)) {
+      if (!dk->addKey(zonename, dpk,insertedId, active, published)) {
         throw ApiException("Adding key failed, perhaps DNSSEC not enabled in configuration?");
       }
     } catch (std::runtime_error& error) {
@@ -1248,6 +1239,7 @@ static void apiZoneCryptokeysPUT(DNSName zonename, int inquireKeyId, HttpRequest
   auto document = req->json();
   //throws an exception if the key does not exist or is not a bool
   bool active = boolFromJson(document, "active");
+  bool published = boolFromJson(document, "published", true);
   if (active) {
     if (!dk->activateKey(zonename, inquireKeyId)) {
       resp->setErrorResult("Could not activate Key: " + req->parameters["key_id"] + " in Zone: " + zonename.toString(), 422);
@@ -1259,6 +1251,19 @@ static void apiZoneCryptokeysPUT(DNSName zonename, int inquireKeyId, HttpRequest
       return;
     }
   }
+
+  if (published) {
+    if (!dk->publishKey(zonename, inquireKeyId)) {
+      resp->setErrorResult("Could not publish Key: " + req->parameters["key_id"] + " in Zone: " + zonename.toString(), 422);
+      return;
+    }
+  } else {
+    if (!dk->unpublishKey(zonename, inquireKeyId)) {
+      resp->setErrorResult("Could not unpublish Key: " + req->parameters["key_id"] + " in Zone: " + zonename.toString(), 422);
+      return;
+    }
+  }
+
   resp->body = "";
   resp->status = 204;
   return;
@@ -1330,7 +1335,7 @@ static void gatherRecordsFromZone(const std::string& zonestring, vector<DNSResou
   }
 }
 
-/** Throws ApiException if records which violate RRset contraints are present.
+/** Throws ApiException if records which violate RRset constraints are present.
  *  NOTE: sorts records in-place.
  *
  *  Constraints being checked:
@@ -1711,6 +1716,7 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
   }
 
   Json::array doc;
+  doc.reserve(domains.size());
   for(const DomainInfo& di : domains) {
     doc.push_back(getZoneInfo(di, with_dnssec ? &dk : nullptr));
   }
@@ -1747,8 +1753,7 @@ static void apiServerZoneDetail(HttpRequest* req, HttpResponse* resp) {
       throw ApiException("Deleting domain '"+zonename.toString()+"' failed: backend delete failed/unsupported");
 
     // clear caches
-    DNSSECKeeper dk(&B);
-    dk.clearCaches(zonename);
+    DNSSECKeeper::clearCaches(zonename);
     purgeAuthCaches(zonename.toString() + "$");
 
     // empty body on success
@@ -1818,7 +1823,7 @@ static void apiServerZoneAxfrRetrieve(HttpRequest* req, HttpResponse* resp) {
   if(di.masters.empty())
     throw ApiException("Domain '"+zonename.toString()+"' is not a slave domain (or has no master defined)");
 
-  random_shuffle(di.masters.begin(), di.masters.end());
+  shuffle(di.masters.begin(), di.masters.end(), pdns::dns_random_engine());
   Communicator.addSuckRequest(zonename, di.masters.front());
   resp->setSuccessResult("Added retrieval request for '"+zonename.toString()+"' from master "+di.masters.front().toLogString());
 }
@@ -2029,6 +2034,8 @@ static void patchZone(UeberBackend& B, HttpRequest* req, HttpResponse* resp) {
 
         if (replace_records) {
           bool ent_present = false;
+          bool dname_seen = false, ns_seen = false;
+
           di.backend->lookup(QType(QType::ANY), qname, di.id);
           DNSResourceRecord rr;
           while (di.backend->get(rr)) {
@@ -2037,6 +2044,10 @@ static void patchZone(UeberBackend& B, HttpRequest* req, HttpResponse* resp) {
               /* that's fine, we will override it */
               continue;
             }
+            if (qtype == QType::DNAME || rr.qtype == QType::DNAME)
+              dname_seen = true;
+            if (qtype == QType::NS || rr.qtype == QType::NS)
+              ns_seen = true;
             if (qtype.getCode() != rr.qtype.getCode()
               && (exclusiveEntryTypes.count(qtype.getCode()) != 0
                 || exclusiveEntryTypes.count(rr.qtype.getCode()) != 0)) {
@@ -2049,6 +2060,9 @@ static void patchZone(UeberBackend& B, HttpRequest* req, HttpResponse* resp) {
             }
           }
 
+          if (dname_seen && ns_seen && qname != zonename) {
+            throw ApiException("RRset "+qname.toString()+" IN "+qtype.getName()+": Cannot have both NS and DNAME except in zone apex");
+          }
           if (!new_records.empty() && ent_present) {
             QType qt_ent{0};
             if (!di.backend->replaceRRSet(di.id, qname, qt_ent, new_records)) {
@@ -2170,7 +2184,7 @@ static void apiServerSearchData(HttpRequest* req, HttpResponse* resp) {
 
   B.getAllDomains(&domains, true);
 
-  for(const DomainInfo di: domains)
+  for(const DomainInfo& di: domains)
   {
     if ((objectType == ObjectType::ALL || objectType == ObjectType::ZONE) && ents < maxEnts && sm.match(di.zone)) {
       doc.push_back(Json::object {
@@ -2226,7 +2240,7 @@ static void apiServerSearchData(HttpRequest* req, HttpResponse* resp) {
   resp->setBody(doc);
 }
 
-void apiServerCacheFlush(HttpRequest* req, HttpResponse* resp) {
+static void apiServerCacheFlush(HttpRequest* req, HttpResponse* resp) {
   if(req->method != "PUT")
     throw HttpMethodNotAllowedException();
 
@@ -2301,8 +2315,8 @@ void AuthWebServer::webThread()
       d_ws->registerApiHandler("/api", &apiDiscovery);
     }
     if (::arg().mustDo("webserver")) {
-      d_ws->registerWebHandler("/style.css", boost::bind(&AuthWebServer::cssfunction, this, _1, _2));
-      d_ws->registerWebHandler("/", boost::bind(&AuthWebServer::indexfunction, this, _1, _2));
+      d_ws->registerWebHandler("/style.css", std::bind(&AuthWebServer::cssfunction, this, std::placeholders::_1, std::placeholders::_2));
+      d_ws->registerWebHandler("/", std::bind(&AuthWebServer::indexfunction, this, std::placeholders::_1, std::placeholders::_2));
     }
     d_ws->go();
   }
