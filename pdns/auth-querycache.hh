@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef AUTH_QUERYCACHE_HH
-#define AUTH_QUERYCACHE_HH
-
+#pragma once
 #include <string>
 #include <map>
 #include "dns.hh"
@@ -41,7 +39,7 @@ public:
   AuthQueryCache(size_t mapsCount=1024);
   ~AuthQueryCache();
 
-  void insert(const DNSName &qname, const QType& qtype, const vector<DNSZoneRecord>& content, uint32_t ttl, int zoneID);
+  void insert(const DNSName &qname, const QType& qtype, vector<DNSZoneRecord>&& content, uint32_t ttl, int zoneID);
 
   bool getEntry(const DNSName &qname, const QType& qtype, vector<DNSZoneRecord>& entry, int zoneID);
 
@@ -93,17 +91,15 @@ private:
   struct MapCombo
   {
     MapCombo() {
-      pthread_rwlock_init(&d_mut, nullptr);
     }
     ~MapCombo() {
-      pthread_rwlock_destroy(&d_mut);
     }
     MapCombo(const MapCombo &) = delete; 
     MapCombo & operator=(const MapCombo &) = delete;
 
     void reserve(size_t numberOfEntries);
 
-    pthread_rwlock_t d_mut;
+    ReadWriteLock d_mut;
     cmap_t d_map;
   };
 
@@ -129,5 +125,3 @@ private:
 
   static const unsigned int s_mincleaninterval=1000, s_maxcleaninterval=300000;
 };
-
-#endif /* AUTH_QUERYCACHE_HH */

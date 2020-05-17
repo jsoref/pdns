@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef DNSPARSER_HH
-#define DNSPARSER_HH
-
+#pragma once
 #include <map>
 #include <sstream>
 #include <stdexcept>
@@ -183,7 +181,7 @@ private:
   uint16_t d_pos;
   uint16_t d_startrecordpos; // needed for getBlob later on
   uint16_t d_recordlen;      // ditto
-  uint16_t not_used; // Aligns the whole class on 8-byte boundries
+  uint16_t not_used; // Aligns the whole class on 8-byte boundaries
   const std::string& d_content;
 };
 
@@ -222,7 +220,7 @@ public:
     return typeid(*this)==typeid(rhs) && this->getZoneRepresentation() == rhs.getZoneRepresentation();
   }
   
-  static shared_ptr<DNSRecordContent> unserialize(const DNSName& qname, uint16_t qtype, const string& serialized);
+  static shared_ptr<DNSRecordContent> deserialize(const DNSName& qname, uint16_t qtype, const string& serialized);
 
   void doRecordCheck(const struct DNSRecord&){}
 
@@ -526,5 +524,3 @@ private:
   uint32_t d_notyouroffset;  // only 'moveOffset' can touch this
   const uint32_t&  d_offset; // look.. but don't touch
 };
-
-#endif

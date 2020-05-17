@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_GSQLBACKEND_HH
-#define PDNS_GSQLBACKEND_HH
-
+#pragma once
 #include <string>
 #include <map>
 #include "ssql.hh"
@@ -243,8 +241,8 @@ public:
 protected:
   bool createDomain(const DNSName &domain, const string &type, const string &masters, const string &account);
   string pattern2SQLPattern(const string& pattern);
-  void extractRecord(const SSqlStatement::row_t& row, DNSResourceRecord& rr);
-  void extractComment(const SSqlStatement::row_t& row, Comment& c);
+  void extractRecord(SSqlStatement::row_t& row, DNSResourceRecord& rr);
+  void extractComment(SSqlStatement::row_t& row, Comment& c);
   bool isConnectionUsable() {
     if (d_db) {
       return d_db->isConnectionUsable();
@@ -411,5 +409,3 @@ protected:
   bool d_dnssecQueries;
   bool d_inTransaction{false};
 };
-
-#endif /* PDNS_GSQLBACKEND_HH */

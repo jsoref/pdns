@@ -37,7 +37,8 @@
 *
 * copied from sqlite 3.3.6 // cmouse
 */
-int pdns_sqlite3_clear_bindings(sqlite3_stmt *pStmt){
+#if SQLITE_VERSION_NUMBER < 3003009
+static int pdns_sqlite3_clear_bindings(sqlite3_stmt *pStmt){
   int i;
   int rc = SQLITE_OK;
   for(i=1; rc==SQLITE_OK && i<=sqlite3_bind_parameter_count(pStmt); i++){
@@ -45,6 +46,7 @@ int pdns_sqlite3_clear_bindings(sqlite3_stmt *pStmt){
   }
   return rc;
 }
+#endif
 
 static string SSQLite3ErrorString(sqlite3 *db)
 {
@@ -113,10 +115,10 @@ public:
     for ( int i=0; i<numCols; i++)
     {
       if (sqlite3_column_type(d_stmt,i) == SQLITE_NULL) {
-        row.push_back("");
+        row.emplace_back("");
       } else {
         const char *pData = (const char*) sqlite3_column_text(d_stmt, i);
-        row.push_back(string(pData, sqlite3_column_bytes(d_stmt, i)));
+        row.emplace_back(pData, sqlite3_column_bytes(d_stmt, i));
       }
     }
     d_rc = sqlite3_step(d_stmt);
@@ -128,7 +130,7 @@ public:
     while(hasNextRow()) {
       row_t row;
       nextRow(row);
-      result.push_back(row);
+      result.push_back(std::move(row));
     }
     return this;
   }
@@ -232,19 +234,26 @@ std::unique_ptr<SSqlStatement> SSQLite3::prepare(const string& query, int nparam
 
 void SSQLite3::execute(const string& query) {
   char *errmsg;
-  int rc;
-  if (sqlite3_exec(m_pDB, query.c_str(), NULL, NULL, &errmsg) == SQLITE_BUSY) {
+  std::string errstr1;
+  int rc = sqlite3_exec(m_pDB, query.c_str(), nullptr, nullptr, &errmsg);
+  if (rc != SQLITE_OK) {
+    errstr1 = errmsg;
+    sqlite3_free(errmsg);
+  }
+  if (rc == SQLITE_BUSY) {
     if (m_in_transaction) {
-      std::string errstr(errmsg);
-      sqlite3_free(errmsg);
-      throw("Failed to execute query: " + errstr);
+      throw SSqlException("Failed to execute query: " + errstr1);
     } else {
-      if ((rc = sqlite3_exec(m_pDB, query.c_str(), NULL, NULL, &errmsg) != SQLITE_OK) && rc != SQLITE_DONE && rc != SQLITE_ROW) {
-        std::string errstr(errmsg);
+      rc = sqlite3_exec(m_pDB, query.c_str(), NULL, NULL, &errmsg);
+      std::string errstr2;
+      if (rc != SQLITE_OK)  {
+        errstr2 = errmsg;
         sqlite3_free(errmsg);
-        throw("Failed to execute query: " + errstr);
+        throw SSqlException("Failed to execute query: " + errstr2);
       }
     }
+  } else if (rc != SQLITE_OK) {
+    throw SSqlException("Failed to execute query: " + errstr1);
   }
 }
 
