@@ -65,7 +65,7 @@ extern StatBag S;
 \brief This file implements the tcpreceiver that receives and answers questions over TCP/IP
 */
 
-pthread_mutex_t TCPNameserver::s_plock = PTHREAD_MUTEX_INITIALIZER;
+std::mutex TCPNameserver::s_plock;
 std::unique_ptr<Semaphore> TCPNameserver::d_connectionroom_sem{nullptr};
 std::unique_ptr<PacketHandler> TCPNameserver::s_P{nullptr};
 unsigned int TCPNameserver::d_maxTCPConnections = 0;
@@ -87,13 +87,9 @@ void TCPNameserver::go()
   catch(PDNSException &ae) {
     g_log<<Logger::Error<<"TCP server is unable to launch backends - will try again when questions come in: "<<ae.reason<<endl;
   }
-  pthread_create(&d_tid, 0, launcher, static_cast<void *>(this));
-}
 
-void *TCPNameserver::launcher(void *data)
-{
-  static_cast<TCPNameserver *>(data)->thread();
-  return 0;
+  std::thread th(std::bind(&TCPNameserver::thread, this));
+  th.detach();
 }
 
 // throws PDNSException if things didn't go according to plan, returns 0 if really 0 bytes were read
@@ -172,33 +168,6 @@ static void writenWithTimeout(int fd, const void *buffer, unsigned int n, unsign
   }
 }
 
-void connectWithTimeout(int fd, struct sockaddr* remote, size_t socklen)
-{
-  int err;
-  Utility::socklen_t len=sizeof(err);
-
-  if((err=connect(fd, remote, socklen))<0 && errno!=EINPROGRESS)
-    throw NetworkError("connect: "+stringerror());
-
-  if(!err)
-    goto done;
-  
-  err=waitForRWData(fd, false, 5, 0);
-  if(err == 0)
-    throw NetworkError("Timeout connecting to remote");
-  if(err < 0)
-    throw NetworkError("Error connecting to remote");
-
-  if(getsockopt(fd, SOL_SOCKET,SO_ERROR,(char *)&err,&len)<0)
-    throw NetworkError("Error connecting to remote: "+stringerror()); // Solaris
-
-  if(err)
-    throw NetworkError("Error connecting to remote: "+string(strerror(err)));
-
- done:
-  ;
-}
-
 void TCPNameserver::sendPacket(std::unique_ptr<DNSPacket>& p, int outsock)
 {
   g_rs.submitResponse(*p, false);
@@ -251,12 +220,10 @@ void TCPNameserver::decrementClientCount(const ComboAddress& remote)
   }
 }
 
-void *TCPNameserver::doConnection(void *data)
+void TCPNameserver::doConnection(int fd)
 {
   setThreadName("pdns/tcpConnect");
   std::unique_ptr<DNSPacket> packet;
-  // Fix gcc-4.0 error (on AMD64)
-  int fd=(int)(long)data; // gotta love C (generates a harmless warning on opteron)
   ComboAddress remote;
   socklen_t remotelen=sizeof(remote);
   size_t transactions = 0;
@@ -265,7 +232,6 @@ void *TCPNameserver::doConnection(void *data)
     start = time(NULL);
   }
 
-  pthread_detach(pthread_self());
   if(getpeername(fd, (struct sockaddr *)&remote, &remotelen) < 0) {
     g_log<<Logger::Warning<<"Received question from socket which had no remote address, dropping ("<<stringerror()<<")"<<endl;
     d_connectionroom_sem->post();
@@ -275,7 +241,7 @@ void *TCPNameserver::doConnection(void *data)
     catch(const PDNSException& e) {
       g_log<<Logger::Error<<"Error closing TCP socket: "<<e.reason<<endl;
     }
-    return 0;
+    return;
   }
 
   setNonBlocking(fd);
@@ -378,7 +344,7 @@ void *TCPNameserver::doConnection(void *data)
         }
       }
       {
-        Lock l(&s_plock);
+        std::lock_guard<std::mutex> l(s_plock);
         if(!s_P) {
           g_log<<Logger::Error<<"TCP server is without backend connections, launching"<<endl;
           s_P=make_unique<PacketHandler>();
@@ -394,7 +360,7 @@ void *TCPNameserver::doConnection(void *data)
     }
   }
   catch(PDNSException &ae) {
-    Lock l(&s_plock);
+    std::lock_guard<std::mutex> l(s_plock);
     s_P.reset(); // on next call, backend will be recycled
     g_log<<Logger::Error<<"TCP nameserver had error, cycling backend: "<<ae.reason<<endl;
   }
@@ -418,8 +384,6 @@ void *TCPNameserver::doConnection(void *data)
     g_log<<Logger::Error<<"Error closing TCP socket: "<<e.reason<<endl;
   }
   decrementClientCount(remote);
-
-  return 0;
 }
 
 
@@ -564,7 +528,7 @@ int TCPNameserver::doAXFR(const DNSName &target, std::unique_ptr<DNSPacket>& q, 
   // determine if zone exists and AXFR is allowed using existing backend before spawning a new backend.
   SOAData sd;
   {
-    Lock l(&s_plock);
+    std::lock_guard<std::mutex> l(s_plock);
     DLOG(g_log<<"Looking for SOA"<<endl);    // find domain_id via SOA and list complete domain. No SOA, no AXFR
     if(!s_P) {
       g_log<<Logger::Error<<"TCP server is without backend connections in doAXFR, launching"<<endl;
@@ -1096,7 +1060,7 @@ int TCPNameserver::doIXFR(std::unique_ptr<DNSPacket>& q, int outsock)
   // determine if zone exists and AXFR is allowed using existing backend before spawning a new backend.
   SOAData sd;
   {
-    Lock l(&s_plock);
+    std::lock_guard<std::mutex> l(s_plock);
     DLOG(g_log<<"Looking for SOA"<<endl); // find domain_id via SOA and list complete domain. No SOA, no IXFR
     if(!s_P) {
       g_log<<Logger::Error<<"TCP server is without backend connections in doIXFR, launching"<<endl;
@@ -1150,7 +1114,7 @@ int TCPNameserver::doIXFR(std::unique_ptr<DNSPacket>& q, int outsock)
       DNSName algorithm=trc.d_algoName; // FIXME400: was toLowerCanonic, compare output
       if (algorithm == DNSName("hmac-md5.sig-alg.reg.int"))
         algorithm = DNSName("hmac-md5");
-      Lock l(&s_plock);
+      std::lock_guard<std::mutex> l(s_plock);
       if(!s_P->getBackend()->getTSIGKey(tsigkeyname, &algorithm, &tsig64)) {
         g_log<<Logger::Error<<"TSIG key '"<<tsigkeyname<<"' for domain '"<<target<<"' not found"<<endl;
         return 0;
@@ -1201,7 +1165,6 @@ TCPNameserver::TCPNameserver()
 //  sem_init(&d_connectionroom_sem,0,::arg().asNum("max-tcp-connections"));
   d_connectionroom_sem = make_unique<Semaphore>( ::arg().asNum( "max-tcp-connections" ));
   d_maxTCPConnections = ::arg().asNum( "max-tcp-connections" );
-  d_tid=0;
 
   vector<string>locals;
   stringtok(locals,::arg()["local-ipv6"]," ,");
@@ -1310,7 +1273,6 @@ void TCPNameserver::thread()
               s_clientsCount[remote]++;
             }
 
-            pthread_t tid;
             d_connectionroom_sem->wait(); // blocks if no connections are available
 
             int room;
@@ -1318,9 +1280,12 @@ void TCPNameserver::thread()
             if(room<1)
               g_log<<Logger::Warning<<"Limit of simultaneous TCP connections reached - raise max-tcp-connections"<<endl;
 
-            int err;
-            if((err = pthread_create(&tid, 0, &doConnection, reinterpret_cast<void*>(fd)))) {
-              g_log<<Logger::Error<<"Error creating thread: "<<stringerror(err)<<endl;
+            try {
+              std::thread connThread(doConnection, fd);
+              connThread.detach();
+            }
+            catch (std::exception& e) {
+              g_log<<Logger::Error<<"Error creating thread: "<<e.what()<<endl;
               d_connectionroom_sem->post();
               close(fd);
               decrementClientCount(remote);

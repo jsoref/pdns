@@ -240,6 +240,11 @@ bool responseContentMatches(const char* response, const uint16_t responseLen, co
   }
 
   const struct dnsheader* dh = reinterpret_cast<const struct dnsheader*>(response);
+  if (dh->qr == 0) {
+    ++g_stats.nonCompliantResponses;
+    return false;
+  }
+
   if (dh->qdcount == 0) {
     if ((dh->rcode != RCode::NoError && dh->rcode != RCode::NXDomain) || g_allowEmptyResponse) {
       return true;
@@ -1538,7 +1543,7 @@ uint64_t g_maxTCPClientThreads{10};
 std::atomic<uint16_t> g_cacheCleaningDelay{60};
 std::atomic<uint16_t> g_cacheCleaningPercentage{100};
 
-void maintThread()
+static void maintThread()
 {
   setThreadName("dnsdist/main");
   int interval = 1;
@@ -1891,7 +1896,8 @@ static void setUpLocalBind(std::unique_ptr<ClientState>& cs)
   SBind(fd, cs->local);
 
   if (cs->tcp) {
-    SListen(cs->tcpFD, SOMAXCONN);
+    SListen(cs->tcpFD, cs->tcpListenQueueSize);
+
     if (cs->tlsFrontend != nullptr) {
       warnlog("Listening on %s for TLS", cs->local.toStringWithPort());
     }

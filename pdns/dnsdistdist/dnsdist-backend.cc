@@ -79,8 +79,14 @@ bool DownstreamState::reconnect()
     for (auto& fd : sockets) {
       if (fd != -1) {
         if (sockets.size() > 1) {
-          std::lock_guard<std::mutex> lock(socketsLock);
-          mplexer->removeReadFD(fd);
+          try {
+            std::lock_guard<std::mutex> lock(socketsLock);
+            mplexer->removeReadFD(fd);
+          }
+          catch (const FDMultiplexerException& e) {
+            /* some sockets might not have been added to the multiplexer
+               yet, that's fine */
+          }
         }
         /* shutdown() is needed to wake up recv() in the responderThread */
         shutdown(fd, SHUT_RDWR);
@@ -131,7 +137,6 @@ void DownstreamState::setWeight(int newWeight)
 
 DownstreamState::DownstreamState(const ComboAddress& remote_, const ComboAddress& sourceAddr_, unsigned int sourceItf_, const std::string& sourceItfName_, size_t numberOfSockets, bool connect=true): sourceItfName(sourceItfName_), remote(remote_), sourceAddr(sourceAddr_), sourceItf(sourceItf_), name(remote_.toStringWithPort()), nameWithAddr(remote_.toStringWithPort())
 {
-  pthread_rwlock_init(&d_lock, nullptr);
   id = getUniqueID();
   threadStarted.clear();
 
