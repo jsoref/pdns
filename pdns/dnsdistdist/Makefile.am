@@ -132,10 +132,15 @@ dnsdist_SOURCES = \
 	dnsdist-dnscrypt.cc \
 	dnsdist-dynblocks.cc dnsdist-dynblocks.hh \
 	dnsdist-ecs.cc dnsdist-ecs.hh \
+<<<<<<< working copy
 	dnsdist-healthchecks.cc dnsdist-healthchecks.hh \
 	dnsdist-idstate.cc \
 	dnsdist-kvs.hh dnsdist-kvs.cc \
 	dnsdist-lbpolicies.cc dnsdist-lbpolicies.hh \
+||||||| base
+=======
+	dnsdist-extended-error.cc dns-extended-error.hh \
+>>>>>>> merge rev
 	dnsdist-lua.hh dnsdist-lua.cc \
 	dnsdist-lua-actions.cc \
 	dnsdist-lua-bindings.cc \

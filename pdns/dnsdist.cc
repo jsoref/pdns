@@ -46,7 +46,12 @@
 #include "dnsdist-cache.hh"
 #include "dnsdist-console.hh"
 #include "dnsdist-ecs.hh"
+<<<<<<< working copy
 #include "dnsdist-healthchecks.hh"
+||||||| base
+=======
+#include "dnsdist-extended-error.hh"
+>>>>>>> merge rev
 #include "dnsdist-lua.hh"
 #include "dnsdist-proxy-protocol.hh"
 #include "dnsdist-rings.hh"
@@ -289,11 +294,18 @@ static void restoreFlags(struct dnsheader* dh, uint16_t origFlags)
   *flags |= origFlags;
 }
 
+<<<<<<< working copy
 static bool fixUpQueryTurnedResponse(DNSQuestion& dq, const uint16_t origFlags)
+||||||| base
+bool fixUpQueryTurnedResponse(DNSQuestion& dq, const uint16_t origFlags)
+=======
+void fixUpQueryTurnedResponse(DNSQuestion& dq, const uint16_t origFlags)
+>>>>>>> merge rev
 {
   restoreFlags(dq.dh, origFlags);
 
-  return addEDNSToQueryTurnedResponse(dq);
+  addEDNSToQueryTurnedResponse(dq);
+  addEDNSExtendedError(dq);
 }
 
 static bool fixUpResponse(char** response, uint16_t* responseLen, size_t* responseSize, const DNSName& qname, uint16_t origFlags, bool ednsAdded, bool ecsAdded, std::vector<uint8_t>& rewrittenResponse, uint16_t addRoom, bool* zeroScope)

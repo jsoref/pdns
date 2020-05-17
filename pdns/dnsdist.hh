@@ -104,6 +104,13 @@ struct DNSQuestion
   uint16_t ecsPrefixLength;
   uint16_t origFlags;
   uint8_t ednsRCode{0};
+<<<<<<< working copy
+||||||| base
+  boost::optional<uint32_t> tempFailureTTL;
+=======
+  std::shared_ptr<EDNSExtendedError> ednsExtendedError{nullptr};
+  boost::optional<uint32_t> tempFailureTTL;
+>>>>>>> merge rev
   const bool tcp;
   bool skipCache{false};
   bool ecsOverride;
@@ -1118,9 +1125,23 @@ bool getLuaNoSideEffect(); // set if there were only explicit declarations of _n
 void resetLuaSideEffect(); // reset to indeterminate state
 
 bool responseContentMatches(const char* response, const uint16_t responseLen, const DNSName& qname, const uint16_t qtype, const uint16_t qclass, const ComboAddress& remote, unsigned int& consumed);
+<<<<<<< working copy
 bool processResponse(char** response, uint16_t* responseLen, size_t* responseSize, LocalStateHolder<vector<DNSDistResponseRuleAction> >& localRespRulactions, DNSResponse& dr, size_t addRoom, std::vector<uint8_t>& rewrittenResponse, bool muted);
 bool processRulesResult(const DNSAction::Action& action, DNSQuestion& dq, std::string& ruleresult, bool& drop);
 
+||||||| base
+bool processQuery(LocalHolders& holders, DNSQuestion& dq, string& poolname, int* delayMsec, const struct timespec& now);
+bool processResponse(LocalStateHolder<vector<DNSDistResponseRuleAction> >& localRespRulactions, DNSResponse& dr, int* delayMsec);
+bool fixUpQueryTurnedResponse(DNSQuestion& dq, const uint16_t origFlags);
+bool fixUpResponse(char** response, uint16_t* responseLen, size_t* responseSize, const DNSName& qname, uint16_t origFlags, bool ednsAdded, bool ecsAdded, std::vector<uint8_t>& rewrittenResponse, uint16_t addRoom, bool* zeroScope);
+void restoreFlags(struct dnsheader* dh, uint16_t origFlags);
+=======
+bool processQuery(LocalHolders& holders, DNSQuestion& dq, string& poolname, int* delayMsec, const struct timespec& now);
+bool processResponse(LocalStateHolder<vector<DNSDistResponseRuleAction> >& localRespRulactions, DNSResponse& dr, int* delayMsec);
+void fixUpQueryTurnedResponse(DNSQuestion& dq, const uint16_t origFlags);
+bool fixUpResponse(char** response, uint16_t* responseLen, size_t* responseSize, const DNSName& qname, uint16_t origFlags, bool ednsAdded, bool ecsAdded, std::vector<uint8_t>& rewrittenResponse, uint16_t addRoom, bool* zeroScope);
+void restoreFlags(struct dnsheader* dh, uint16_t origFlags);
+>>>>>>> merge rev
 bool checkQueryHeaders(const struct dnsheader* dh);
 
 extern std::vector<std::shared_ptr<DNSCryptContext>> g_dnsCryptLocals;
