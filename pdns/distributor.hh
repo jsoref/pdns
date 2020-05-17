@@ -52,7 +52,7 @@ template<class Answer, class Question, class Backend> class Distributor
 public:
   static Distributor* Create(int n=1); //!< Create a new Distributor with \param n threads
   typedef std::function<void(std::unique_ptr<Answer>&)> callback_t;
-  virtual int question(Question&, callback_t callback) =0; //!< Submit a question to the Distributor
+  virtual int question(unique_ptr<Question>, callback_t callback) =0; //!< Submit a question to the Distributor
   virtual int getQueueSize() =0; //!< Returns length of question queue
   virtual bool isOverloaded() =0;
   virtual ~Distributor() { cerr<<__func__<<endl;}
@@ -66,7 +66,7 @@ public:
   void operator=(const SingleThreadDistributor&) = delete;
   SingleThreadDistributor();
   typedef std::function<void(std::unique_ptr<Answer>&)> callback_t;
-  int question(Question&, callback_t callback) override; //!< Submit a question to the Distributor
+  int question(unique_ptr<Question>, callback_t callback) override; //!< Submit a question to the Distributor
   int getQueueSize() override {
     return 0;
   }
@@ -88,19 +88,27 @@ public:
   void operator=(const MultiThreadDistributor&) = delete;
   MultiThreadDistributor(int n);
   typedef std::function<void(std::unique_ptr<Answer>&)> callback_t;
+<<<<<<< working copy
   int question(Question&, callback_t callback) override; //!< Submit a question to the Distributor
   void distribute(int n);
+||||||| base
+  int question(Question&, callback_t callback) override; //!< Submit a question to the Distributor
+  static void* makeThread(void *); //!< helper function to create our n threads
+=======
+  int question(unique_ptr<Question>, callback_t callback) override; //!< Submit a question to the Distributor
+  static void* makeThread(void *); //!< helper function to create our n threads
+>>>>>>> merge rev
   int getQueueSize() override {
     return d_queued;
   }
 
   struct QuestionData
   {
-    QuestionData(const Question& query): Q(query)
+    QuestionData(unique_ptr<Question> &query): Q(std::move(query))
     {
     }
 
-    Question Q;
+    unique_ptr<Question> Q;
     callback_t callback;
     int id;
   };
@@ -197,7 +205,7 @@ template<class Answer, class Question, class Backend>void MultiThreadDistributor
       tempQD = nullptr;
       std::unique_ptr<Answer> a = nullptr;
 
-      if(queuetimeout && QD->Q.d_dt.udiff()>queuetimeout*1000) {
+      if(queuetimeout && QD->Q->d_dt.udiff()>queuetimeout*1000) {
         S.inc("timedout-packets");
         continue;
       }        
@@ -210,17 +218,17 @@ retry:
           allowRetry=false;
           b=make_unique<Backend>();
         }
-        a=b->question(QD->Q);
+        a=b->question(*QD->Q);
       }
       catch(const PDNSException &e) {
         b.reset();
         if (!allowRetry) {
           g_log<<Logger::Error<<"Backend error: "<<e.reason<<endl;
-          a=QD->Q.replyPacket();
+          a=QD->Q->replyPacket();
 
           a->setRcode(RCode::ServFail);
           S.inc("servfail-packets");
-          S.ringAccount("servfail-queries", QD->Q.qdomain, QD->Q.qtype);
+          S.ringAccount("servfail-queries", QD->Q->qdomain, QD->Q->qtype);
         } else {
           g_log<<Logger::Notice<<"Backend error (retry once): "<<e.reason<<endl;
           goto retry;
@@ -230,11 +238,11 @@ retry:
         b.reset();
         if (!allowRetry) {
           g_log<<Logger::Error<<"Caught unknown exception in Distributor thread "<<(long)pthread_self()<<endl;
-          a=QD->Q.replyPacket();
+          a=QD->Q->replyPacket();
 
           a->setRcode(RCode::ServFail);
           S.inc("servfail-packets");
-          S.ringAccount("servfail-queries", QD->Q.qdomain, QD->Q.qtype);
+          S.ringAccount("servfail-queries", QD->Q->qdomain, QD->Q->qtype);
         } else {
           g_log<<Logger::Warning<<"Caught unknown exception in Distributor thread "<<(long)pthread_self()<<" (retry once)"<<endl;
           goto retry;
@@ -261,7 +269,7 @@ retry:
   }
 }
 
-template<class Answer, class Question, class Backend>int SingleThreadDistributor<Answer,Question,Backend>::question(Question& q, callback_t callback)
+template<class Answer, class Question, class Backend>int SingleThreadDistributor<Answer,Question,Backend>::question(unique_ptr<Question> q, callback_t callback)
 {
   std::unique_ptr<Answer> a = nullptr;
   bool allowRetry=true;
@@ -271,17 +279,17 @@ retry:
       allowRetry=false;
       b=make_unique<Backend>();
     }
-    a=b->question(q); // a can be NULL!
+    a=b->question(*q); // a can be NULL!
   }
   catch(const PDNSException &e) {
     b.reset();
     if (!allowRetry) {
       g_log<<Logger::Error<<"Backend error: "<<e.reason<<endl;
-      a=q.replyPacket();
+      a=q->replyPacket();
 
       a->setRcode(RCode::ServFail);
       S.inc("servfail-packets");
-      S.ringAccount("servfail-queries", q.qdomain, q.qtype);
+      S.ringAccount("servfail-queries", q->qdomain, q->qtype);
     } else {
       g_log<<Logger::Notice<<"Backend error (retry once): "<<e.reason<<endl;
       goto retry;
@@ -291,11 +299,11 @@ retry:
     b.reset();
     if (!allowRetry) {
       g_log<<Logger::Error<<"Caught unknown exception in Distributor thread "<<(unsigned long)pthread_self()<<endl;
-      a=q.replyPacket();
+      a=q->replyPacket();
 
       a->setRcode(RCode::ServFail);
       S.inc("servfail-packets");
-      S.ringAccount("servfail-queries", q.qdomain, q.qtype);
+      S.ringAccount("servfail-queries", q->qdomain, q->qtype);
     } else {
       g_log<<Logger::Warning<<"Caught unknown exception in Distributor thread "<<(unsigned long)pthread_self()<<" (retry once)"<<endl;
       goto retry;
@@ -307,7 +315,7 @@ retry:
 
 struct DistributorFatal{};
 
-template<class Answer, class Question, class Backend>int MultiThreadDistributor<Answer,Question,Backend>::question(Question& q, callback_t callback)
+template<class Answer, class Question, class Backend>int MultiThreadDistributor<Answer,Question,Backend>::question(unique_ptr<Question> q, callback_t callback)
 {
   // this is passed to other process over pipe and released there
   auto QD=new QuestionData(q);
