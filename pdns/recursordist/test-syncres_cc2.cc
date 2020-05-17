@@ -5,7 +5,7 @@
 
 BOOST_AUTO_TEST_SUITE(syncres_cc2)
 
-BOOST_AUTO_TEST_CASE(test_referral_depth)
+static void do_test_referral_depth(bool limited)
 {
   std::unique_ptr<SyncRes> sr;
   initSR(sr);
@@ -35,34 +35,65 @@ BOOST_AUTO_TEST_CASE(test_referral_depth)
       }
       else if (domain == DNSName("ns3.powerdns.org.")) {
         addRecordToLW(res, domain, QType::NS, "ns4.powerdns.org.", DNSResourceRecord::AUTHORITY, 172800);
-      }
-      else if (domain == DNSName("ns4.powerdns.org.")) {
-        addRecordToLW(res, domain, QType::NS, "ns5.powerdns.org.", DNSResourceRecord::AUTHORITY, 172800);
-        addRecordToLW(res, domain, QType::A, "192.0.2.1", DNSResourceRecord::AUTHORITY, 172800);
+        addRecordToLW(res, "ns4.powerdns.org.", QType::A, "192.0.2.1", DNSResourceRecord::ADDITIONAL, 3600);
       }
 
       return 1;
     }
     else if (ip == ComboAddress("192.0.2.1:53")) {
-
       setLWResult(res, 0, true, false, false);
-      addRecordToLW(res, domain, QType::A, "192.0.2.2");
+      if (domain == DNSName("www.powerdns.com.")) {
+        addRecordToLW(res, domain, QType::A, "192.0.2.2");
+      }
+      else {
+        addRecordToLW(res, domain, QType::A, "192.0.2.1");
+      }
       return 1;
     }
 
     return 0;
   });
 
-  /* Set the maximum depth low */
-  SyncRes::s_maxdepth = 10;
+  if (limited) {
+    /* Set the maximum depth low */
+    SyncRes::s_maxdepth = 10;
+    try {
+      vector<DNSRecord> ret;
+      sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
+      BOOST_CHECK(false);
+    }
+    catch (const ImmediateServFailException& e) {
+      BOOST_CHECK(e.reason.find("max-recursion-depth") != string::npos);
+    }
+  }
+  else {
+    // Check if the setup with high limit is OK.
+    SyncRes::s_maxdepth = 50;
+    try {
+      vector<DNSRecord> ret;
+      int rcode = sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
+      BOOST_CHECK_EQUAL(rcode, RCode::NoError);
+      BOOST_REQUIRE_EQUAL(ret.size(), 1U);
+      BOOST_CHECK_EQUAL(ret[0].d_name, target);
+      BOOST_REQUIRE(ret[0].d_type == QType::A);
+      BOOST_CHECK(getRR<ARecordContent>(ret[0])->getCA() == ComboAddress("192.0.2.2"));
+    }
+    catch (const ImmediateServFailException& e) {
+      BOOST_CHECK(false);
+    }
+  }
+}
 
-  try {
-    vector<DNSRecord> ret;
-    sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
-    BOOST_CHECK(false);
-  }
-  catch (const ImmediateServFailException& e) {
-  }
+BOOST_AUTO_TEST_CASE(test_referral_depth)
+{
+  // Test with limit
+  do_test_referral_depth(true);
+}
+
+BOOST_AUTO_TEST_CASE(test_referral_depth_ok)
+{
+  // Test with default limit
+  do_test_referral_depth(false);
 }
 
 BOOST_AUTO_TEST_CASE(test_cname_qperq)
@@ -934,7 +965,7 @@ BOOST_AUTO_TEST_CASE(test_ecs_cache_limit_allowed)
   /* should have been cached */
   const ComboAddress who("192.0.2.128");
   vector<DNSRecord> cached;
-  BOOST_REQUIRE_GT(t_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
+  BOOST_REQUIRE_GT(s_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
 }
 
@@ -973,7 +1004,7 @@ BOOST_AUTO_TEST_CASE(test_ecs_cache_limit_no_ttl_limit_allowed)
   /* should have been cached because /24 is more specific than /16 but TTL limit is nof effective */
   const ComboAddress who("192.0.2.128");
   vector<DNSRecord> cached;
-  BOOST_REQUIRE_GT(t_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
+  BOOST_REQUIRE_GT(s_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
 }
 
@@ -1012,7 +1043,7 @@ BOOST_AUTO_TEST_CASE(test_ecs_cache_ttllimit_allowed)
   /* should have been cached */
   const ComboAddress who("192.0.2.128");
   vector<DNSRecord> cached;
-  BOOST_REQUIRE_GT(t_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
+  BOOST_REQUIRE_GT(s_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
 }
 
@@ -1052,7 +1083,7 @@ BOOST_AUTO_TEST_CASE(test_ecs_cache_ttllimit_and_scope_allowed)
   /* should have been cached */
   const ComboAddress who("192.0.2.128");
   vector<DNSRecord> cached;
-  BOOST_REQUIRE_GT(t_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
+  BOOST_REQUIRE_GT(s_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
 }
 
@@ -1092,7 +1123,7 @@ BOOST_AUTO_TEST_CASE(test_ecs_cache_ttllimit_notallowed)
   /* should have NOT been cached because TTL of 60 is too small and /24 is more specific than /16 */
   const ComboAddress who("192.0.2.128");
   vector<DNSRecord> cached;
-  BOOST_REQUIRE_LT(t_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
+  BOOST_REQUIRE_LT(s_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 0U);
 }
 
@@ -1200,7 +1231,7 @@ BOOST_AUTO_TEST_CASE(test_flawed_nsset)
   std::vector<shared_ptr<RRSIGRecordContent>> sigs;
   addRecordToList(records, target, QType::NS, "pdns-public-ns1.powerdns.com.", DNSResourceRecord::AUTHORITY, now + 3600);
 
-  t_RC->replace(now, target, QType(QType::NS), records, sigs, vector<std::shared_ptr<DNSRecord>>(), true, boost::optional<Netmask>());
+  s_RC->replace(now, target, QType(QType::NS), records, sigs, vector<std::shared_ptr<DNSRecord>>(), true, boost::optional<Netmask>());
 
   vector<DNSRecord> ret;
   int res = sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
@@ -1257,13 +1288,13 @@ BOOST_AUTO_TEST_CASE(test_cache_hit)
     return 0;
   });
 
-  /* we populate the cache with eveything we need */
+  /* we populate the cache with everything we need */
   time_t now = sr->getNow().tv_sec;
   std::vector<DNSRecord> records;
   std::vector<shared_ptr<RRSIGRecordContent>> sigs;
 
   addRecordToList(records, target, QType::A, "192.0.2.1", DNSResourceRecord::ANSWER, now + 3600);
-  t_RC->replace(now, target, QType(QType::A), records, sigs, vector<std::shared_ptr<DNSRecord>>(), true, boost::optional<Netmask>());
+  s_RC->replace(now, target, QType(QType::A), records, sigs, vector<std::shared_ptr<DNSRecord>>(), true, boost::optional<Netmask>());
 
   vector<DNSRecord> ret;
   int res = sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
@@ -1336,13 +1367,13 @@ BOOST_AUTO_TEST_CASE(test_cache_min_max_ttl)
 
   const ComboAddress who;
   vector<DNSRecord> cached;
-  BOOST_REQUIRE_GT(t_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
+  BOOST_REQUIRE_GT(s_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
   BOOST_REQUIRE_GT(cached[0].d_ttl, now);
   BOOST_CHECK_EQUAL((cached[0].d_ttl - now), SyncRes::s_minimumTTL);
 
   cached.clear();
-  BOOST_REQUIRE_GT(t_RC->get(now, target, QType(QType::NS), false, &cached, who), 0);
+  BOOST_REQUIRE_GT(s_RC->get(now, target, QType(QType::NS), false, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
   BOOST_REQUIRE_GT(cached[0].d_ttl, now);
   BOOST_CHECK_LE((cached[0].d_ttl - now), SyncRes::s_maxcachettl);
@@ -1400,19 +1431,19 @@ BOOST_AUTO_TEST_CASE(test_cache_min_max_ecs_ttl)
 
   const ComboAddress who("192.0.2.128");
   vector<DNSRecord> cached;
-  BOOST_REQUIRE_GT(t_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
+  BOOST_REQUIRE_GT(s_RC->get(now, target, QType(QType::A), true, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
   BOOST_REQUIRE_GT(cached[0].d_ttl, now);
   BOOST_CHECK_EQUAL((cached[0].d_ttl - now), SyncRes::s_minimumECSTTL);
 
   cached.clear();
-  BOOST_REQUIRE_GT(t_RC->get(now, target, QType(QType::NS), false, &cached, who), 0);
+  BOOST_REQUIRE_GT(s_RC->get(now, target, QType(QType::NS), false, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
   BOOST_REQUIRE_GT(cached[0].d_ttl, now);
   BOOST_CHECK_LE((cached[0].d_ttl - now), SyncRes::s_maxcachettl);
 
   cached.clear();
-  BOOST_REQUIRE_GT(t_RC->get(now, DNSName("a.gtld-servers.net."), QType(QType::A), false, &cached, who), 0);
+  BOOST_REQUIRE_GT(s_RC->get(now, DNSName("a.gtld-servers.net."), QType(QType::A), false, &cached, who), 0);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
   BOOST_REQUIRE_GT(cached[0].d_ttl, now);
   BOOST_CHECK_LE((cached[0].d_ttl - now), SyncRes::s_minimumTTL);
@@ -1452,7 +1483,7 @@ BOOST_AUTO_TEST_CASE(test_cache_expired_ttl)
   std::vector<shared_ptr<RRSIGRecordContent>> sigs;
   addRecordToList(records, target, QType::A, "192.0.2.42", DNSResourceRecord::ANSWER, now - 60);
 
-  t_RC->replace(now - 3600, target, QType(QType::A), records, sigs, vector<std::shared_ptr<DNSRecord>>(), true, boost::optional<Netmask>());
+  s_RC->replace(now - 3600, target, QType(QType::A), records, sigs, vector<std::shared_ptr<DNSRecord>>(), true, boost::optional<Netmask>());
 
   vector<DNSRecord> ret;
   int res = sr->beginResolve(target, QType(QType::A), QClass::IN, ret);

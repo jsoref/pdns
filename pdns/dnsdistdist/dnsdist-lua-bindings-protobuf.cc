@@ -32,7 +32,24 @@
 #include "ipcipher.hh"
 #endif /* HAVE_LIBCRYPTO */
 
-void setupLuaBindingsProtoBuf(bool client)
+#ifdef HAVE_FSTRM
+static void parseFSTRMOptions(const boost::optional<std::unordered_map<std::string, unsigned int>>& params, std::unordered_map<string, unsigned int>& options)
+{
+  if (!params) {
+    return;
+  }
+
+  static std::vector<std::string> const potentialOptions = { "bufferHint", "flushTimeout", "inputQueueSize", "outputQueueSize", "queueNotifyThreshold", "reopenInterval" };
+
+  for (const auto& potentialOption : potentialOptions) {
+    if (params->count(potentialOption)) {
+      options[potentialOption] = boost::get<unsigned int>(params->at(potentialOption));
+    }
+  }
+}
+#endif /* HAVE_FSTRM */
+
+void setupLuaBindingsProtoBuf(bool client, bool configCheck)
 {
 #ifdef HAVE_LIBCRYPTO
   g_lua.registerFunction<ComboAddress(ComboAddress::*)(const std::string& key)>("ipencrypt", [](const ComboAddress& ca, const std::string& key) {
@@ -72,17 +89,29 @@ void setupLuaBindingsProtoBuf(bool client)
   g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(time_t, uint32_t)>("setQueryTime", [](DNSDistProtoBufMessage& message, time_t sec, uint32_t usec) { message.setQueryTime(sec, usec); });
   g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(uint8_t)>("setResponseCode", [](DNSDistProtoBufMessage& message, uint8_t rcode) { message.setResponseCode(rcode); });
   g_lua.registerFunction<std::string(DNSDistProtoBufMessage::*)()>("toDebugString", [](const DNSDistProtoBufMessage& message) { return message.toDebugString(); });
-  g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(const ComboAddress&)>("setRequestor", [](DNSDistProtoBufMessage& message, const ComboAddress& addr) {
+  g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(const ComboAddress&, boost::optional<uint16_t>)>("setRequestor", [](DNSDistProtoBufMessage& message, const ComboAddress& addr, boost::optional<uint16_t> port) {
       message.setRequestor(addr);
+      if (port) {
+        message.setRequestorPort(*port);
+      }
     });
-  g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(const std::string&)>("setRequestorFromString", [](DNSDistProtoBufMessage& message, const std::string& str) {
+  g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(const std::string&, boost::optional<uint16_t>)>("setRequestorFromString", [](DNSDistProtoBufMessage& message, const std::string& str, boost::optional<uint16_t> port) {
       message.setRequestor(str);
+      if (port) {
+        message.setRequestorPort(*port);
+      }
     });
-  g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(const ComboAddress&)>("setResponder", [](DNSDistProtoBufMessage& message, const ComboAddress& addr) {
+  g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(const ComboAddress&, boost::optional<uint16_t>)>("setResponder", [](DNSDistProtoBufMessage& message, const ComboAddress& addr, boost::optional<uint16_t> port) {
       message.setResponder(addr);
+      if (port) {
+        message.setResponderPort(*port);
+      }
     });
-  g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(const std::string&)>("setResponderFromString", [](DNSDistProtoBufMessage& message, const std::string& str) {
+  g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(const std::string&, boost::optional<uint16_t>)>("setResponderFromString", [](DNSDistProtoBufMessage& message, const std::string& str, boost::optional<uint16_t> port) {
       message.setResponder(str);
+      if (port) {
+        message.setResponderPort(*port);
+      }
     });
   g_lua.registerFunction<void(DNSDistProtoBufMessage::*)(const std::string&)>("setServerIdentity", [](DNSDistProtoBufMessage& message, const std::string& str) {
       message.setServerIdentity(str);
@@ -94,30 +123,36 @@ void setupLuaBindingsProtoBuf(bool client)
     });
 
   /* RemoteLogger */
-  g_lua.writeFunction("newRemoteLogger", [client](const std::string& remote, boost::optional<uint16_t> timeout, boost::optional<uint64_t> maxQueuedEntries, boost::optional<uint8_t> reconnectWaitTime) {
-      if (client) {
+  g_lua.writeFunction("newRemoteLogger", [client,configCheck](const std::string& remote, boost::optional<uint16_t> timeout, boost::optional<uint64_t> maxQueuedEntries, boost::optional<uint8_t> reconnectWaitTime) {
+      if (client || configCheck) {
         return std::shared_ptr<RemoteLoggerInterface>(nullptr);
       }
       return std::shared_ptr<RemoteLoggerInterface>(new RemoteLogger(ComboAddress(remote), timeout ? *timeout : 2, maxQueuedEntries ? (*maxQueuedEntries*100) : 10000, reconnectWaitTime ? *reconnectWaitTime : 1, client));
     });
 
-  g_lua.writeFunction("newFrameStreamUnixLogger", [client](const std::string& address) {
+  g_lua.writeFunction("newFrameStreamUnixLogger", [client,configCheck](const std::string& address, boost::optional<std::unordered_map<std::string, unsigned int>> params) {
 #ifdef HAVE_FSTRM
-      if (client) {
+      if (client || configCheck) {
         return std::shared_ptr<RemoteLoggerInterface>(nullptr);
       }
-      return std::shared_ptr<RemoteLoggerInterface>(new FrameStreamLogger(AF_UNIX, address, !client));
+
+      std::unordered_map<string, unsigned int> options;
+      parseFSTRMOptions(params, options);
+      return std::shared_ptr<RemoteLoggerInterface>(new FrameStreamLogger(AF_UNIX, address, !client, options));
 #else
       throw std::runtime_error("fstrm support is required to build an AF_UNIX FrameStreamLogger");
 #endif /* HAVE_FSTRM */
     });
 
-  g_lua.writeFunction("newFrameStreamTcpLogger", [client](const std::string& address) {
+  g_lua.writeFunction("newFrameStreamTcpLogger", [client,configCheck](const std::string& address, boost::optional<std::unordered_map<std::string, unsigned int>> params) {
 #if defined(HAVE_FSTRM) && defined(HAVE_FSTRM_TCP_WRITER_INIT)
-      if (client) {
+      if (client || configCheck) {
         return std::shared_ptr<RemoteLoggerInterface>(nullptr);
       }
-      return std::shared_ptr<RemoteLoggerInterface>(new FrameStreamLogger(AF_INET, address, !client));
+
+      std::unordered_map<string, unsigned int> options;
+      parseFSTRMOptions(params, options);
+      return std::shared_ptr<RemoteLoggerInterface>(new FrameStreamLogger(AF_INET, address, !client, options));
 #else
       throw std::runtime_error("fstrm with TCP support is required to build an AF_INET FrameStreamLogger");
 #endif /* HAVE_FSTRM */

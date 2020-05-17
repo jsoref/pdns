@@ -47,10 +47,11 @@ using namespace boost::assign;
 
 DNSSECKeeper::keycache_t DNSSECKeeper::s_keycache;
 DNSSECKeeper::metacache_t DNSSECKeeper::s_metacache;
-pthread_rwlock_t DNSSECKeeper::s_metacachelock = PTHREAD_RWLOCK_INITIALIZER;
-pthread_rwlock_t DNSSECKeeper::s_keycachelock = PTHREAD_RWLOCK_INITIALIZER;
+ReadWriteLock DNSSECKeeper::s_metacachelock;
+ReadWriteLock DNSSECKeeper::s_keycachelock;
 AtomicCounter DNSSECKeeper::s_ops;
 time_t DNSSECKeeper::s_last_prune;
+size_t DNSSECKeeper::s_maxEntries = 0;
 
 bool DNSSECKeeper::doesDNSSEC()
 {
@@ -79,7 +80,7 @@ bool DNSSECKeeper::isPresigned(const DNSName& name)
   return meta=="1";
 }
 
-bool DNSSECKeeper::addKey(const DNSName& name, bool setSEPBit, int algorithm, int64_t& id, int bits, bool active)
+bool DNSSECKeeper::addKey(const DNSName& name, bool setSEPBit, int algorithm, int64_t& id, int bits, bool active, bool published)
 {
   if(!bits) {
     if(algorithm <= 10)
@@ -106,7 +107,7 @@ bool DNSSECKeeper::addKey(const DNSName& name, bool setSEPBit, int algorithm, in
   dspk.setKey(dpk);
   dspk.d_algorithm = algorithm;
   dspk.d_flags = setSEPBit ? 257 : 256;
-  return addKey(name, dspk, id, active);
+  return addKey(name, dspk, id, active, published);
 }
 
 void DNSSECKeeper::clearAllCaches() {
@@ -131,12 +132,13 @@ void DNSSECKeeper::clearCaches(const DNSName& name)
 }
 
 
-bool DNSSECKeeper::addKey(const DNSName& name, const DNSSECPrivateKey& dpk, int64_t& id, bool active)
+bool DNSSECKeeper::addKey(const DNSName& name, const DNSSECPrivateKey& dpk, int64_t& id, bool active, bool published)
 {
   clearCaches(name);
   DNSBackend::KeyData kd;
   kd.flags = dpk.d_flags; // the dpk doesn't get stored, only they key part
   kd.active = active;
+  kd.published = published;
   kd.content = dpk.getKey()->convertToISC();
  // now store it
   return d_keymetadb->addDomainKey(name, kd, id);
@@ -163,10 +165,6 @@ DNSSECPrivateKey DNSSECKeeper::getKeyById(const DNSName& zname, unsigned int id)
     dpk.d_flags = kd.flags;
     dpk.d_algorithm = dkrc.d_algorithm;
     
-    if(dpk.d_algorithm == DNSSECKeeper::RSASHA1 && getNSEC3PARAM(zname)) {
-      dpk.d_algorithm = DNSSECKeeper::RSASHA1NSEC3SHA1;
-    }
-    
     return dpk;    
   }
   throw runtime_error("Can't find a key with id "+std::to_string(id)+" for zone '"+zname.toLogString()+"'");
@@ -191,10 +189,30 @@ bool DNSSECKeeper::activateKey(const DNSName& zname, unsigned int id)
   return d_keymetadb->activateDomainKey(zname, id);
 }
 
+bool DNSSECKeeper::unpublishKey(const DNSName& zname, unsigned int id)
+{
+  clearCaches(zname);
+  return d_keymetadb->unpublishDomainKey(zname, id);
+}
 
-void DNSSECKeeper::getFromMeta(const DNSName& zname, const std::string& key, std::string& value)
+bool DNSSECKeeper::publishKey(const DNSName& zname, unsigned int id)
+{
+  clearCaches(zname);
+  return d_keymetadb->publishDomainKey(zname, id);
+}
+
+void DNSSECKeeper::getFromMetaOrDefault(const DNSName& zname, const std::string& key, std::string& value, const std::string& defaultvalue)
+{
+  if (getFromMeta(zname, key, value))
+    return;
+  else
+    value = defaultvalue;
+}
+
+bool DNSSECKeeper::getFromMeta(const DNSName& zname, const std::string& key, std::string& value)
 {
   static int ttl = ::arg().asNum("domain-metadata-cache-ttl");
+  bool isset = false;
   value.clear();
   unsigned int now = time(0);
 
@@ -203,18 +221,20 @@ void DNSSECKeeper::getFromMeta(const DNSName& zname, const std::string& key, std
   }
 
   if (ttl > 0) {
-    ReadLock l(&s_metacachelock); 
-    
+    ReadLock l(&s_metacachelock);
+
     metacache_t::const_iterator iter = s_metacache.find(tie(zname, key));
     if(iter != s_metacache.end() && iter->d_ttd > now) {
       value = iter->d_value;
-      return;
+      return iter->d_isset;
     }
   }
   vector<string> meta;
   d_keymetadb->getDomainMetadata(zname, key, meta);
-  if(!meta.empty())
-    value=*meta.begin();
+  if(!meta.empty()) {
+    value=std::move(*meta.begin());
+    isset = true;
+  }
 
   if (ttl > 0) {
     METACacheEntry nce;
@@ -222,11 +242,13 @@ void DNSSECKeeper::getFromMeta(const DNSName& zname, const std::string& key, std
     nce.d_ttd = now + ttl;
     nce.d_key= key;
     nce.d_value = value;
+    nce.d_isset = isset;
     {
       WriteLock l(&s_metacachelock);
       lruReplacingInsert<SequencedTag>(s_metacache, nce);
     }
   }
+  return isset;
 }
 
 void DNSSECKeeper::getSoaEdit(const DNSName& zname, std::string& value)
@@ -254,7 +276,7 @@ void DNSSECKeeper::getSoaEdit(const DNSName& zname, std::string& value)
 uint64_t DNSSECKeeper::dbdnssecCacheSizes(const std::string& str)
 {
   if(str=="meta-cache-size") {
-    ReadLock l(&s_metacachelock); 
+    ReadLock l(&s_metacachelock);
     return s_metacache.size();
   }
   else if(str=="key-cache-size") {
@@ -376,6 +398,11 @@ bool DNSSECKeeper::setPublishCDS(const DNSName& zname, const string& digestAlgos
   return d_keymetadb->setDomainMetadata(zname, "PUBLISH-CDS", meta);
 }
 
+void DNSSECKeeper::getPublishCDS(const DNSName& zname, std::string& value)
+{
+  getFromMetaOrDefault(zname, "PUBLISH-CDS", value, ::arg()["default-publish-cds"]);
+}
+
 /**
  * Remove domainmetadata to stop publishing CDS records for zone zname
  *
@@ -400,6 +427,11 @@ bool DNSSECKeeper::setPublishCDNSKEY(const DNSName& zname)
   vector<string> meta;
   meta.push_back("1");
   return d_keymetadb->setDomainMetadata(zname, "PUBLISH-CDNSKEY", meta);
+}
+
+void DNSSECKeeper::getPublishCDNSKEY(const DNSName& zname, std::string& value)
+{
+  getFromMetaOrDefault(zname, "PUBLISH-CDNSKEY", value, ::arg()["default-publish-cdnskey"]);
 }
 
 /**
@@ -447,6 +479,7 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
 
     if(iter != s_keycache.end() && iter->d_ttd > now) {
       keyset_t ret;
+      ret.reserve(iter->d_keys.size());
       for(const keyset_t::value_type& value :  iter->d_keys)
         ret.push_back(value);
       return ret;
@@ -475,6 +508,7 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
     }
   }
   set_intersection(algoSEP.begin(), algoSEP.end(), algoNoSEP.begin(), algoNoSEP.end(), std::back_inserter(algoHasSeparateKSK));
+  retkeyset.reserve(dbkeyset.size());
 
   for(DNSBackend::KeyData& kd : dbkeyset)
   {
@@ -485,14 +519,11 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
 
     dpk.d_flags = kd.flags;
     dpk.d_algorithm = dkrc.d_algorithm;
-    if(dpk.d_algorithm == DNSSECKeeper::RSASHA1 && getNSEC3PARAM(zone)) {
-      g_log<<Logger::Warning<<"Zone '"<<zone<<"' has NSEC3 semantics, but the "<< (kd.active ? "" : "in" ) <<"active key with id "<<kd.id<<" has 'Algorithm: 5'. This should be corrected to 'Algorithm: 7' in the database (or NSEC3 should be disabled)."<<endl;
-      dpk.d_algorithm = DNSSECKeeper::RSASHA1NSEC3SHA1;
-    }
 
     KeyMetaData kmd;
 
     kmd.active = kd.active;
+    kmd.published = kd.published;
     kmd.hasSEPBit = (kd.flags == 257);
     kmd.id = kd.id;
 
@@ -832,12 +863,21 @@ void DNSSECKeeper::cleanup()
   if(now.tv_sec - s_last_prune > (time_t)(30)) {
     {
         WriteLock l(&s_metacachelock);
-        pruneCollection<SequencedTag>(*this, s_metacache, ::arg().asNum("max-cache-entries"));
+        pruneCollection<SequencedTag>(*this, s_metacache, s_maxEntries);
     }
     {
         WriteLock l(&s_keycachelock);
-        pruneCollection<SequencedTag>(*this, s_keycache, ::arg().asNum("max-cache-entries"));
+        pruneCollection<SequencedTag>(*this, s_keycache, s_maxEntries);
     }
-    s_last_prune=time(0);
+    s_last_prune = time(nullptr);
   }
+}
+
+void DNSSECKeeper::setMaxEntries(size_t maxEntries)
+{
+  s_maxEntries = maxEntries;
+#if BOOST_VERSION >= 105600
+  WriteLock wl(&s_keycachelock);
+  s_keycache.get<KeyCacheTag>().reserve(s_maxEntries);
+#endif /* BOOST_VERSION >= 105600 */
 }

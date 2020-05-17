@@ -144,6 +144,12 @@ in this array will be logged in PowerDNS at loglevel ``info`` (6).
 Methods
 ^^^^^^^
 
+Methods required for different features
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:Always required: ``initialize``, ``lookup``
+:Master operation: ``list``, ``getUpdatedMasters``, ``setNotified``
+:Slave operation: ``getUnfreshSlaveInfos``, ``startTransaction``, ``commitTransaction``, ``abortTransaction``, ``feedRecord``, ``setFresh``
+
 ``initialize``
 ~~~~~~~~~~~~~~
 
@@ -462,14 +468,14 @@ Response:
 ~~~~~~~~~~~~~~~~~
 
 Retrieves any keys of kind. The id, flags are unsigned integers, and
-active is boolean. Content must be valid key record in format that
-PowerDNS understands. You are encouraged to implement :ref:`the section
-called "addDomainKey" <remote-adddomainkey>`, as you can use
+active and published are boolean. Content must be valid key record in format
+that PowerDNS understands. You are encouraged to implement :ref:`the
+section called "addDomainKey" <remote-adddomainkey>`, as you can use
 :doc:`../manpages/pdnsutil.1` to provision keys.
 
 -  Mandatory: for DNSSEC
 -  Parameters: name, kind
--  Reply: array of ``id, flags, active, content``
+-  Reply: array of ``id, flags, active, published, content``
 
 Example JSON/RPC
 ''''''''''''''''
@@ -484,7 +490,7 @@ Response:
 
 .. code-block:: json
 
-    {"result":[{"id":1,"flags":256,"active":true,"content":"Private-key-format: v1.2
+    {"result":[{"id":1,"flags":256,"active":true,"published":true,"content":"Private-key-format: v1.2
     Algorithm: 8 (RSASHA256)
     Modulus: r+vmQll38ndQqNSCx9eqRBUbSOLcH4PZFX824sGhY2NSQChqt1G4ZfndzRwgjXMUwiE7GkkqU2Vbt/g4iP67V/+MYecMV9YHkCRnEzb47nBXvs9JCf8AHMCnma567GQjPECh4HevPE9wmcOfpy/u7UN1oHKSKRWuZJadUwcjbp8=
     PublicExponent: AQAB
@@ -511,7 +517,7 @@ Response:
     HTTP/1.1 200 OK
     Content-Type: text/javascript; charset=utf-8
 
-    {"result":[{"id":1,"flags":256,"active":true,"content":"Private-key-format: v1.2
+    {"result":[{"id":1,"flags":256,"active":true,"published":true,"content":"Private-key-format: v1.2
     Algorithm: 8 (RSASHA256)
     Modulus: r+vmQll38ndQqNSCx9eqRBUbSOLcH4PZFX824sGhY2NSQChqt1G4ZfndzRwgjXMUwiE7GkkqU2Vbt/g4iP67V/+MYecMV9YHkCRnEzb47nBXvs9JCf8AHMCnma567GQjPECh4HevPE9wmcOfpy/u7UN1oHKSKRWuZJadUwcjbp8=
     PublicExponent: AQAB
@@ -530,7 +536,7 @@ Response:
 Adds key into local storage. See :ref:`remote-getdomainkeys` for more information.
 
 -  Mandatory: No
--  Parameters: name, key=\ ``<flags,active,content>``, id
+-  Parameters: name, key=\ ``<flags,active,published,content>``, id
 -  Reply: true for success, false for failure
 
 Example JSON/RPC
@@ -540,7 +546,7 @@ Query:
 
 .. code-block:: json
 
-    {"method":"adddomainkey", "parameters":{"key":{"id":1,"flags":256,"active":true,"content":"Private-key-format: v1.2
+    {"method":"adddomainkey", "parameters":{"key":{"id":1,"flags":256,"active":true,"published":true,"content":"Private-key-format: v1.2
     Algorithm: 8 (RSASHA256)
     Modulus: r+vmQll38ndQqNSCx9eqRBUbSOLcH4PZFX824sGhY2NSQChqt1G4ZfndzRwgjXMUwiE7GkkqU2Vbt/g4iP67V/+MYecMV9YHkCRnEzb47nBXvs9JCf8AHMCnma567GQjPECh4HevPE9wmcOfpy/u7UN1oHKSKRWuZJadUwcjbp8=
     PublicExponent: AQAB
@@ -568,7 +574,7 @@ Query:
     Content-Type: application/x-www-form-urlencoded
     Content-Length: 965
 
-    flags=256&active=1&content=Private-key-format: v1.2
+    flags=256&active=1&published=1&content=Private-key-format: v1.2
     Algorithm: 8 (RSASHA256)
     Modulus: r+vmQll38ndQqNSCx9eqRBUbSOLcH4PZFX824sGhY2NSQChqt1G4ZfndzRwgjXMUwiE7GkkqU2Vbt/g4iP67V/+MYecMV9YHkCRnEzb47nBXvs9JCf8AHMCnma567GQjPECh4HevPE9wmcOfpy/u7UN1oHKSKRWuZJadUwcjbp8=
     PublicExponent: AQAB
@@ -713,6 +719,92 @@ Response:
     Content-Type: text/javascript; utf-8
 
     {"result": true}
+
+``publishDomainKey``
+~~~~~~~~~~~~~~~~~~~~
+
+Publish key id for domain name.
+
+-  Mandatory: No
+-  Parameters: name, id
+-  Reply: true for success, false for failure
+
+Example JSON/RPC
+''''''''''''''''
+
+Query:
+
+.. code-block:: json
+
+    {"method":"publishdomainkey","parameters":{"name":"example.com","id":1}}
+
+Response:
+
+.. code-block:: json
+
+    {"result": true}
+
+Example HTTP/RPC
+''''''''''''''''
+
+Query:
+
+.. code-block:: http
+
+    POST /dnsapi/publishdomainkey/example.com/1 HTTP/1.1
+
+Response:
+
+.. code-block:: http
+
+    HTTP/1.1 200 OK
+    Content-Type: text/javascript; utf-8
+
+    {"result": true}
+
+
+``unpublishDomainKey``
+~~~~~~~~~~~~~~~~~~~~~~
+
+Unpublish key id for domain name.
+
+-  Mandatory: No
+-  Parameters: name, id
+-  Reply: true for success, false for failure
+
+Example JSON/RPC
+''''''''''''''''
+
+Query:
+
+.. code-block:: json
+
+    {"method":"unpublishdomainkey","parameters":{"name":"example.com","id":1}}
+
+Response:
+
+.. code-block:: json
+
+    {"result": true}
+
+Example HTTP/RPC
+''''''''''''''''
+
+Query:
+
+.. code-block:: http
+
+    POST /dnsapi/unpublishdomainkey/example.com/1 HTTP/1.1
+
+Response:
+
+.. code-block:: http
+
+    HTTP/1.1 200 OK
+    Content-Type: text/javascript; utf-8
+
+    {"result": true}
+
 
 ``getTSIGKey``
 ~~~~~~~~~~~~~~
@@ -958,12 +1050,13 @@ Alternative response
 
 ``createSlaveDomain``
 ~~~~~~~~~~~~~~~~~~~~~
-
 Creates new domain. This method is called when NOTIFY is received and
 you are superslaving.
 
-Mandatory: No Parameters: ip, domain Optional parameters: nameserver,
-account Reply: true for success, false for failure
+ - Mandatory: No
+ - Parameters: ip, domain
+ - Optional parameters: nameserver, account
+ - Reply: true for success, false for failure
 
 Example JSON/RPC
 ''''''''''''''''
@@ -1516,7 +1609,7 @@ Used to find out any updates to master domains. This is used to trigger notifica
 
 -  Mandatory: no
 -  Parameters: none
--  Reply: array of DomainInfo
+-  Reply: array of DomainInfo or at least the ``id``, ``zone``, ``serial`` and ``notified_serial`` fields
 
 Example JSON/RPC
 ''''''''''''''''
@@ -1551,6 +1644,92 @@ Response:
     Content-Length: 135
     {"result":[{"id":1,"zone":"unit.test.","masters":["10.0.0.1"],"notified_serial":2,"serial":2,"last_check":1464693331,"kind":"master"}]}
 
+``getUnfreshSlaveInfos``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Used to find out if slave zones need checking of the master's SOA Serial.
+
+-  Mandatory: no
+-  Parameters: none
+-  Reply: array of DomainInfo or at least the ``id``, ``zone``, ``serial`` and ``last_check`` fields
+
+Example JSON/RPC
+''''''''''''''''
+
+Query:
+
+.. code-block:: json
+
+    {"method": "getUnfreshSlaveInfos", "parameters": {}}
+
+Response:
+
+.. code-block:: json
+
+    {"result":[{"id":1,"zone":"unit.test.","masters":["10.0.0.1"],"serial":2,"last_check":1464693331,"kind":"slave"}]}
+
+Example HTTP/RPC
+''''''''''''''''
+
+Query:
+
+.. code-block:: http
+
+    GET /dnsapi/getUnfreshSlaveInfos HTTP/1.1
+
+Response:
+
+.. code-block:: http
+
+    HTTP/1.1 200 OK
+    Content-Type: text/javascript; charset=utf-8
+    Content-Length: 135
+    {"result":[{"id":1,"zone":"unit.test.","masters":["10.0.0.1"],"serial":2,"last_check":1464693331,"kind":"slave"}]}
+
+``setFresh``
+~~~~~~~~~~~~
+
+Called when a slave freshness check succeeded. This does not indicate the
+zone was updated on the master.
+
+-  Mandatory: No
+-  Parameters: id
+-  Reply: true for success, false for failure
+
+Example JSON/RPC
+''''''''''''''''
+
+Query:
+
+.. code-block:: json
+
+    {"method":"setFresh","parameters":{"id":1}}
+
+Response:
+
+.. code-block:: json
+
+    {"result":true}
+
+Example HTTP/RPC
+''''''''''''''''
+
+Query:
+
+.. code-block:: http
+
+    PATCH /dnsapi/setFresh/1 HTTP/1.1
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 0
+
+Response:
+
+.. code-block:: http
+
+    HTTP/1.1 200 OK
+    Content-Type: text/javascript; charset=utf-8
+
+    {"result":true}
 
 
 Examples

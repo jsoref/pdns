@@ -19,8 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_MPLEXER_HH
-#define PDNS_MPLEXER_HH
+#pragma once
 #include <boost/function.hpp>
 #include <boost/any.hpp>
 #include <boost/shared_array.hpp>
@@ -78,9 +77,11 @@ public:
   
   /* tv will be updated to 'now' before run returns */
   /* timeout is in ms */
+  /* returns 0 on timeout, -1 in case of error (but all implementations
+     actually throw in that case) and the number of ready events otherwise */
   virtual int run(struct timeval* tv, int timeout=500) = 0;
 
-  /* timeout is in ms, 0 will return immediatly, -1 will block until at least one FD is ready */
+  /* timeout is in ms, 0 will return immediately, -1 will block until at least one FD is ready */
   virtual void getAvailableFDs(std::vector<int>& fds, int timeout) = 0;
 
   //! Add an fd to the read watch list - currently an fd can only be on one list at a time!
@@ -235,7 +236,3 @@ protected:
     }
   }
 };
-
-
-#endif
-

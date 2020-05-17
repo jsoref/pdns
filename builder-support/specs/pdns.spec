@@ -69,7 +69,11 @@ This package contains the extra tools for %{name}
 Summary: MySQL backend for %{name}
 Group: System Environment/Daemons
 Requires: %{name}%{?_isa} = %{version}-%{release}
+%if 0%{?rhel} < 8
 BuildRequires: mysql-devel
+%else
+BuildRequires: mariadb-connector-c-devel
+%endif
 %global backends %{backends} gmysql
 
 %description backend-mysql
@@ -273,6 +277,7 @@ chown -R pdns:pdns /var/lib/powerdns || :
 
 %post
 %if 0%{?rhel} >= 7
+systemctl daemon-reload ||:
 %systemd_post pdns.service
 %else
 /sbin/chkconfig --add pdns
@@ -298,7 +303,10 @@ fi
 %endif
 
 %files
-%doc COPYING README
+%doc COPYING
+%doc README
+%doc pdns/bind-dnssec.4.2.0_to_4.3.0_schema.sqlite3.sql
+%doc pdns/bind-dnssec.schema.sqlite3.sql
 %{_bindir}/pdns_control
 %{_bindir}/pdnsutil
 %{_bindir}/zone2sql
@@ -367,12 +375,19 @@ fi
 %doc modules/gmysqlbackend/schema.mysql.sql
 %doc modules/gmysqlbackend/dnssec-3.x_to_3.4.0_schema.mysql.sql
 %doc modules/gmysqlbackend/nodnssec-3.x_to_3.4.0_schema.mysql.sql
+%doc modules/gmysqlbackend/3.4.0_to_4.1.0_schema.mysql.sql
+%doc modules/gmysqlbackend/4.1.0_to_4.2.0_schema.mysql.sql
+%doc modules/gmysqlbackend/4.2.0_to_4.3.0_schema.mysql.sql
+%doc modules/gmysqlbackend/enable-foreign-keys.mysql.sql
 %{_libdir}/%{name}/libgmysqlbackend.so
 
 %files backend-postgresql
 %doc modules/gpgsqlbackend/schema.pgsql.sql
 %doc modules/gpgsqlbackend/dnssec-3.x_to_3.4.0_schema.pgsql.sql
 %doc modules/gpgsqlbackend/nodnssec-3.x_to_3.4.0_schema.pgsql.sql
+%doc modules/gpgsqlbackend/3.4.0_to_4.1.0_schema.pgsql.sql
+%doc modules/gpgsqlbackend/4.1.0_to_4.2.0_schema.pgsql.sql
+%doc modules/gpgsqlbackend/4.2.0_to_4.3.0_schema.pgsql.sql
 %{_libdir}/%{name}/libgpgsqlbackend.so
 
 %files backend-pipe
@@ -394,11 +409,16 @@ fi
 %doc modules/gsqlite3backend/schema.sqlite3.sql
 %doc modules/gsqlite3backend/dnssec-3.x_to_3.4.0_schema.sqlite3.sql
 %doc modules/gsqlite3backend/nodnssec-3.x_to_3.4.0_schema.sqlite3.sql
+%doc modules/gsqlite3backend/3.4.0_to_4.0.0_schema.sqlite3.sql
+%doc modules/gsqlite3backend/4.0.0_to_4.2.0_schema.sqlite3.sql
+%doc modules/gsqlite3backend/4.2.0_to_4.3.0_schema.sqlite3.sql
 %{_libdir}/%{name}/libgsqlite3backend.so
 
 %if 0%{?rhel} >= 7
 %files backend-odbc
 %doc modules/godbcbackend/schema.mssql.sql
+%doc modules/godbcbackend/4.0.0_to_4.2.0_schema.mssql.sql
+%doc modules/godbcbackend/4.2.0_to_4.3.0_schema.mssql.sql
 %{_libdir}/%{name}/libgodbcbackend.so
 
 %files backend-geoip
