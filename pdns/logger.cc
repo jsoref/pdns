@@ -22,13 +22,15 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
+#include <mutex>
+
 #include "logger.hh"
 #include "misc.hh"
 #ifndef RECURSOR
 #include "statbag.hh"
 extern StatBag S;
 #endif
-#include "lock.hh"
 #include "namespaces.hh"
 
 thread_local Logger::PerThread Logger::t_perThread;
@@ -48,7 +50,7 @@ Logger& getLogger()
   return log;
 }
 
-void Logger::log(const string &msg, Urgency u)
+void Logger::log(const string &msg, Urgency u) noexcept
 {
 #ifndef RECURSOR
   bool mustAccount(false);
@@ -96,8 +98,8 @@ void Logger::log(const string &msg, Urgency u)
       }
     }
 
-    static pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
-    Lock l(&m); // the C++-2011 spec says we need this, and OSX actually does
+    static std::mutex m;
+    std::lock_guard<std::mutex> l(m); // the C++-2011 spec says we need this, and OSX actually does
     clog << string(buffer) + prefix + msg <<endl;
 #ifndef RECURSOR
     mustAccount=true;
@@ -111,8 +113,14 @@ void Logger::log(const string &msg, Urgency u)
   }
 
 #ifndef RECURSOR
-  if(mustAccount)
-    S.ringAccount("logmessages",msg);
+  if(mustAccount) {
+      try {
+        S.ringAccount("logmessages",msg);
+      }
+      catch (const runtime_error& e) {
+        cerr << e.what() << endl;
+      }
+  }
 #endif
 }
 

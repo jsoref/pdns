@@ -73,7 +73,7 @@ uint32_t getSerialFromMaster(const ComboAddress& master, const DNSName& zone, sh
   return 0;
 }
 
-uint32_t getSerialsFromDir(const std::string& dir)
+uint32_t getSerialFromDir(const std::string& dir)
 {
   uint32_t ret=0;
   DIR* dirhdl=opendir(dir.c_str());
@@ -92,10 +92,9 @@ uint32_t getSerialsFromDir(const std::string& dir)
 
 uint32_t getSerialFromRecords(const records_t& records, DNSRecord& soaret)
 {
-  DNSName root(".");
   uint16_t t=QType::SOA;
 
-  auto found = records.equal_range(tie(root, t));
+  auto found = records.equal_range(tie(g_rootdnsname, t));
 
   for(auto iter = found.first; iter != found.second; ++iter) {
     auto soa = std::dynamic_pointer_cast<SOARecordContent>(iter->d_content);
@@ -110,11 +109,13 @@ uint32_t getSerialFromRecords(const records_t& records, DNSRecord& soaret)
 static void writeRecords(FILE* fp, const records_t& records)
 {
   for(const auto& r: records) {
-    fprintf(fp, "%s\t%" PRIu32 "\tIN\t%s\t%s\n",
+    if(fprintf(fp, "%s\t%" PRIu32 "\tIN\t%s\t%s\n",
             r.d_name.isRoot() ? "@" :  r.d_name.toStringNoDot().c_str(),
             r.d_ttl,
             DNSRecordContent::NumberToType(r.d_type).c_str(),
-            r.d_content->getZoneRepresentation().c_str());
+            r.d_content->getZoneRepresentation().c_str()) < 0) {
+      throw runtime_error(stringerror());
+    }
   }
 }
 
@@ -129,13 +130,29 @@ void writeZoneToDisk(const records_t& records, const DNSName& zone, const std::s
 
   records_t soarecord;
   soarecord.insert(soa);
-  fprintf(fp, "$ORIGIN %s\n", zone.toString().c_str());
+  if(fprintf(fp, "$ORIGIN %s\n", zone.toString().c_str()) < 0) {
+    string error = "Error writing to zone file for " + zone.toLogString() + " in file " + fname + ".partial" + ": " + stringerror();
+    fclose(fp);
+    unlink((fname+".partial").c_str());
+    throw std::runtime_error(error);
+  }
 
-  writeRecords(fp, soarecord);
-  writeRecords(fp, records);
-  writeRecords(fp, soarecord);
+  try {
+    writeRecords(fp, soarecord);
+    writeRecords(fp, records);
+    writeRecords(fp, soarecord);
+  } catch (runtime_error &e) {
+    fclose(fp);
+    unlink((fname+".partial").c_str());
+    throw runtime_error("Error closing zone file for " + zone.toLogString() + " in file " + fname + ".partial" + ": " + e.what());
+  }
 
-  fclose(fp);
+  if(fclose(fp) != 0) {
+    string error = "Error closing zone file for " + zone.toLogString() + " in file " + fname + ".partial" + ": " + stringerror();
+    unlink((fname+".partial").c_str());
+    throw std::runtime_error(error);
+  }
+
   if (rename( (fname+".partial").c_str(), fname.c_str()) != 0) {
     throw std::runtime_error("Unable to move the zone file for " + zone.toLogString() + " from " + fname + ".partial to " + fname + ": " + stringerror());
   }
@@ -145,6 +162,7 @@ void loadZoneFromDisk(records_t& records, const string& fname, const DNSName& zo
 {
   ZoneParserTNG zpt(fname, zone);
 
+  zpt.disableGenerate();
   DNSResourceRecord rr;
   bool seenSOA=false;
   while(zpt.get(rr)) {
@@ -171,6 +189,7 @@ void loadZoneFromDisk(records_t& records, const string& fname, const DNSName& zo
 void loadSOAFromDisk(const DNSName& zone, const string& fname, shared_ptr<SOARecordContent>& soa, uint32_t& soaTTL)
 {
   ZoneParserTNG zpt(fname, zone);
+  zpt.disableGenerate();
   DNSResourceRecord rr;
 
   while(zpt.get(rr)) {

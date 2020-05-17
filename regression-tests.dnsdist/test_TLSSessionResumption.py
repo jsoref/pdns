@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import unittest
 from dnsdisttests import DNSDistTest
 try:
   range = xrange
@@ -31,7 +32,7 @@ class DNSDistTLSSessionResumptionTest(DNSDistTest):
         try:
             process = subprocess.Popen(testcmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
             # we need to wait just a bit so that the Post-Handshake New Session Ticket has the time to arrive..
-            time.sleep(0.1)
+            time.sleep(0.5)
             output = process.communicate(input=b'')
         except subprocess.CalledProcessError as exc:
             raise AssertionError('%s failed (%d): %s' % (testcmd, process.returncode, process.output))
@@ -57,6 +58,7 @@ class DNSDistTLSSessionResumptionTest(DNSDistTest):
         with open(outputFile, 'wb') as fp:
             fp.write(os.urandom(numberOfTickets * 80))
 
+@unittest.skipIf('SKIP_DOH_TESTS' in os.environ, 'DNS over HTTPS tests are disabled')
 class TestNoTLSSessionResumptionDOH(DNSDistTLSSessionResumptionTest):
 
     _serverKey = 'server.key'
@@ -79,6 +81,7 @@ class TestNoTLSSessionResumptionDOH(DNSDistTLSSessionResumptionTest):
         self.assertFalse(self.checkSessionResumed('127.0.0.1', self._dohServerPort, self._serverName, self._caCert, '/tmp/no-session.out.doh', None, allowNoTicket=True))
         self.assertFalse(self.checkSessionResumed('127.0.0.1', self._dohServerPort, self._serverName, self._caCert, '/tmp/no-session.out.doh', '/tmp/no-session.out.doh', allowNoTicket=True))
 
+@unittest.skipIf('SKIP_DOH_TESTS' in os.environ, 'DNS over HTTPS tests are disabled')
 class TestTLSSessionResumptionDOH(DNSDistTLSSessionResumptionTest):
 
     _serverKey = 'server.key'

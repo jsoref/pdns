@@ -33,6 +33,8 @@ static void init()
   reportAllTypes();
 }
 
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size);
+
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   static bool initialized = false;
 
@@ -47,6 +49,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     boost::split(lines, tmp, boost::is_any_of("\n"));
 
     ZoneParserTNG zpt(lines, g_rootdnsname);
+    /* limit the number of steps for '$GENERATE' entries */
+    zpt.setMaxGenerateSteps(10000);
     DNSResourceRecord drr;
     while (zpt.get(drr)) {
     }

@@ -64,25 +64,10 @@ void setupLuaBindingsDNSQuestion()
       return *dq.ednsOptions;
     });
   g_lua.registerFunction<std::string(DNSQuestion::*)(void)>("getTrailingData", [](const DNSQuestion& dq) {
-      const char* message = reinterpret_cast<const char*>(dq.dh);
-      const uint16_t messageLen = getDNSPacketLength(message, dq.len);
-      const std::string tail = std::string(message + messageLen, dq.len - messageLen);
-      return tail;
+      return dq.getTrailingData();
     });
   g_lua.registerFunction<bool(DNSQuestion::*)(std::string)>("setTrailingData", [](DNSQuestion& dq, const std::string& tail) {
-      char* message = reinterpret_cast<char*>(dq.dh);
-      const uint16_t messageLen = getDNSPacketLength(message, dq.len);
-      const uint16_t tailLen = tail.size();
-      if(tailLen > (dq.size - messageLen)) {
-        return false;
-      }
-
-      /* Update length and copy data from the Lua string. */
-      dq.len = messageLen + tailLen;
-      if(tailLen > 0) {
-        tail.copy(message + messageLen, tailLen);
-      }
-      return true;
+      return dq.setTrailingData(tail);
     });
 
   g_lua.registerFunction<std::string(DNSQuestion::*)()>("getServerNameIndication", [](const DNSQuestion& dq) {
@@ -96,6 +81,7 @@ void setupLuaBindingsDNSQuestion()
       }
 #endif /* HAVE_NET_SNMP */
     });
+
   g_lua.registerFunction<void(DNSQuestion::*)(std::string, std::string)>("setTag", [](DNSQuestion& dq, const std::string& strLabel, const std::string& strValue) {
       if(dq.qTag == nullptr) {
         dq.qTag = std::make_shared<QTag>();
@@ -132,6 +118,18 @@ void setupLuaBindingsDNSQuestion()
       return *dq.qTag;
     });
 
+  g_lua.registerFunction<void(DNSQuestion::*)(std::vector<std::pair<uint8_t, std::string>>)>("setProxyProtocolValues", [](DNSQuestion& dq, const std::vector<std::pair<uint8_t, std::string>>& values) {
+      if (!dq.proxyProtocolValues) {
+        dq.proxyProtocolValues = make_unique<std::vector<ProxyProtocolValue>>();
+      }
+
+      dq.proxyProtocolValues->clear();
+      dq.proxyProtocolValues->reserve(values.size());
+      for (const auto& value : values) {
+        dq.proxyProtocolValues->push_back({value.second, value.first});
+      }
+    });
+
   /* LuaWrapper doesn't support inheritance */
   g_lua.registerMember<const ComboAddress (DNSResponse::*)>("localaddr", [](const DNSResponse& dq) -> const ComboAddress { return *dq.local; }, [](DNSResponse& dq, const ComboAddress newLocal) { (void) newLocal; });
   g_lua.registerMember<const DNSName (DNSResponse::*)>("qname", [](const DNSResponse& dq) -> const DNSName { return *dq.qname; }, [](DNSResponse& dq, const DNSName newName) { (void) newName; });
@@ -149,26 +147,49 @@ void setupLuaBindingsDNSQuestion()
         editDNSPacketTTL((char*) dr.dh, dr.len, editFunc);
       });
   g_lua.registerFunction<std::string(DNSResponse::*)(void)>("getTrailingData", [](const DNSResponse& dq) {
-      const char* message = reinterpret_cast<const char*>(dq.dh);
-      const uint16_t messageLen = getDNSPacketLength(message, dq.len);
-      const std::string tail = std::string(message + messageLen, dq.len - messageLen);
-      return tail;
+      return dq.getTrailingData();
     });
   g_lua.registerFunction<bool(DNSResponse::*)(std::string)>("setTrailingData", [](DNSResponse& dq, const std::string& tail) {
-      char* message = reinterpret_cast<char*>(dq.dh);
-      const uint16_t messageLen = getDNSPacketLength(message, dq.len);
-      const uint16_t tailLen = tail.size();
-      if(tailLen > (dq.size - messageLen)) {
-        return false;
+      return dq.setTrailingData(tail);
+    });
+
+  g_lua.registerFunction<void(DNSResponse::*)(std::string, std::string)>("setTag", [](DNSResponse& dr, const std::string& strLabel, const std::string& strValue) {
+      if(dr.qTag == nullptr) {
+        dr.qTag = std::make_shared<QTag>();
+      }
+      dr.qTag->insert({strLabel, strValue});
+    });
+
+  g_lua.registerFunction<void(DNSResponse::*)(vector<pair<string, string>>)>("setTagArray", [](DNSResponse& dr, const vector<pair<string, string>>&tags) {
+      if (!dr.qTag) {
+        dr.qTag = std::make_shared<QTag>();
       }
 
-      /* Update length and copy data from the Lua string. */
-      dq.len = messageLen + tailLen;
-      if(tailLen > 0) {
-        tail.copy(message + messageLen, tailLen);
+      for (const auto& tag : tags) {
+        dr.qTag->insert({tag.first, tag.second});
       }
-      return true;
     });
+  g_lua.registerFunction<string(DNSResponse::*)(std::string)>("getTag", [](const DNSResponse& dr, const std::string& strLabel) {
+      if (!dr.qTag) {
+        return string();
+      }
+
+      std::string strValue;
+      const auto it = dr.qTag->find(strLabel);
+      if (it == dr.qTag->cend()) {
+        return string();
+      }
+      return it->second;
+    });
+  g_lua.registerFunction<QTag(DNSResponse::*)(void)>("getTagArray", [](const DNSResponse& dr) {
+      if (!dr.qTag) {
+        QTag empty;
+        return empty;
+      }
+
+      return *dr.qTag;
+    });
+
   g_lua.registerFunction<void(DNSResponse::*)(std::string)>("sendTrap", [](const DNSResponse& dr, boost::optional<std::string> reason) {
 #ifdef HAVE_NET_SNMP
       if (g_snmpAgent && g_snmpTrapsEnabled) {
@@ -220,4 +241,8 @@ void setupLuaBindingsDNSQuestion()
       dq.du->setHTTPResponse(statusCode, body, contentType ? *contentType : "");
     });
 #endif /* HAVE_DNS_OVER_HTTPS */
+
+  g_lua.registerFunction<bool(DNSQuestion::*)(bool nxd, const std::string& zone, uint32_t ttl, const std::string& mname, const std::string& rname, uint32_t serial, uint32_t refresh, uint32_t retry, uint32_t expire, uint32_t minimum)>("setNegativeAndAdditionalSOA", [](DNSQuestion& dq, bool nxd, const std::string& zone, uint32_t ttl, const std::string& mname, const std::string& rname, uint32_t serial, uint32_t refresh, uint32_t retry, uint32_t expire, uint32_t minimum) {
+      return setNegativeAndAdditionalSOA(dq, nxd, DNSName(zone), ttl, DNSName(mname), DNSName(rname), serial, refresh, retry, expire, minimum);
+    });
 }

@@ -43,6 +43,8 @@ bool g_8bitDNS;
 #ifdef HAVE_LUA_RECORDS
 bool g_doLuaRecord;
 int g_luaRecordExecLimit;
+time_t g_luaHealthChecksInterval{5};
+time_t g_luaHealthChecksExpireDelay{3600};
 #endif
 typedef Distributor<DNSPacket,DNSPacket,PacketHandler> DNSDistributor;
 
@@ -84,12 +86,11 @@ void declareArguments()
   ::arg().setSwitch("forward-dnsupdate","A global setting to allow DNS update packages that are for a Slave domain, to be forwarded to the master.")="yes";
   ::arg().setSwitch("log-dns-details","If PDNS should log DNS non-erroneous details")="no";
   ::arg().setSwitch("log-dns-queries","If PDNS should log all incoming DNS queries")="no";
-  ::arg().set("local-address","Local IP addresses to which we bind")="0.0.0.0";
+  ::arg().set("local-address","Local IP addresses to which we bind")="0.0.0.0, ::";
+  ::arg().set("local-ipv6","DEPRECATED, will be removed, move your IPs to local-address")="";
   ::arg().setSwitch("local-address-nonexist-fail","Fail to start if one or more of the local-address's do not exist on this server")="yes";
   ::arg().setSwitch("non-local-bind", "Enable binding to non-local addresses by using FREEBIND / BINDANY socket options")="no";
-  ::arg().set("local-ipv6","Local IP address to which we bind")="::";
   ::arg().setSwitch("reuseport","Enable higher performance on compliant kernels by using SO_REUSEPORT allowing each receiver thread to open its own socket")="no";
-  ::arg().setSwitch("local-ipv6-nonexist-fail","Fail to start if one or more of the local-ipv6 addresses do not exist on this server")="yes";
   ::arg().set("query-local-address","Source IP address for sending queries")="0.0.0.0";
   ::arg().set("query-local-address6","Source IPv6 address for sending queries")="::";
   ::arg().set("overload-queue-length","Maximum queuelength moving to packetcache only")="0";
@@ -209,6 +210,8 @@ void declareArguments()
   ::arg().set("default-zsk-algorithm","Default ZSK algorithm")="";
   ::arg().set("default-zsk-size","Default ZSK size (0 means default)")="0";
   ::arg().set("max-nsec3-iterations","Limit the number of NSEC3 hash iterations")="500"; // RFC5155 10.3
+  ::arg().set("default-publish-cdnskey","Default value for PUBLISH-CDNSKEY")="";
+  ::arg().set("default-publish-cds","Default value for PUBLISH-CDS")="";
 
   ::arg().set("include-dir","Include *.conf files from this directory");
   ::arg().set("security-poll-suffix","Domain name from which to query security update notifications")="secpoll.powerdns.com.";
@@ -219,6 +222,8 @@ void declareArguments()
 #ifdef HAVE_LUA_RECORDS
   ::arg().setSwitch("enable-lua-records", "Process LUA records for all zones (metadata overrides this)")="no";
   ::arg().set("lua-records-exec-limit", "LUA records scripts execution limit (instructions count). Values <= 0 mean no limit")="1000";
+  ::arg().set("lua-health-checks-expire-delay", "Stops doing health checks after the record hasn't been used for that delay (in seconds)")="3600";
+  ::arg().set("lua-health-checks-interval", "LUA records health checks monitoring interval in seconds")="5";
 #endif
   ::arg().setSwitch("axfr-lower-serial", "Also AXFR a zone from a master with a lower serial")="no";
 
@@ -228,7 +233,10 @@ void declareArguments()
 
   ::arg().set("tcp-fast-open", "Enable TCP Fast Open support on the listening sockets, using the supplied numerical value as the queue size")="0";
 
+  ::arg().set("max-generate-steps", "Maximum number of $GENERATE steps when loading a zone from a file")="0";
+
   ::arg().set("rng", "Specify the random number generator to use. Valid values are auto,sodium,openssl,getrandom,arc4random,urandom.")="auto";
+  ::arg().setDefaults();
 }
 
 static time_t s_start=time(0);
@@ -339,6 +347,12 @@ void declareStats(void)
 
   S.declare("sys-msec", "Number of msec spent in system time", getSysUserTimeMsec);
   S.declare("user-msec", "Number of msec spent in user time", getSysUserTimeMsec);
+
+#ifdef __linux__
+  S.declare("cpu-iowait", "Time spent waiting for I/O to complete by the whole system, in units of USER_HZ", getCPUIOWait);
+  S.declare("cpu-steal", "Stolen time, which is the time spent by the whole system in other operating systems when running in a virtualized environment, in units of USER_HZ", getCPUSteal);
+#endif
+
   S.declare("meta-cache-size", "Number of entries in the metadata cache", DNSSECKeeper::dbdnssecCacheSizes);
   S.declare("key-cache-size", "Number of entries in the key cache", DNSSECKeeper::dbdnssecCacheSizes);
   S.declare("signature-cache-size", "Number of entries in the signature cache", signatureCacheSize);
@@ -442,14 +456,13 @@ try
         "', do = " <<question.d_dnssecOk <<", bufsize = "<< question.getMaxReplyLen();
       if(question.d_ednsRawPacketSizeLimit > 0 && question.getMaxReplyLen() != (unsigned int)question.d_ednsRawPacketSizeLimit)
         g_log<<" ("<<question.d_ednsRawPacketSizeLimit<<")";
-      g_log<<": ";
     }
 
     if(PC.enabled() && (question.d.opcode != Opcode::Notify && question.d.opcode != Opcode::Update) && question.couldBeCached()) {
       bool haveSomething=PC.get(question, cached); // does the PacketCache recognize this question?
       if (haveSomething) {
         if(logDNSQueries)
-          g_log<<"packetcache HIT"<<endl;
+          g_log<<": packetcache HIT"<<endl;
         cached.setRemote(&question.d_remote);  // inlined
         cached.setSocket(question.getSocket());                               // inlined
         cached.d_anyLocal = question.d_anyLocal;
@@ -465,14 +478,19 @@ try
     }
 
     if(distributor->isOverloaded()) {
-      if(logDNSQueries) 
-        g_log<<"Dropped query, backends are overloaded"<<endl;
+      if(logDNSQueries)
+        g_log<<": Dropped query, backends are overloaded"<<endl;
       overloadDrops++;
       continue;
     }
-        
-    if(PC.enabled() && logDNSQueries)
-      g_log<<"packetcache MISS"<<endl;
+
+    if (logDNSQueries) {
+      if (PC.enabled()) {
+        g_log<<": packetcache MISS"<<endl;
+      } else {
+        g_log<<endl;
+      }
+    }
 
     try {
       distributor->question(question, &sendout); // otherwise, give to the distributor
@@ -488,18 +506,14 @@ catch(PDNSException& pe)
   _exit(1);
 }
 
-static void* dummyThread(void *)
+static void dummyThread()
 {
-  void* ignore=0;
-  pthread_exit(ignore);
 }
 
 static void triggerLoadOfLibraries()
 {
-  pthread_t tid;
-  pthread_create(&tid, 0, dummyThread, 0);
-  void* res;
-  pthread_join(tid, &res);
+  std::thread dummy(dummyThread);
+  dummy.join();
 }
 
 void mainthread()
@@ -519,6 +533,8 @@ void mainthread()
    g_doLuaRecord = ::arg().mustDo("enable-lua-records");
    g_LuaRecordSharedState = (::arg()["enable-lua-records"] == "shared");
    g_luaRecordExecLimit = ::arg().asNum("lua-records-exec-limit");
+   g_luaHealthChecksInterval = ::arg().asNum("lua-health-checks-interval");
+   g_luaHealthChecksExpireDelay = ::arg().asNum("lua-health-checks-expire-delay");
 #endif
 
    DNSPacket::s_udpTruncationThreshold = std::max(512, ::arg().asNum("udp-truncation-threshold"));
@@ -527,6 +543,11 @@ void mainthread()
    PC.setTTL(::arg().asNum("cache-ttl"));
    PC.setMaxEntries(::arg().asNum("max-packet-cache-entries"));
    QC.setMaxEntries(::arg().asNum("max-cache-entries"));
+   DNSSECKeeper::setMaxEntries(::arg().asNum("max-cache-entries"));
+
+   if (!PC.enabled() && ::arg().mustDo("log-dns-queries")) {
+     g_log<<Logger::Warning<<"Packet cache disabled, logging queries without HIT/MISS"<<endl;
+   }
 
    stubParseResolveConf();
 

@@ -181,6 +181,7 @@ class CDBKVStore: public KeyValueStore
 {
 public:
   CDBKVStore(const std::string& fname, time_t refreshDelay);
+  ~CDBKVStore();
 
   bool keyExists(const std::string& key) override;
   bool getValue(const std::string& key, std::string& value) override;
@@ -192,7 +193,7 @@ private:
 
   std::unique_ptr<CDB> d_cdb{nullptr};
   std::string d_fname;
-  pthread_rwlock_t d_lock;
+  ReadWriteLock d_lock;
   time_t d_mtime{0};
   time_t d_nextCheck{0};
   time_t d_refreshDelay{0};

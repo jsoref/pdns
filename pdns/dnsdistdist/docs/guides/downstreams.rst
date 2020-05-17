@@ -52,10 +52,10 @@ The following example sets the CD flag to true and change the QName to "powerdns
     function myHealthCheck(qname, qtype, qclass, dh)
       dh:setCD(true)
 
-      return newDNSName("powerdns.com."), dnsdist.AAAA, qclass
+      return newDNSName("powerdns.com."), DNSQType.AAAA, qclass
     end
 
-    newServer("2620:0:0ccd::2")
+    newServer({address="2620:0:0ccd::2", checkFunction=myHealthCheck})
 
 Source address selection
 ------------------------

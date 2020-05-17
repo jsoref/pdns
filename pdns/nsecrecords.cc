@@ -76,9 +76,9 @@ void NSECBitmap::toPacket(DNSPacketWriter& pw)
 {
   NSECBitmapGenerator nbg(pw);
   if (d_bitset) {
-    size_t count = d_bitset->count();
     size_t found = 0;
-    for(size_t idx = 0; idx < nbTypes && found < count; ++idx){
+    size_t l_count = d_bitset->count();
+    for(size_t idx = 0; idx < nbTypes && found < l_count; ++idx){
       if (!d_bitset->test(idx)) {
         continue;
       }
@@ -110,15 +110,19 @@ void NSECBitmap::fromPacket(PacketReader& pr)
   }
   
   for(unsigned int n = 0; n+1 < bitmap.size();) {
-    unsigned int window=static_cast<unsigned char>(bitmap[n++]);
-    unsigned int blen=static_cast<unsigned char>(bitmap[n++]);
+    uint8_t window=static_cast<uint8_t>(bitmap[n++]);
+    uint8_t blen=static_cast<uint8_t>(bitmap[n++]);
 
     // end if zero padding and ensure packet length
-    if(window == 0 && blen == 0) {
+    if (window == 0 && blen == 0) {
       break;
     }
 
-    if(n + blen > bitmap.size()) {
+    if (blen > 32) {
+      throw MOADNSException("NSEC record with invalid bitmap length");
+    }
+
+    if (n + blen > bitmap.size()) {
       throw MOADNSException("NSEC record with bitmap length > packet length");
     }
 
@@ -138,9 +142,9 @@ string NSECBitmap::getZoneRepresentation() const
   string ret;
 
   if (d_bitset) {
-    size_t count = d_bitset->count();
     size_t found = 0;
-    for(size_t idx = 0; idx < nbTypes && found < count; ++idx) {
+    size_t l_count = d_bitset->count();
+    for(size_t idx = 0; idx < nbTypes && found < l_count; ++idx) {
       if (!d_bitset->test(idx)) {
         continue;
       }

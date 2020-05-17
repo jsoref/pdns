@@ -35,6 +35,8 @@ BUILT_SOURCES=htmlfiles.h \
 CLEANFILES = htmlfiles.h \
 	dnsmessage.pb.cc \
 	dnsmessage.pb.h \
+	dnstap.pb.cc \
+	dnstap.pb.h \
 	recursor.conf-dist
 
 htmlfiles.h: html/*
@@ -142,6 +144,7 @@ pdns_recursor_SOURCES = \
 	pdnsexception.hh \
 	pollmplexer.cc \
 	protobuf.cc protobuf.hh \
+	proxy-protocol.cc proxy-protocol.hh \
 	pubsuffix.hh pubsuffix.cc \
 	pubsuffixloader.cc \
 	qtype.hh qtype.cc \
@@ -165,6 +168,7 @@ pdns_recursor_SOURCES = \
 	secpoll-recursor.cc secpoll-recursor.hh \
 	secpoll.cc secpoll.hh \
 	sholder.hh \
+	shuffle.cc shuffle.hh \
 	sillyrecords.cc \
 	snmp-agent.hh snmp-agent.cc \
 	sortlist.cc sortlist.hh \
@@ -188,8 +192,9 @@ pdns_recursor_SOURCES = \
 if !HAVE_LUA_HPP
 BUILT_SOURCES += lua.hpp
 nodist_pdns_recursor_SOURCES = lua.hpp
-CLEANFILES += lua.hpp
 endif
+
+CLEANFILES += lua.hpp
 
 pdns_recursor_LDADD = \
 	$(YAHTTP_LIBS) \

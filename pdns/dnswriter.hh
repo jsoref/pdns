@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_DNSWRITER_HH
-#define PDNS_DNSWRITER_HH
-
+#pragma once
 #include <string>
 #include <vector>
 #include <map>
@@ -158,7 +156,7 @@ public:
 private:
   uint16_t lookupName(const DNSName& name, uint16_t* matchlen);
   vector<uint16_t> d_namepositions;
-  // We declare 1 uint_16 in the public section, these 3 align on a 8-byte boundry
+  // We declare 1 uint_16 in the public section, these 3 align on a 8-byte boundary
   uint16_t d_sor;
   uint16_t d_rollbackmarker; // start of last complete packet, for rollback
 
@@ -173,5 +171,4 @@ private:
 typedef vector<pair<string::size_type, string::size_type> > labelparts_t;
 // bool labeltokUnescape(labelparts_t& parts, const DNSName& label);
 std::vector<string> segmentDNSText(const string& text); // from dnslabeltext.rl
-std::deque<string> segmentDNSName(const string& input ); // from dnslabeltext.rl
-#endif
+std::deque<string> segmentDNSName(const string& input); // from dnslabeltext.rl

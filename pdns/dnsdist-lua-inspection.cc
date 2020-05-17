@@ -117,7 +117,7 @@ static void statNodeRespRing(statvisitor_t visitor, unsigned int seconds)
       if (seconds && c.when < cutoff)
         continue;
 
-      root.submit(c.name, c.dh.rcode, boost::none);
+      root.submit(c.name, ((c.dh.rcode == 0 && c.usec == std::numeric_limits<unsigned int>::max()) ? -1 : c.dh.rcode), c.size, boost::none);
     }
   }
 
@@ -583,7 +583,7 @@ void setupLuaInspection()
       auto states = g_dstates.getLocal();
       counter = 0;
       for(const auto& s : *states) {
-        ret << (fmt % counter % s->name % s->remote.toStringWithPort() % s->tcpCurrentConnections % s->tcpDiedSendingQuery % s->tcpDiedReadingResponse % s->tcpGaveUp % s->tcpReadTimeouts % s->tcpWriteTimeouts % s->tcpAvgQueriesPerConnection % s->tcpAvgConnectionDuration) << endl;
+        ret << (fmt % counter % s->getName() % s->remote.toStringWithPort() % s->tcpCurrentConnections % s->tcpDiedSendingQuery % s->tcpDiedReadingResponse % s->tcpGaveUp % s->tcpReadTimeouts % s->tcpWriteTimeouts % s->tcpAvgQueriesPerConnection % s->tcpAvgConnectionDuration) << endl;
         ++counter;
       }
 
@@ -706,6 +706,9 @@ void setupLuaInspection()
   g_lua.registerMember("servfails", &StatNode::Stat::servfails);
   g_lua.registerMember("nxdomains", &StatNode::Stat::nxdomains);
   g_lua.registerMember("queries", &StatNode::Stat::queries);
+  g_lua.registerMember("noerrors", &StatNode::Stat::noerrors);
+  g_lua.registerMember("drops", &StatNode::Stat::drops);
+  g_lua.registerMember("bytes", &StatNode::Stat::bytes);
 
   g_lua.writeFunction("statNodeRespRing", [](statvisitor_t visitor, boost::optional<unsigned int> seconds) {
       statNodeRespRing(visitor, seconds ? *seconds : 0);
@@ -736,6 +739,11 @@ void setupLuaInspection()
   g_lua.registerFunction<void(std::shared_ptr<DynBlockRulesGroup>::*)(uint8_t, unsigned int, unsigned int, const std::string&, unsigned int, boost::optional<DNSAction::Action>, boost::optional<unsigned int>)>("setRCodeRate", [](std::shared_ptr<DynBlockRulesGroup>& group, uint8_t rcode, unsigned int rate, unsigned int seconds, const std::string& reason, unsigned int blockDuration, boost::optional<DNSAction::Action> action, boost::optional<unsigned int> warningRate) {
       if (group) {
         group->setRCodeRate(rcode, rate, warningRate ? *warningRate : 0, seconds, reason, blockDuration, action ? *action : DNSAction::Action::None);
+      }
+    });
+  g_lua.registerFunction<void(std::shared_ptr<DynBlockRulesGroup>::*)(uint8_t, double, unsigned int, const std::string&, unsigned int, size_t, boost::optional<DNSAction::Action>, boost::optional<double>)>("setRCodeRatio", [](std::shared_ptr<DynBlockRulesGroup>& group, uint8_t rcode, double ratio, unsigned int seconds, const std::string& reason, unsigned int blockDuration, size_t minimumNumberOfResponses, boost::optional<DNSAction::Action> action, boost::optional<double> warningRatio) {
+      if (group) {
+        group->setRCodeRatio(rcode, ratio, warningRatio ? *warningRatio : 0.0, seconds, reason, blockDuration, action ? *action : DNSAction::Action::None, minimumNumberOfResponses);
       }
     });
   g_lua.registerFunction<void(std::shared_ptr<DynBlockRulesGroup>::*)(uint16_t, unsigned int, unsigned int, const std::string&, unsigned int, boost::optional<DNSAction::Action>, boost::optional<unsigned int>)>("setQTypeRate", [](std::shared_ptr<DynBlockRulesGroup>& group, uint16_t qtype, unsigned int rate, unsigned int seconds, const std::string& reason, unsigned int blockDuration, boost::optional<DNSAction::Action> action, boost::optional<unsigned int> warningRate) {

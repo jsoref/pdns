@@ -32,13 +32,22 @@
 extern int g_argc;
 extern char** g_argv;
 
+static thread_local set<DNSName> t_rootNSZones;
+
+static void insertIntoRootNSZones(const DNSName &name) {
+  // do not insert dot, wiping dot's NS records from the cache in primeRootNSZones()
+  // will cause infinite recursion
+  if (!name.isRoot()) {
+    t_rootNSZones.insert(name);
+  }
+}
+
 void primeHints(void)
 {
   // prime root cache
   const vState validationState = Insecure;
   vector<DNSRecord> nsset;
-  if(!t_RC)
-    t_RC = std::unique_ptr<MemRecursorCache>(new MemRecursorCache());
+  t_rootNSZones.clear();
 
   if(::arg()["hint-file"].empty()) {
     DNSRecord arr, aaaarr, nsrr;
@@ -54,17 +63,18 @@ void primeHints(void)
       templ[sizeof(templ)-1] = '\0';
       *templ=c;
       aaaarr.d_name=arr.d_name=DNSName(templ);
+      insertIntoRootNSZones(arr.d_name.getLastLabel());
       nsrr.d_content=std::make_shared<NSRecordContent>(DNSName(templ));
       arr.d_content=std::make_shared<ARecordContent>(ComboAddress(rootIps4[c-'a']));
       vector<DNSRecord> aset;
       aset.push_back(arr);
-      t_RC->replace(time(0), DNSName(templ), QType(QType::A), aset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true, boost::none, validationState); // auth, nuke it all
+      s_RC->replace(time(0), DNSName(templ), QType(QType::A), aset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true, boost::none, boost::none, validationState); // auth, nuke it all
       if (rootIps6[c-'a'] != NULL) {
         aaaarr.d_content=std::make_shared<AAAARecordContent>(ComboAddress(rootIps6[c-'a']));
 
         vector<DNSRecord> aaaaset;
         aaaaset.push_back(aaaarr);
-        t_RC->replace(time(0), DNSName(templ), QType(QType::AAAA), aaaaset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true, boost::none, validationState);
+        s_RC->replace(time(0), DNSName(templ), QType(QType::AAAA), aaaaset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true, boost::none, boost::none, validationState);
       }
       
       nsset.push_back(nsrr);
@@ -72,6 +82,7 @@ void primeHints(void)
   }
   else {
     ZoneParserTNG zpt(::arg()["hint-file"]);
+    zpt.setMaxGenerateSteps(::arg().asNum("max-generate-steps"));
     DNSResourceRecord rr;
 
     while(zpt.get(rr)) {
@@ -79,19 +90,50 @@ void primeHints(void)
       if(rr.qtype.getCode()==QType::A) {
         vector<DNSRecord> aset;
         aset.push_back(DNSRecord(rr));
-        t_RC->replace(time(0), rr.qname, QType(QType::A), aset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true, boost::none, validationState); // auth, etc see above
+        s_RC->replace(time(0), rr.qname, QType(QType::A), aset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true, boost::none, boost::none, validationState); // auth, etc see above
       } else if(rr.qtype.getCode()==QType::AAAA) {
         vector<DNSRecord> aaaaset;
         aaaaset.push_back(DNSRecord(rr));
-        t_RC->replace(time(0), rr.qname, QType(QType::AAAA), aaaaset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true, boost::none, validationState);
+        s_RC->replace(time(0), rr.qname, QType(QType::AAAA), aaaaset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true, boost::none, boost::none, validationState);
       } else if(rr.qtype.getCode()==QType::NS) {
         rr.content=toLower(rr.content);
         nsset.push_back(DNSRecord(rr));
       }
+      insertIntoRootNSZones(rr.qname.getLastLabel());
     }
   }
-  t_RC->doWipeCache(g_rootdnsname, false, QType::NS);
-  t_RC->replace(time(0), g_rootdnsname, QType(QType::NS), nsset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), false, boost::none, validationState); // and stuff in the cache
+  s_RC->doWipeCache(g_rootdnsname, false, QType::NS);
+  s_RC->replace(time(0), g_rootdnsname, QType(QType::NS), nsset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), false, boost::none, boost::none, validationState); // and stuff in the cache
+}
+
+
+// Do not only put the root hints into the cache, but also make sure
+// the NS records of the top level domains of the names of the root
+// servers are in the cache. We need these to correctly determine the
+// security status of that specific domain (normally
+// root-servers.net). This is caused by the accident that the root
+// servers are authoritative for root-servers.net, and some
+// implementations reply not with a delegation on a root-servers.net
+// DS query, but with a NODATA response (the domain is unsigned).
+void primeRootNSZones(bool dnssecmode)
+{
+  struct timeval now;
+  gettimeofday(&now, 0);
+  SyncRes sr(now);
+
+  if (dnssecmode) {
+    sr.setDoDNSSEC(true);
+    sr.setDNSSECValidationRequested(true);
+  }
+
+  // beginResolve() can yield to another mthread that could trigger t_rootNSZones updates,
+  // so make a local copy
+  set<DNSName> copy(t_rootNSZones);  
+  for (const auto & qname: copy) {
+    s_RC->doWipeCache(qname, false, QType::NS);
+    vector<DNSRecord> ret;
+    sr.beginResolve(qname, QType(QType::NS), QClass::IN, ret);
+  }
 }
 
 static void makeNameToIPZone(std::shared_ptr<SyncRes::domainmap_t> newMap, const DNSName& hostname, const string& ip)
@@ -207,7 +249,7 @@ ComboAddress parseIPAndPort(const std::string& input, uint16_t port)
 }
 
 
-void convertServersForAD(const std::string& input, SyncRes::AuthDomain& ad, const char* sepa, bool verbose=true)
+static void convertServersForAD(const std::string& input, SyncRes::AuthDomain& ad, const char* sepa, bool verbose=true)
 {
   vector<string> servers;
   stringtok(servers, input, sepa);
@@ -226,13 +268,7 @@ void convertServersForAD(const std::string& input, SyncRes::AuthDomain& ad, cons
     g_log<<endl;
 }
 
-void* pleaseWipeNegCache()
-{
-  SyncRes::clearNegCache();
-  return 0;
-}
-
-void* pleaseUseNewSDomainsMap(std::shared_ptr<SyncRes::domainmap_t> newmap)
+static void* pleaseUseNewSDomainsMap(std::shared_ptr<SyncRes::domainmap_t> newmap)
 {
   SyncRes::setDomainMap(newmap);
   return 0;
@@ -296,10 +332,10 @@ string reloadAuthAndForwards()
       }
     }
 
-    for(const auto i : oldAndNewDomains) {
-        broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, i, true));
-        broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, i, true));
-        broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, i, true));
+    for(const auto& i : oldAndNewDomains) {
+      broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, i, true, 0xffff));
+      broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, i, true, 0xffff));
+      broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, i, true));
     }
 
     broadcastFunction(boost::bind(pleaseUseNewSDomainsMap, newDomainMap));
@@ -342,6 +378,7 @@ std::shared_ptr<SyncRes::domainmap_t> parseAuthAndForwards()
         ad.d_rdForward = false;
         g_log<<Logger::Error<<"Parsing authoritative data for zone '"<<headers.first<<"' from file '"<<headers.second<<"'"<<endl;
         ZoneParserTNG zpt(headers.second, DNSName(headers.first));
+        zpt.setMaxGenerateSteps(::arg().asNum("max-generate-steps"));
         DNSResourceRecord rr;
 	DNSRecord dr;
         while(zpt.get(rr)) {
@@ -479,4 +516,3 @@ std::shared_ptr<SyncRes::domainmap_t> parseAuthAndForwards()
   }
   return newMap;
 }
-

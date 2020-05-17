@@ -2,6 +2,10 @@
 #include "dnsdist-snmp.hh"
 #include "dolog.hh"
 
+bool g_snmpEnabled{false};
+bool g_snmpTrapsEnabled{false};
+DNSDistSNMPAgent* g_snmpAgent{nullptr};
+
 #ifdef HAVE_NET_SNMP
 
 #define DNSDIST_OID 1, 3, 6, 1, 4, 1, 43315, 3
@@ -293,8 +297,8 @@ static int backendStatTable_handler(netsnmp_mib_handler* handler,
       case COLUMN_BACKENDNAME:
         snmp_set_var_typed_value(request->requestvb,
                                  ASN_OCTET_STR,
-                                 server->name.c_str(),
-                                 server->name.size());
+                                 server->getName().c_str(),
+                                 server->getName().size());
         break;
       case COLUMN_BACKENDLATENCY:
         DNSDistSNMPAgent::setCounter64Value(request,
@@ -388,8 +392,8 @@ bool DNSDistSNMPAgent::sendBackendStatusChangeTrap(const std::shared_ptr<Downstr
                             backendNameOID,
                             OID_LENGTH(backendNameOID),
                             ASN_OCTET_STR,
-                            dss->name.c_str(),
-                            dss->name.size());
+                            dss->getName().c_str(),
+                            dss->getName().size());
 
   snmp_varlist_add_variable(&varList,
                             backendAddressOID,

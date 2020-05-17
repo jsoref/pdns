@@ -4,7 +4,7 @@ DEB_HOST_ARCH_BITS ?= $(shell dpkg-architecture -qDEB_HOST_ARCH_BITS)
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
 # Backends
-backends := bind ldap pipe gmysql godbc gpgsql gsqlite3 geoip lua lua2 remote random opendbx tinydns
+backends := bind ldap pipe gmysql godbc gpgsql gsqlite3 geoip lua2 remote random tinydns
 
 # Disable systemd integration on non-linux archs
 ifeq ($(DEB_HOST_ARCH_OS),linux)
@@ -75,8 +75,8 @@ override_dh_auto_build-arch:
 
 override_dh_fixperms:
 	dh_fixperms
-	# these files often contain passwords. 660 as it is chowned to root:pdns
-	chmod 0660 debian/pdns-server/etc/powerdns/pdns.conf
+	# these files often contain passwords. 640 as it is chowned to root:pdns
+	chmod 0640 debian/pdns-server/etc/powerdns/pdns.conf
 
 # restore moved files
 override_dh_clean:

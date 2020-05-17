@@ -89,7 +89,11 @@ static uint32_t calculateIncreaseSOA(uint32_t old_serial, const string& increase
   if (pdns_iequals(increaseKind, "SOA-EDIT-INCREASE")) {
     uint32_t new_serial = old_serial;
     if (!editKind.empty()) {
-      new_serial = calculateEditSOA(old_serial, editKind, zonename);
+      if (pdns_iequals(editKind, "INCEPTION-EPOCH")) {
+        new_serial = calculateEditSOA(old_serial, "EPOCH", zonename);
+      } else {
+        new_serial = calculateEditSOA(old_serial, editKind, zonename);
+      }
     }
     if (new_serial <= old_serial) {
       new_serial = old_serial + 1;
@@ -172,7 +176,7 @@ DNSZoneRecord makeEditedDNSZRFromSOAData(DNSSECKeeper& dk, const SOAData& sd, DN
   dzr.domain_id = sd.domain_id;
   dzr.signttl = sd.ttl;
   dzr.auth = true;
-  dzr.dr = soa;
+  dzr.dr = std::move(soa);
 
   return dzr;
 }

@@ -25,12 +25,13 @@
 #endif
 
 #include <atomic>
-#include <condition_variable>
 #include <queue>
+#include <mutex>
 #include <thread>
 
 #include "iputils.hh"
 #include "circular_buffer.hh"
+#include "sstuff.hh"
 
 /* Writes can be submitted and they are atomically accepted. Either the whole write
    ends up in the buffer or nothing ends up in the buffer.
@@ -45,14 +46,14 @@
 class CircularWriteBuffer
 {
 public:
-  explicit CircularWriteBuffer(int fd, size_t size) : d_fd(fd), d_buffer(size)
+  explicit CircularWriteBuffer(size_t size) : d_buffer(size)
   {
   }
 
-  void write(const std::string& str);
-  void flush();
+  bool hasRoomFor(const std::string& str) const;
+  bool write(const std::string& str);
+  bool flush(int fd);
 private:
-  int d_fd;
   boost::circular_buffer<char> d_buffer;
 };
 
@@ -89,22 +90,22 @@ public:
   void queueData(const std::string& data) override;
   std::string toString() const override
   {
-    return d_remote.toStringWithPort();
+    return d_remote.toStringWithPort() + " (" + std::to_string(d_queued) + " queued, " + std::to_string(d_drops) + " dropped)";
   }
   void stop()
   {
     d_exiting = true;
   }
-  std::atomic<uint32_t> d_drops{0};
 
 private:
   bool reconnect();
   void maintenanceThread();
 
+  CircularWriteBuffer d_writer;
   ComboAddress d_remote;
-  uint64_t d_maxQueuedBytes;
-  int d_socket{-1};
-  std::unique_ptr<CircularWriteBuffer> d_writer;
+  std::atomic<uint64_t> d_drops{0};
+  std::atomic<uint64_t> d_queued{0};
+  std::unique_ptr<Socket> d_socket{nullptr};
   uint16_t d_timeout;
   uint8_t d_reconnectWaitTime;
   std::atomic<bool> d_exiting{false};

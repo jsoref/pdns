@@ -19,8 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_ZONEPARSER_TNG
-#define PDNS_ZONEPARSER_TNG
+#pragma once
 #include <string>
 #include <cstdio>
 #include <stdexcept>
@@ -31,7 +30,7 @@
 class ZoneParserTNG
 {
 public:
-  ZoneParserTNG(const string& fname, const DNSName& zname=DNSName("."), const string& reldir="");
+  ZoneParserTNG(const string& fname, const DNSName& zname=g_rootdnsname, const string& reldir="");
   ZoneParserTNG(const vector<string> zonedata, const DNSName& zname);
 
   ~ZoneParserTNG();
@@ -41,6 +40,14 @@ public:
   DNSName getZoneName();
   string getLineOfFile(); // for error reporting purposes
   pair<string,int> getLineNumAndFile(); // idem
+  void disableGenerate()
+  {
+    d_generateEnabled = false;
+  }
+  void setMaxGenerateSteps(size_t max)
+  {
+    d_maxGenerateSteps = max;
+  }
 private:
   bool getLine();
   bool getTemplateLine();
@@ -54,6 +61,7 @@ private:
     int d_lineno;
   };
 
+  parts_t d_parts;
   string d_reldir;
   string d_line;
   DNSName d_prevqname;
@@ -63,10 +71,10 @@ private:
   vector<string>::iterator d_zonedataline;
   std::stack<filestate> d_filestates;
   parts_t d_templateparts;
+  size_t d_maxGenerateSteps{0};
   int d_defaultttl;
   uint32_t d_templatecounter, d_templatestop, d_templatestep;
   bool d_havedollarttl;
   bool d_fromfile;
+  bool d_generateEnabled{true};
 };
-
-#endif

@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef NAMESERVER_HH
-#define NAMESERVER_HH
-
+#pragma once
 #include <poll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -97,13 +95,10 @@ private:
   bool d_can_reuseport;
 #endif
   vector<int> d_sockets;
-  void bindIPv4();
-  void bindIPv6();
+  void bindAddresses();
   vector<pollfd> d_rfds;
 };
 
 bool AddressIsUs(const ComboAddress& remote);
 
 extern ResponseStats g_rs;
-
-#endif

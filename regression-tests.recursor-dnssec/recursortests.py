@@ -40,6 +40,7 @@ max-cache-ttl=15
 threads=1
 loglevel=9
 disable-syslog=yes
+log-common-errors=yes
 """
     _config_template = """
 """
@@ -70,14 +71,14 @@ example.                 3600 IN NS   ns2.example.
 example.                 3600 IN DS   53174 13 1 50c9e913818767c236c06c2d8272723cb78cbf26
 
 ns1.example.             3600 IN A    {prefix}.10
-ns2.example.             3600 IN A    {prefix}.11
+ns2.example.             3600 IN A    {prefix}.18
         """,
         'example': """
 example.                 3600 IN SOA  {soa}
 example.                 3600 IN NS   ns1.example.
 example.                 3600 IN NS   ns2.example.
 ns1.example.             3600 IN A    {prefix}.10
-ns2.example.             3600 IN A    {prefix}.11
+ns2.example.             3600 IN A    {prefix}.18
 
 secure.example.          3600 IN NS   ns.secure.example.
 secure.example.          3600 IN DS   64723 13 1 53eb985040d3a89bacf29dbddb55a65834706f33
@@ -119,8 +120,11 @@ sort.example.                      3600 IN MX    25 mx
 
 delay1.example.                     3600 IN NS   ns1.delay1.example.
 ns1.delay1.example.                 3600 IN A    {prefix}.16
+delay1.example.                     3600 IN DS 42043 13 2 7319fa605cf117f36e3de070157577ebb9a05a1d1f963d80eda55b5d6e793eb2
+
 delay2.example.                     3600 IN NS   ns1.delay2.example.
 ns1.delay2.example.                 3600 IN A    {prefix}.17
+delay2.example.                     3600 IN DS 42043 13 2 60a047b87740c8564c21d5fd34626c10a77a6c41e3b34564230119c2f13937b8
         """,
         'secure.example': """
 secure.example.          3600 IN SOA  {soa}
@@ -145,7 +149,7 @@ insecure.sub2.secure.example. 3600 IN NS ns1.insecure.example.
 
 *.cnamewildcard.secure.example. 3600 IN CNAME host1.secure.example.
 
-*.cnamewildcardnxdomain.secure.example. 3600 IN CNAME doesntexist.secure.example.
+*.cnamewildcardnxdomain.secure.example. 3600 IN CNAME doesnotexist.secure.example.
 
 cname-to-formerr.secure.example. 3600 IN CNAME host1.insecure-formerr.example.
 
@@ -310,6 +314,18 @@ PrivateKey: kvoV/g4IO/tefSro+FLJ5UC7H3BUf0IUtZQSUOfQGyA=
 Private-key-format: v1.2
 Algorithm: 13 (ECDSAP256SHA256)
 PrivateKey: Ep9uo6+wwjb4MaOmqq7LHav2FLrjotVOeZg8JT1Qk04=
+""",
+
+        'delay1.example': """
+Private-key-format: v1.2
+Algorithm: 13 (ECDSAP256SHA256)
+PrivateKey: Ep9uo6+wwjb4MaOmqq7LHav2FLrjotVOeZg8JT1Qk04=
+""",
+
+        'delay2.example': """
+Private-key-format: v1.2
+Algorithm: 13 (ECDSAP256SHA256)
+PrivateKey: Ep9uo6+wwjb4MaOmqq7LHav2FLrjotVOeZg8JT1Qk04=
 """
     }
 
@@ -323,8 +339,9 @@ PrivateKey: Ep9uo6+wwjb4MaOmqq7LHav2FLrjotVOeZg8JT1Qk04=
               'zones': ['secure.example', 'islandofsecurity.example']},
         '10': {'threads': 1,
                'zones': ['example']},
-        '11': {'threads': 1,
-               'zones': ['example']},
+
+        # 11 is used by CircleCI provided resolver
+
         '12': {'threads': 1,
                'zones': ['bogus.example', 'undelegated.secure.example', 'undelegated.insecure.example']},
         '13': {'threads': 1,
@@ -336,8 +353,19 @@ PrivateKey: Ep9uo6+wwjb4MaOmqq7LHav2FLrjotVOeZg8JT1Qk04=
         '16': {'threads': 2,
                'zones': ['delay1.example']},
         '17': {'threads': 2,
-               'zones': ['delay2.example']}
+               'zones': ['delay2.example']},
+        '18': {'threads': 1,
+               'zones': ['example']}
     }
+    # Other IPs used:
+    #  2: test_Interop.py
+    #  3-7: free?
+    # 19: free?
+    # 20: free?
+    # 21: test_ECS.py
+    # 22: test_EDNSBuffer.py
+    # 23: test_Lua.py
+    # 24: test_RoutingTag.py
 
     _auth_cmd = ['authbind',
                  os.environ['PDNS']]
@@ -383,7 +411,6 @@ options {
 module-dir=../regression-tests/modules
 launch=bind
 daemon=no
-local-ipv6=
 bind-config={confdir}/named.conf
 bind-dnssec-db={bind_dnssec_db}
 socket-dir={confdir}
@@ -471,6 +498,7 @@ distributor-threads={threads}""".format(confdir=confdir,
         authcmd = list(cls._auth_cmd)
         authcmd.append('--config-dir=%s' % confdir)
         authcmd.append('--local-address=%s' % ipaddress)
+        authcmd.append('--local-ipv6=')
         print(' '.join(authcmd))
 
         logFile = os.path.join(confdir, 'pdns.log')

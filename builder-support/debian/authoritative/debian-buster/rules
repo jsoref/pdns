@@ -9,7 +9,7 @@ CXXFLAGS += -Wall
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 # Backends
-backends := bind ldap pipe gmysql godbc gpgsql gsqlite3 geoip lmdb lua lua2 remote random opendbx tinydns
+backends := bind ldap pipe gmysql godbc gpgsql gsqlite3 geoip lmdb lua2 remote random tinydns
 
 # Disable systemd integration on non-linux archs
 ifeq ($(DEB_HOST_ARCH_OS),linux)
@@ -76,8 +76,8 @@ endif
 
 override_dh_fixperms:
 	dh_fixperms
-	# these files often contain passwords. 660 as it is chowned to root:pdns
-	chmod 0660 debian/pdns-server/etc/powerdns/pdns.conf
+	# these files often contain passwords. 640 as it is chowned to root:pdns
+	chmod 0640 debian/pdns-server/etc/powerdns/pdns.conf
 
 # restore moved files
 override_dh_clean:

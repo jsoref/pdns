@@ -89,7 +89,7 @@ While :func:`protobufServer` only exports the queries sent to the recursor from 
   :param int reconnectWaitTime: How long to wait, in seconds, between two reconnection attempts
   :param bool asyncConnect: When set to false (default) the first connection to the server during startup will block up to ``timeout`` seconds, otherwise the connection is done in a separate thread, after the first message has been queued..
 
-Protobol Buffers Definition
+Protocol Buffers Definition
 ---------------------------
 
 The protocol buffers message types can be found in the `dnsmessage.proto <https://github.com/PowerDNS/pdns/blob/master/pdns/dnsmessage.proto>`_ file and is included here:
@@ -113,10 +113,10 @@ The recursor must have been built with configure ``--enable-dnstap`` to make thi
 
   Options:
 
-  * ``logQueries=true``: bool - log oputgoing queries
+  * ``logQueries=true``: bool - log outgoing queries
   * ``logResponses=true``: bool - log incoming responses
  
-  The follwing options apply to the settings of the framestream library. Refer to the documentation of that
+  The following options apply to the settings of the framestream library. Refer to the documentation of that
   library for the default values, exact description and allowable values for these options.
   For all these options, absence or a zero value has the effect of using the library-provided default value.
 
