@@ -90,6 +90,7 @@
 #include "gettime.hh"
 #include "proxy-protocol.hh"
 #include "pubsuffix.hh"
+#include "shuffle.hh"
 #ifdef NOD_ENABLED
 #include "nod.hh"
 #endif /* NOD_ENABLED */
@@ -334,6 +335,7 @@ struct DNSComboWriter {
 #endif
   std::string d_query;
   std::unordered_set<std::string> d_policyTags;
+  std::string d_routingTag;
   std::vector<DNSRecord> d_records;
   LuaContext::LuaObject d_data;
   EDNSSubnetOpts d_ednssubnet;
@@ -367,11 +369,6 @@ ArgvMap &arg()
 unsigned int getRecursorThreadId()
 {
   return t_id;
-}
-
-int getMTaskerTID()
-{
-  return MT->getTid();
 }
 
 static bool isDistributorThread()
@@ -1498,6 +1495,11 @@ static void startDoResolve(void *p)
       try {
         sr.d_appliedPolicy = appliedPolicy;
         sr.d_policyTags = std::move(dc->d_policyTags);
+
+        if (!dc->d_routingTag.empty()) {
+          sr.d_routingTag = dc->d_routingTag;
+        }
+
         res = sr.beginResolve(dc->d_mdp.d_qname, QType(dc->d_mdp.d_qtype), dc->d_mdp.d_qclass, ret);
         shouldNotValidate = sr.wasOutOfBand();
       }
@@ -1659,7 +1661,7 @@ static void startDoResolve(void *p)
       }
 
       if(ret.size()) {
-        orderAndShuffle(ret);
+        pdns::orderAndShuffle(ret);
 	if(auto sl = luaconfsLocal->sortlist.getOrderCmp(dc->d_source)) {
 	  stable_sort(ret.begin(), ret.end(), *sl);
 	  variableAnswer=true;
@@ -2280,10 +2282,10 @@ static void handleRunningTCPQuestion(int fd, FDMultiplexer::funcparam_t& var)
           if(t_pdl) {
             try {
               if (t_pdl->d_gettag_ffi) {
-                dc->d_tag = t_pdl->gettag_ffi(dc->d_source, dc->d_ednssubnet.source, dc->d_destination, qname, qtype, &dc->d_policyTags, dc->d_records, dc->d_data, ednsOptions, true, dc->d_proxyProtocolValues, requestorId, deviceId, deviceName, dc->d_rcode, dc->d_ttlCap, dc->d_variable, logQuery, dc->d_logResponse, dc->d_followCNAMERecords);
+                dc->d_tag = t_pdl->gettag_ffi(dc->d_source, dc->d_ednssubnet.source, dc->d_destination, qname, qtype, &dc->d_policyTags, dc->d_records, dc->d_data, ednsOptions, true, dc->d_proxyProtocolValues, requestorId, deviceId, deviceName, dc->d_routingTag, dc->d_rcode, dc->d_ttlCap, dc->d_variable, logQuery, dc->d_logResponse, dc->d_followCNAMERecords);
               }
               else if (t_pdl->d_gettag) {
-                dc->d_tag = t_pdl->gettag(dc->d_source, dc->d_ednssubnet.source, dc->d_destination, qname, qtype, &dc->d_policyTags, dc->d_data, ednsOptions, true, requestorId, deviceId, deviceName, dc->d_proxyProtocolValues);
+                dc->d_tag = t_pdl->gettag(dc->d_source, dc->d_ednssubnet.source, dc->d_destination, qname, qtype, &dc->d_policyTags, dc->d_data, ednsOptions, true, requestorId, deviceId, deviceName, dc->d_routingTag, dc->d_proxyProtocolValues);
               }
             }
             catch(const std::exception& e)  {
@@ -2476,6 +2478,7 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
   string requestorId;
   string deviceId;
   string deviceName;
+  string routingTag;
   bool logQuery = false;
   bool logResponse = false;
 #ifdef HAVE_PROTOBUF
@@ -2538,10 +2541,10 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
         if(t_pdl) {
           try {
             if (t_pdl->d_gettag_ffi) {
-              ctag = t_pdl->gettag_ffi(source, ednssubnet.source, destination, qname, qtype, &policyTags, records, data, ednsOptions, false, proxyProtocolValues, requestorId, deviceId, deviceName, rcode, ttlCap, variable, logQuery, logResponse, followCNAMEs);
+              ctag = t_pdl->gettag_ffi(source, ednssubnet.source, destination, qname, qtype, &policyTags, records, data, ednsOptions, false, proxyProtocolValues, requestorId, deviceId, deviceName, routingTag, rcode, ttlCap, variable, logQuery, logResponse, followCNAMEs);
             }
             else if (t_pdl->d_gettag) {
-              ctag = t_pdl->gettag(source, ednssubnet.source, destination, qname, qtype, &policyTags, data, ednsOptions, false, requestorId, deviceId, deviceName, proxyProtocolValues);
+              ctag = t_pdl->gettag(source, ednssubnet.source, destination, qname, qtype, &policyTags, data, ednsOptions, false, requestorId, deviceId, deviceName, routingTag, proxyProtocolValues);
             }
           }
           catch(const std::exception& e)  {
@@ -2690,6 +2693,7 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
   dc->d_kernelTimestamp = tv;
 #endif
   dc->d_proxyProtocolValues = std::move(proxyProtocolValues);
+  dc->d_routingTag = std::move(routingTag);
 
   MT->makeThread(startDoResolve, (void*) dc.release()); // deletes dc
   return 0;
@@ -3479,19 +3483,13 @@ template<class T> void *voider(const boost::function<T*()>& func)
   return func();
 }
 
-vector<ComboAddress>& operator+=(vector<ComboAddress>&a, const vector<ComboAddress>& b)
+static vector<ComboAddress>& operator+=(vector<ComboAddress>&a, const vector<ComboAddress>& b)
 {
   a.insert(a.end(), b.begin(), b.end());
   return a;
 }
 
-vector<pair<string, uint16_t> >& operator+=(vector<pair<string, uint16_t> >&a, const vector<pair<string, uint16_t> >& b)
-{
-  a.insert(a.end(), b.begin(), b.end());
-  return a;
-}
-
-vector<pair<DNSName, uint16_t> >& operator+=(vector<pair<DNSName, uint16_t> >&a, const vector<pair<DNSName, uint16_t> >& b)
+static vector<pair<DNSName, uint16_t> >& operator+=(vector<pair<DNSName, uint16_t> >&a, const vector<pair<DNSName, uint16_t> >& b)
 {
   a.insert(a.end(), b.begin(), b.end());
   return a;
@@ -3738,7 +3736,7 @@ retryWithName:
   }
 }
 
-FDMultiplexer* getMultiplexer()
+static FDMultiplexer* getMultiplexer()
 {
   FDMultiplexer* ret;
   for(const auto& i : FDMultiplexer::getMultiplexerMap()) {
@@ -4051,7 +4049,7 @@ static void setupNODThread()
   }
 }
 
-void parseNODWhitelist(const std::string& wlist)
+static void parseNODWhitelist(const std::string& wlist)
 {
   vector<string> parts;
   stringtok(parts, wlist, ",; ");

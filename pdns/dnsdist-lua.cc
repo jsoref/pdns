@@ -113,7 +113,7 @@ static void parseLocalBindVars(boost::optional<localbind_t> vars, bool& reusePor
       interface = boost::get<std::string>((*vars)["interface"]);
     }
     if (vars->count("cpus")) {
-      for (const auto cpu : boost::get<std::vector<std::pair<int,int>>>((*vars)["cpus"])) {
+      for (const auto& cpu : boost::get<std::vector<std::pair<int,int>>>((*vars)["cpus"])) {
         cpus.insert(cpu.second);
       }
     }
@@ -465,7 +465,7 @@ static void setupLuaConfig(bool client, bool configCheck)
       }
 
       if(vars.count("cpus")) {
-        for (const auto cpu : boost::get<vector<pair<int,string>>>(vars["cpus"])) {
+        for (const auto& cpu : boost::get<vector<pair<int,string>>>(vars["cpus"])) {
           cpus.insert(std::stoi(cpu.second));
         }
       }
@@ -1960,7 +1960,7 @@ static void setupLuaConfig(bool client, bool configCheck)
           ret << (fmt % "#" % "Address" % "HTTP" % "HTTP/1" % "HTTP/2" % "GET" % "POST" % "Bad" % "Errors" % "Redirects" % "Valid" % "# ticket keys" % "Rotation delay" % "Next rotation") << endl;
           size_t counter = 0;
           for (const auto& ctx : g_dohlocals) {
-            ret << (fmt % counter % ctx->d_local.toStringWithPort() % ctx->d_httpconnects % ctx->d_http1Stats.d_nbQueries % ctx->d_http1Stats.d_nbQueries % ctx->d_getqueries % ctx->d_postqueries % ctx->d_badrequests % ctx->d_errorresponses % ctx->d_redirectresponses % ctx->d_validresponses % ctx->getTicketsKeysCount() % ctx->getTicketsKeyRotationDelay() % ctx->getNextTicketsKeyRotation()) << endl;
+            ret << (fmt % counter % ctx->d_local.toStringWithPort() % ctx->d_httpconnects % ctx->d_http1Stats.d_nbQueries % ctx->d_http2Stats.d_nbQueries % ctx->d_getqueries % ctx->d_postqueries % ctx->d_badrequests % ctx->d_errorresponses % ctx->d_redirectresponses % ctx->d_validresponses % ctx->getTicketsKeysCount() % ctx->getTicketsKeyRotationDelay() % ctx->getNextTicketsKeyRotation()) << endl;
             counter++;
           }
           g_outputBuffer = ret.str();
