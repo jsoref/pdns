@@ -1255,7 +1255,13 @@ endif
 endif
 
 pdns.conf-dist: pdns_server
+<<<<<<< working copy
 	$(AM_V_GEN)./pdns_server --no-config --config=default 2>/dev/null > $@
+||||||| base
+	$(AM_V_GEN)./pdns_server --no-config --config 2>/dev/null > $@
+=======
+	$(AM_V_GEN)./pdns_server --config 2>/dev/null > $@
+>>>>>>> merge rev
 
 testrunner_SOURCES = \
 	arguments.cc \
