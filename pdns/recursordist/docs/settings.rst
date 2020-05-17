@@ -372,6 +372,20 @@ If `pdns-distributes-queries`_ is set, spawn this number of distributor threads 
 handle incoming queries and distribute them to other threads based on a hash of the query, to maximize the cache hit
 ratio.
 
+.. _setting-dns64-prefix:
+
+``dns64-prefix``
+----------------
+.. versionadded:: 4.4.0
+
+-  Netmask, as a string
+-  Default: None
+
+Enable DNS64 (:rfc:`6147`) support using the supplied /96 IPv6 prefix. This will generate 'fake' AAAA records for names
+with only `A` records, as well as 'fake' PTR records to make sure that reverse lookup of DNS64-generated IPv6 addresses
+generate the right name.
+See :doc:`dns64` for more flexible but slower alternatives using Lua.
+
 .. _setting-dnssec:
 
 ``dnssec``
@@ -438,7 +452,7 @@ Queries to addresses for zones as configured in any of the settings `forward-zon
 .. versionadded:: 4.2.0
 
 -  Comma separated list of netmasks
--  Default: 0.0.0.0/0, ::, !127.0.0.0/8, !10.0.0.0/8, !100.64.0.0/10, !169.254.0.0/16, !192.168.0.0/16, !172.16.0.0/12, !::1/128, !fc00::/7, !fe80::/10
+-  Default: 0.0.0.0/0, ::/0, !127.0.0.0/8, !10.0.0.0/8, !100.64.0.0/10, !169.254.0.0/16, !192.168.0.0/16, !172.16.0.0/12, !::1/128, !fc00::/7, !fe80::/10
 
 List of requestor netmasks for which the requestor IP Address should be used as the :rfc:`EDNS Client Subnet <7871>` for outgoing queries. Outgoing queries for requestors that do not match this list will use the `ecs-scope-zero-address`_ instead.
 Valid incoming ECS values from `use-incoming-edns-subnet`_ are not replaced.
@@ -1023,7 +1037,7 @@ Can be set at runtime using ``rec_control set-minimum-ttl 3600``.
 - Default: no (disabled)
 
 Whether to track newly observed domains, i.e. never seen before. This
-is a probablistic algorithm, using a stable bloom filter to store
+is a probabilistic algorithm, using a stable bloom filter to store
 records of previously seen domains. When enabled for the first time,
 all domains will appear to be newly observed, so the feature is best
 left enabled for e.g. a week or longer before using the results. Note
@@ -1237,7 +1251,7 @@ Whether to compute the latency of responses in protobuf messages using the times
 -  IP ranges, separated by commas
 -  Default: empty
 
-Ranges that are required to send a Proxy Protocol header in front of UDP and TCP queries, to pass the original source and destination addresses and ports to the recursor, as well as custom values.
+Ranges that are required to send a Proxy Protocol version 2 header in front of UDP and TCP queries, to pass the original source and destination addresses and ports to the recursor, as well as custom values.
 Queries that are not prefixed with such a header will not be accepted from clients in these ranges. Queries prefixed by headers from clients that are not listed in these ranges will be dropped.
 
 Note that once a Proxy Protocol header has been received, the source address from the proxy header instead of the address of the proxy will be checked against the `allow-from`_ ACL, 
@@ -1323,7 +1337,7 @@ Since 4.1.0, when ``pdns-distributes-queries`` is set to false and ``reuseport``
 - String
 - Default: auto
 
-Specify which random number generator to use. Permissible choises are
+Specify which random number generator to use. Permissible choices are
  - auto - choose automatically
  - sodium - Use libsodium ``randombytes_uniform``
  - openssl - Use libcrypto ``RAND_bytes``
@@ -1333,7 +1347,7 @@ Specify which random number generator to use. Permissible choises are
  - kiss - Use simple settable deterministic RNG. **FOR TESTING PURPOSES ONLY!**
 
 .. note::
-  Not all choises are available on all systems.
+  Not all choices are available on all systems.
 
 .. _setting-root-nx-trust:
 
