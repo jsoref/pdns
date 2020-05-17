@@ -339,4 +339,4 @@ wipe-cache-typed *qtype* *DOMAIN* [*DOMAIN*] [...]
 
 See also
 --------
-:manpage:`pdns_recursor(1)`
+:manpage:`pdns_recursor(8)`
