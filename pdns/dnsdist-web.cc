@@ -395,15 +395,15 @@ static void connectionThread(int sock, ComboAddress remote)
         struct timespec now;
         gettime(&now);
         for(const auto& e: *nmg) {
-          if(now < e->second.until ) {
+          if(now < e.second.until ) {
             Json::object thing{
-              {"reason", e->second.reason},
-              {"seconds", (double)(e->second.until.tv_sec - now.tv_sec)},
-              {"blocks", (double)e->second.blocks},
-              {"action", DNSAction::typeToString(e->second.action != DNSAction::Action::None ? e->second.action : g_dynBlockAction) },
-              {"warning", e->second.warning }
+              {"reason", e.second.reason},
+              {"seconds", (double)(e.second.until.tv_sec - now.tv_sec)},
+              {"blocks", (double)e.second.blocks},
+              {"action", DNSAction::typeToString(e.second.action != DNSAction::Action::None ? e.second.action : g_dynBlockAction) },
+              {"warning", e.second.warning }
             };
-            obj.insert({e->first.toString(), thing});
+            obj.insert({e.first.toString(), thing});
           }
         }
 
@@ -500,7 +500,7 @@ static void connectionThread(int sock, ComboAddress remote)
         }
 
         // Latency histogram buckets
-        output << "# HELP dnsdist_latency Histogram of responses by latency\n";
+        output << "# HELP dnsdist_latency Histogram of responses by latency (in milliseconds)\n";
         output << "# TYPE dnsdist_latency histogram\n";
         uint64_t latency_amounts = g_stats.latency0_1;
         output << "dnsdist_latency_bucket{le=\"1\"} " << latency_amounts << "\n";
@@ -558,7 +558,7 @@ static void connectionThread(int sock, ComboAddress remote)
         for (const auto& state : *states) {
           string serverName;
 
-          if (state->name.empty())
+          if (state->getName().empty())
               serverName = state->remote.toStringWithPort();
           else
               serverName = state->getName();
@@ -821,7 +821,7 @@ static void connectionThread(int sock, ComboAddress remote)
 
 	Json::object server{
 	  {"id", num++},
-	  {"name", a->name},
+	  {"name", a->getName()},
           {"address", a->remote.toStringWithPort()},
           {"state", status},
           {"qps", (double)a->queryLoad},

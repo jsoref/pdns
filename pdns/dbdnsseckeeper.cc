@@ -47,10 +47,11 @@ using namespace boost::assign;
 
 DNSSECKeeper::keycache_t DNSSECKeeper::s_keycache;
 DNSSECKeeper::metacache_t DNSSECKeeper::s_metacache;
-pthread_rwlock_t DNSSECKeeper::s_metacachelock = PTHREAD_RWLOCK_INITIALIZER;
-pthread_rwlock_t DNSSECKeeper::s_keycachelock = PTHREAD_RWLOCK_INITIALIZER;
+ReadWriteLock DNSSECKeeper::s_metacachelock;
+ReadWriteLock DNSSECKeeper::s_keycachelock;
 AtomicCounter DNSSECKeeper::s_ops;
 time_t DNSSECKeeper::s_last_prune;
+size_t DNSSECKeeper::s_maxEntries = 0;
 
 bool DNSSECKeeper::doesDNSSEC()
 {
@@ -220,8 +221,8 @@ bool DNSSECKeeper::getFromMeta(const DNSName& zname, const std::string& key, std
   }
 
   if (ttl > 0) {
-    ReadLock l(&s_metacachelock); 
-    
+    ReadLock l(&s_metacachelock);
+
     metacache_t::const_iterator iter = s_metacache.find(tie(zname, key));
     if(iter != s_metacache.end() && iter->d_ttd > now) {
       value = iter->d_value;
@@ -231,7 +232,7 @@ bool DNSSECKeeper::getFromMeta(const DNSName& zname, const std::string& key, std
   vector<string> meta;
   d_keymetadb->getDomainMetadata(zname, key, meta);
   if(!meta.empty()) {
-    value=*meta.begin();
+    value=std::move(*meta.begin());
     isset = true;
   }
 
@@ -275,7 +276,7 @@ void DNSSECKeeper::getSoaEdit(const DNSName& zname, std::string& value)
 uint64_t DNSSECKeeper::dbdnssecCacheSizes(const std::string& str)
 {
   if(str=="meta-cache-size") {
-    ReadLock l(&s_metacachelock); 
+    ReadLock l(&s_metacachelock);
     return s_metacache.size();
   }
   else if(str=="key-cache-size") {
@@ -478,6 +479,7 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
 
     if(iter != s_keycache.end() && iter->d_ttd > now) {
       keyset_t ret;
+      ret.reserve(iter->d_keys.size());
       for(const keyset_t::value_type& value :  iter->d_keys)
         ret.push_back(value);
       return ret;
@@ -506,6 +508,7 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
     }
   }
   set_intersection(algoSEP.begin(), algoSEP.end(), algoNoSEP.begin(), algoNoSEP.end(), std::back_inserter(algoHasSeparateKSK));
+  retkeyset.reserve(dbkeyset.size());
 
   for(DNSBackend::KeyData& kd : dbkeyset)
   {
@@ -860,12 +863,21 @@ void DNSSECKeeper::cleanup()
   if(now.tv_sec - s_last_prune > (time_t)(30)) {
     {
         WriteLock l(&s_metacachelock);
-        pruneCollection<SequencedTag>(*this, s_metacache, ::arg().asNum("max-cache-entries"));
+        pruneCollection<SequencedTag>(*this, s_metacache, s_maxEntries);
     }
     {
         WriteLock l(&s_keycachelock);
-        pruneCollection<SequencedTag>(*this, s_keycache, ::arg().asNum("max-cache-entries"));
+        pruneCollection<SequencedTag>(*this, s_keycache, s_maxEntries);
     }
-    s_last_prune=time(0);
+    s_last_prune = time(nullptr);
   }
+}
+
+void DNSSECKeeper::setMaxEntries(size_t maxEntries)
+{
+  s_maxEntries = maxEntries;
+#if BOOST_VERSION >= 105600
+  WriteLock wl(&s_keycachelock);
+  s_keycache.get<KeyCacheTag>().reserve(s_maxEntries);
+#endif /* BOOST_VERSION >= 105600 */
 }

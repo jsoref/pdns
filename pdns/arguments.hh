@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef ARGUMENTS_HH
-#define ARGUMENTS_HH
-
+#pragma once
 #include <map>
 #include <set>
 #include <string>
@@ -106,9 +104,11 @@ public:
   void setCmd(const string &, const string &); //!< Add a command flag
   string &setSwitch(const string &, const string &); //!< Add a switch flag
   string helpstring(string prefix=""); //!< generates the --help
-  string configstring(bool current=false); //!< generates the --mkconfig
+  string configstring(bool current, bool full); //!< generates the --config
   bool contains(const string &var, const string &val);
   bool isEmpty(const string &var); //!< checks if variable has value
+  void setDefault(const string &var, const string &value);
+  void setDefaults();
 
   vector<string>list();
   string getHelp(const string &item);
@@ -123,11 +123,10 @@ private:
   typedef map<string,string> params_t;
   params_t params;
   map<string,string> helpmap;
+  map<string,string> defaultmap;
   map<string,string> d_typeMap;
   vector<string> d_cmds;
   std::set<string> d_cleared;
 };
 
 extern ArgvMap &arg();
-
-#endif /* ARGUMENTS_HH */

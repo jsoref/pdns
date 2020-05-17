@@ -33,6 +33,7 @@
 #include "dnssecinfra.hh"
 #include "dnsrecords.hh"
 #include "ueberbackend.hh"
+#include "lock.hh"
 
 using namespace ::boost::multi_index;
 
@@ -235,6 +236,9 @@ public:
   void getSoaEdit(const DNSName& zname, std::string& value);
   bool unSecureZone(const DNSName& zone, std::string& error, std::string& info);
   bool rectifyZone(const DNSName& zone, std::string& error, std::string& info, bool doTransaction);
+
+  static void setMaxEntries(size_t maxEntries);
+
 private:
 
 
@@ -277,6 +281,7 @@ private:
       sequenced<tag<SequencedTag>>
     >
   > keycache_t;
+
   typedef multi_index_container<
     METACacheEntry,
     indexed_by<
@@ -294,10 +299,11 @@ private:
 
   static keycache_t s_keycache;
   static metacache_t s_metacache;
-  static pthread_rwlock_t s_metacachelock;
-  static pthread_rwlock_t s_keycachelock;
+  static ReadWriteLock s_metacachelock;
+  static ReadWriteLock s_keycachelock;
   static AtomicCounter s_ops;
   static time_t s_last_prune;
+  static size_t s_maxEntries;
 
 public:
   void preRemoval(const KeyCacheEntry&)

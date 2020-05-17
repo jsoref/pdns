@@ -10,6 +10,7 @@ CLEANFILES = \
 	dnsmessage.pb.h \
 	htmlfiles.h.tmp \
 	htmlfiles.h \
+	dnsdist-lua-ffi-interface.inc \
 	dnstap.pb.cc \
 	dnstap.pb.h
 
@@ -17,11 +18,17 @@ dnslabeltext.cc: dnslabeltext.rl
 	$(AM_V_GEN)$(RAGEL) $< -o dnslabeltext.cc
 
 BUILT_SOURCES=htmlfiles.h \
+	dnsdist-lua-ffi-interface.inc \
 	dnslabeltext.cc
 
 htmlfiles.h: $(srcdir)/html/*
 	$(AM_V_GEN)$(srcdir)/incfiles $(srcdir) > $@.tmp
 	@mv $@.tmp $@
+
+dnsdist-lua-ffi-interface.inc: dnsdist-lua-ffi-interface.h
+	echo 'R"FFIContent(' > $@
+	cat $< >> $@
+	echo ')FFIContent"' >> $@
 
 SRC_JS_FILES := $(wildcard src_js/*.js)
 MIN_JS_FILES := $(patsubst src_js/%.js,html/js/%.min.js,$(SRC_JS_FILES))
@@ -117,6 +124,7 @@ dnsdist_SOURCES = \
 	dns.cc dns.hh \
 	dnscrypt.cc dnscrypt.hh \
 	dnsdist.cc dnsdist.hh \
+	dnsdist-backend.cc \
 	dnsdist-dynbpf.cc dnsdist-dynbpf.hh \
 	dnsdist-cache.cc dnsdist-cache.hh \
 	dnsdist-carbon.cc \
@@ -127,6 +135,7 @@ dnsdist_SOURCES = \
 	dnsdist-healthchecks.cc dnsdist-healthchecks.hh \
 	dnsdist-idstate.cc \
 	dnsdist-kvs.hh dnsdist-kvs.cc \
+	dnsdist-lbpolicies.cc dnsdist-lbpolicies.hh \
 	dnsdist-lua.hh dnsdist-lua.cc \
 	dnsdist-lua-actions.cc \
 	dnsdist-lua-bindings.cc \
@@ -135,12 +144,15 @@ dnsdist_SOURCES = \
 	dnsdist-lua-bindings-kvs.cc \
 	dnsdist-lua-bindings-packetcache.cc \
 	dnsdist-lua-bindings-protobuf.cc \
+	dnsdist-lua-ffi.cc dnsdist-lua-ffi.hh \
+	dnsdist-lua-ffi-interface.h dnsdist-lua-ffi-interface.inc \
 	dnsdist-lua-inspection.cc \
 	dnsdist-lua-inspection-ffi.cc dnsdist-lua-inspection-ffi.hh \
 	dnsdist-lua-rules.cc \
 	dnsdist-lua-vars.cc \
 	dnsdist-prometheus.hh \
 	dnsdist-protobuf.cc dnsdist-protobuf.hh \
+	dnsdist-proxy-protocol.cc dnsdist-proxy-protocol.hh \
 	dnsdist-rings.cc dnsdist-rings.hh \
 	dnsdist-rules.hh \
 	dnsdist-secpoll.cc dnsdist-secpoll.hh \
@@ -169,6 +181,7 @@ dnsdist_SOURCES = \
 	namespaces.hh \
 	pdnsexception.hh \
 	protobuf.cc protobuf.hh \
+	proxy-protocol.cc proxy-protocol.hh \
 	dnstap.cc dnstap.hh \
 	qtype.cc qtype.hh \
 	remote_logger.cc remote_logger.hh \
@@ -181,6 +194,7 @@ dnsdist_SOURCES = \
 	tcpiohandler.cc tcpiohandler.hh \
 	threadname.hh threadname.cc \
 	uuid-utils.hh uuid-utils.cc \
+	views.hh \
 	xpf.cc xpf.hh \
 	ext/luawrapper/include/LuaContext.hpp \
 	ext/json11/json11.cpp \
@@ -197,19 +211,25 @@ testrunner_SOURCES = \
 	test-dnsdist_cc.cc \
 	test-dnsdistdynblocks_hh.cc \
 	test-dnsdistkvs_cc.cc \
+	test-dnsdistlbpolicies_cc.cc \
 	test-dnsdistpacketcache_cc.cc \
 	test-dnsdistrings_cc.cc \
 	test-dnsdistrules_cc.cc \
 	test-dnsparser_cc.cc \
 	test-iputils_hh.cc \
 	test-mplexer.cc \
+	test-proxy_protocol_cc.cc \
 	cachecleaner.hh \
 	circular_buffer.hh \
 	dnsdist.hh \
+	dnsdist-backend.cc \
 	dnsdist-cache.cc dnsdist-cache.hh \
 	dnsdist-dynblocks.cc dnsdist-dynblocks.hh \
 	dnsdist-ecs.cc dnsdist-ecs.hh \
 	dnsdist-kvs.cc dnsdist-kvs.hh \
+	dnsdist-lbpolicies.cc dnsdist-lbpolicies.hh \
+	dnsdist-lua-ffi.cc dnsdist-lua-ffi.hh \
+	dnsdist-lua-ffi-interface.h dnsdist-lua-ffi-interface.inc \
 	dnsdist-rings.hh \
 	dnsdist-xpf.cc dnsdist-xpf.hh \
 	dnscrypt.cc dnscrypt.hh \
@@ -227,6 +247,7 @@ testrunner_SOURCES = \
 	namespaces.hh \
 	pdnsexception.hh \
 	pollmplexer.cc \
+	proxy-protocol.cc proxy-protocol.hh \
 	qtype.cc qtype.hh \
 	sholder.hh \
 	sodcrypto.cc \
@@ -234,7 +255,9 @@ testrunner_SOURCES = \
 	statnode.cc statnode.hh \
 	threadname.hh threadname.cc \
 	testrunner.cc \
-	xpf.cc xpf.hh
+	uuid-utils.hh uuid-utils.cc \
+	xpf.cc xpf.hh \
+	ext/luawrapper/include/LuaContext.hpp
 
 dnsdist_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -262,8 +285,9 @@ testrunner_LDFLAGS = \
 
 testrunner_LDADD = \
 	$(BOOST_UNIT_TEST_FRAMEWORK_LIBS) \
-	$(LIBSODIUM_LIBS) \
 	$(FSTRM_LIBS) \
+	$(LIBSODIUM_LIBS) \
+	$(LUA_LIBS) \
 	$(RT_LIBS) \
 	$(SANITIZER_FLAGS) \
 	$(LIBCAP_LIBS)
@@ -312,8 +336,9 @@ endif
 if !HAVE_LUA_HPP
 BUILT_SOURCES += lua.hpp
 nodist_dnsdist_SOURCES = lua.hpp
-CLEANFILES += lua.hpp
 endif
+
+CLEANFILES += lua.hpp
 
 if HAVE_PROTOBUF
 if HAVE_PROTOC

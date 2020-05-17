@@ -19,10 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
-#ifndef PDNS_BINDBACKEND_HH
-#define PDNS_BINDBACKEND_HH
-
+#pragma once
 #include <string>
 #include <map>
 #include <set>
@@ -190,7 +187,7 @@ public:
   void getAllDomains(vector<DomainInfo> *domains, bool include_disabled=false) override;
 
   static DNSBackend *maker();
-  static pthread_mutex_t s_startup_lock;
+  static std::mutex s_startup_lock;
 
   void setFresh(uint32_t domain_id) override;
   void setNotified(uint32_t id, uint32_t serial) override;
@@ -224,7 +221,7 @@ public:
 					       ordered_unique<tag<NameTag>, member<BB2DomainInfo, DNSName, &BB2DomainInfo::d_name> >
 					       > > state_t;
   static state_t s_state;
-  static pthread_rwlock_t s_state_lock;
+  static ReadWriteLock s_state_lock;
 
   void parseZoneFile(BB2DomainInfo *bbd);
   void rediscover(string *status=nullptr) override;
@@ -232,7 +229,7 @@ public:
 
   // for supermaster support
   bool superMasterBackend(const string &ip, const DNSName &domain, const vector<DNSResourceRecord>&nsset, string *nameserver, string *account, DNSBackend **db) override;
-  static pthread_mutex_t s_supermaster_config_lock;
+  static std::mutex s_supermaster_config_lock;
   bool createSlaveDomain(const string &ip, const DNSName &domain, const string &nameserver, const string &account) override;
 
 private:
@@ -317,5 +314,3 @@ private:
   static void doEmptyNonTerminals(std::shared_ptr<recordstorage_t>& records, const DNSName& zoneName, bool nsec3zone, NSEC3PARAMRecordContent ns3pr);
   void loadConfig(string *status=nullptr);
 };
-
-#endif /* PDNS_BINDBACKEND_HH */

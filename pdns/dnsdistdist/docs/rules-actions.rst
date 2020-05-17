@@ -79,7 +79,7 @@ Rule Generators
   .. deprecated:: 1.2.0
 
   Set the TC-bit (truncate) on ANY queries received over UDP, forcing a retry over TCP.
-  This function is deprecated as of 1.2.0 and will be removed in 1.3.0. This is equivalent to doing::
+  This function has been deprecated as of 1.2.0 and removed in 1.3.0. This is equivalent to doing::
 
    addAction(AndRule({QTypeRule(DNSQType.ANY), TCPRule(false)}), TCAction())
 
@@ -91,7 +91,7 @@ Rule Generators
   .. deprecated:: 1.2.0
 
   Delay the query for ``delay`` milliseconds before sending to a backend.
-  This function is deprecated as of 1.2.0 and will be removed in 1.3.0, please use instead:
+  This function has been deprecated as of 1.2.0 and removed in 1.3.0, please use instead:
 
     addAction(DNSRule, DelayAction(delay))
 
@@ -103,7 +103,7 @@ Rule Generators
   .. deprecated:: 1.2.0
 
   Set the CD (Checking Disabled) flag to 1 for all queries matching the DNSRule.
-  This function is deprecated as of 1.2.0 and will be removed in 1.3.0. Please use the :func:`DisableValidationAction` action instead.
+  This function has been deprecated as of 1.2.0 and removed in 1.3.0. Please use the :func:`DisableValidationAction` action instead.
 
 .. function:: addDomainBlock(domain)
 
@@ -122,7 +122,7 @@ Rule Generators
   .. deprecated:: 1.2.0
 
   Generate answers for A/AAAA/ANY queries.
-  This function is deprecated as of 1.2.0 and will be removed in 1.3.0, please use:
+  This function has been deprecated as of 1.2.0 and removed in 1.3.0, please use:
 
     addAction(domain, SpoofAction({IP[,...]}))
 
@@ -139,7 +139,7 @@ Rule Generators
 
   .. deprecated:: 1.2.0
 
-  Generate CNAME answers for queries. This function is deprecated as of 1.2.0 and will be removed in 1.3.0, in favor of using:
+  Generate CNAME answers for queries. This function has been deprecated as of 1.2.0 and removed in 1.3.0, in favor of using:
 
     addAction(domain, SpoofCNAMEAction(cname))
 
@@ -173,7 +173,7 @@ Rule Generators
 
   ::
 
-    function luarule(dq)
+    function luaaction(dq)
       if(dq.qtype==DNSQType.NAPTR)
       then
         return DNSAction.Pool, "abuse" -- send to abuse pool
@@ -183,7 +183,7 @@ Rule Generators
       end
     end
 
-    addLuaAction(AllRule(), luarule)
+    addLuaAction(AllRule(), luaaction)
 
 .. function:: addLuaResponseAction(DNSrule, function [, options])
 
@@ -215,7 +215,7 @@ Rule Generators
   .. deprecated:: 1.2.0
 
   Clear the RD flag for all queries matching the rule.
-  This function is deprecated as of 1.2.0 and will be removed in 1.3.0, please use:
+  This function has been deprecated as of 1.2.0 and removed in 1.3.0, please use:
 
     addAction(DNSRule, NoRecurseAction())
 
@@ -230,7 +230,7 @@ Rule Generators
 
     addPoolRule("example.com", "myPool")
 
-  This function is deprecated as of 1.2.0 and will be removed in 1.3.0, this is equivalent to::
+  This function has been deprecated as of 1.2.0 and removed in 1.3.0, this is equivalent to::
 
     addAction("example.com", PoolAction("myPool"))
 
@@ -243,7 +243,7 @@ Rule Generators
 
   Limit queries matching the DNSRule to ``limit`` queries per second.
   All queries over the limit are dropped.
-  This function is deprecated as of 1.2.0 and will be removed in 1.3.0, please use:
+  This function has been deprecated as of 1.2.0 and removed in 1.3.0, please use:
 
     addAction(DNSRule, QPSAction(limit))
 
@@ -255,7 +255,7 @@ Rule Generators
   .. deprecated:: 1.2.0
 
   Send at most ``limit`` queries/s for this pool, letting the subsequent rules apply otherwise.
-  This function is deprecated as of 1.2.0 and will be removed in 1.3.0, as it is only a convience function for the following syntax::
+  This function has been deprecated as of 1.2.0 and removed in 1.3.0, as it is only a convenience function for the following syntax::
 
     addAction("192.0.2.0/24", QPSPoolAction(15, "myPool")
 
@@ -320,8 +320,8 @@ For Rules related to the incoming query:
 
   Return a pair of DNS Rule and DNS Action, to be used with :func:`setRules`.
 
-  :param Rule rule: A `Rule <#traffic-matching>`_
-  :param Action action: The `Action <#actions>`_ to apply to the matched traffic
+  :param Rule rule: A `Rule (see `Matching Packets (Selectors)`_)
+  :param Action action: The Action (see `Actions`_) to apply to the matched traffic
   :param table options: A table with key: value pairs with options.
 
   Options:
@@ -413,7 +413,7 @@ For Rules related to responses:
 
   Move the last response rule to the first position.
 
-Functions for manipulating Cache Hit Respone Rules:
+Functions for manipulating Cache Hit Response Rules:
 
 .. function:: addCacheHitResponseAction(DNSRule, action [, options])
 
@@ -615,6 +615,26 @@ These ``DNSRule``\ s be one of the following items:
 
   :param KeyValueStore kvs: The key value store to query
   :param KeyValueLookupKey lookupKey: The key to use for the lookup
+
+.. function:: LuaFFIRule(function)
+
+  .. versionadded:: 1.5.0
+
+  Invoke a Lua FFI function that accepts a pointer to a ``dnsdist_ffi_dnsquestion_t`` object, whose bindings are defined in ``dnsdist-lua-ffi.hh``.
+
+  The ``function`` should return true if the query matches, or false otherwise. If the Lua code fails, false is returned.
+
+  :param string function: the name of a Lua function
+
+.. function:: LuaRule(function)
+
+  .. versionadded:: 1.5.0
+
+  Invoke a Lua function that accepts a :class:`DNSQuestion` object.
+
+  The ``function`` should return true if the query matches, or false otherwise. If the Lua code fails, false is returned.
+
+  :param string function: the name of a Lua function
 
 .. function:: MaxQPSIPRule(qps[, v4Mask[, v6Mask[, burst[, expiration[, cleanupDelay[, scanFraction]]]]]])
 
@@ -891,7 +911,8 @@ The following actions exist.
 
 .. function:: DelayAction(milliseconds)
 
-  Delay the response by the specified amount of milliseconds (UDP-only).
+  Delay the response by the specified amount of milliseconds (UDP-only). Note that the sending of the query to the backend, if needed,
+  is not delayed. Only the sending of the response to the client will be delayed.
   Subsequent rules are processed after this action.
 
   :param int milliseconds: The amount of milliseconds to delay the response
@@ -899,6 +920,7 @@ The following actions exist.
 .. function:: DelayResponseAction(milliseconds)
 
   Delay the response by the specified amount of milliseconds (UDP-only).
+  The only difference between this action and  :func:`DelayAction` is that they can only be applied on, respectively, responses and queries.
   Subsequent rules are processed after this action.
 
   :param int milliseconds: The amount of milliseconds to delay the response
@@ -1065,6 +1087,26 @@ The following actions exist.
 
   :param string function: the name of a Lua function
 
+.. function:: LuaFFIAction(function)
+
+  .. versionadded:: 1.5.0
+
+  Invoke a Lua FFI function that accepts a pointer to a ``dnsdist_ffi_dnsquestion_t`` object, whose bindings are defined in ``dnsdist-lua-ffi.hh``.
+
+  The ``function`` should return a :ref:`DNSAction`. If the Lua code fails, ServFail is returned.
+
+  :param string function: the name of a Lua function
+
+.. function:: LuaFFIResponseAction(function)
+
+  .. versionadded:: 1.5.0
+
+  Invoke a Lua FFI function that accepts a pointer to a ``dnsdist_ffi_dnsquestion_t`` object, whose bindings are defined in ``dnsdist-lua-ffi.hh``.
+
+  The ``function`` should return a :ref:`DNSResponseAction`. If the Lua code fails, ServFail is returned.
+
+  :param string function: the name of a Lua function
+
 .. function:: LuaResponseAction(function)
 
   Invoke a Lua function that accepts a :class:`DNSResponse`.
@@ -1211,6 +1253,14 @@ The following actions exist.
   * ``ad``: bool - Set the AD bit to this value (true means the bit is set, false means it's cleared). Default is to clear it.
   * ``ra``: bool - Set the RA bit to this value (true means the bit is set, false means it's cleared). Default is to copy the value of the RD bit from the incoming query.
 
+.. function:: SetProxyProtocolValuesAction(values)
+
+  .. versionadded:: 1.5.0
+
+  Set the Proxy-Protocol Type-Length values to be sent to the server along with this query to ``values``.
+
+  :param table values: A table of types and values to send, for example: ``{ [0] = foo", [42] = "bar" }``
+
 .. function:: SkipCacheAction()
 
   Don't lookup the cache for this query, don't store the answer.
@@ -1271,7 +1321,15 @@ The following actions exist.
   .. versionadded:: 1.5.0
 
   Forge a response with the specified raw bytes as record data.
-  For example, for a TXT record of "aaa" "bbbb": SpoofRawAction("\003aaa\004bbbb")
+
+  .. code-block:: Lua
+
+    -- select queries for the 'raw.powerdns.com.' name and TXT type, and answer with a "aaa" "bbb" TXT record:
+    addAction(AndRule({QNameRule('raw.powerdns.com.'), QTypeRule(DNSQType.TXT)}), SpoofRawAction("\003aaa\004bbbb"))
+    -- select queries for the 'raw-srv.powerdns.com.' name and SRV type, and answer with a '0 0 65535 srv.powerdns.com.' SRV record, setting the AA bit to 1 and the TTL to 3600s
+    addAction(AndRule({QNameRule('raw-srv.powerdns.com.'), QTypeRule(DNSQType.SRV)}), SpoofRawAction("\000\000\000\000\255\255\003srv\008powerdns\003com\000", { aa=true, ttl=3600 }))
+    -- select reverse queries for '127.0.0.1' and answer with 'localhost'
+    addAction(AndRule({QNameRule('1.0.0.127.in-addr.arpa.'), QTypeRule(DNSQType.PTR)}), SpoofRawAction("\009localhost\000"))
 
   :param string rawAnswer: The raw record data
   :param table options: A table with key: value pairs with options.
@@ -1312,7 +1370,7 @@ The following actions exist.
   Send copy of query to ``remote``, keep stats on responses.
   If ``addECS`` is set to true, EDNS Client Subnet information will be added to the query.
 
-  :param string remote: An IP:PORT conbination to send the copied queries to
+  :param string remote: An IP:PORT combination to send the copied queries to
   :param bool addECS: Whether or not to add ECS information. Default false
 
 .. function:: TempFailureCacheTTLAction(ttl)

@@ -19,8 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_ZONEPARSER_TNG
-#define PDNS_ZONEPARSER_TNG
+#pragma once
 #include <string>
 #include <cstdio>
 #include <stdexcept>
@@ -31,7 +30,7 @@
 class ZoneParserTNG
 {
 public:
-  ZoneParserTNG(const string& fname, const DNSName& zname=DNSName("."), const string& reldir="");
+  ZoneParserTNG(const string& fname, const DNSName& zname=g_rootdnsname, const string& reldir="");
   ZoneParserTNG(const vector<string> zonedata, const DNSName& zname);
 
   ~ZoneParserTNG();
@@ -62,6 +61,7 @@ private:
     int d_lineno;
   };
 
+  parts_t d_parts;
   string d_reldir;
   string d_line;
   DNSName d_prevqname;
@@ -78,5 +78,3 @@ private:
   bool d_fromfile;
   bool d_generateEnabled{true};
 };
-
-#endif

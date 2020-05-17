@@ -236,6 +236,7 @@ void declareArguments()
   ::arg().set("max-generate-steps", "Maximum number of $GENERATE steps when loading a zone from a file")="0";
 
   ::arg().set("rng", "Specify the random number generator to use. Valid values are auto,sodium,openssl,getrandom,arc4random,urandom.")="auto";
+  ::arg().setDefaults();
 }
 
 static time_t s_start=time(0);
@@ -505,18 +506,14 @@ catch(PDNSException& pe)
   _exit(1);
 }
 
-static void* dummyThread(void *)
+static void dummyThread()
 {
-  void* ignore=0;
-  pthread_exit(ignore);
 }
 
 static void triggerLoadOfLibraries()
 {
-  pthread_t tid;
-  pthread_create(&tid, 0, dummyThread, 0);
-  void* res;
-  pthread_join(tid, &res);
+  std::thread dummy(dummyThread);
+  dummy.join();
 }
 
 void mainthread()
@@ -546,6 +543,7 @@ void mainthread()
    PC.setTTL(::arg().asNum("cache-ttl"));
    PC.setMaxEntries(::arg().asNum("max-packet-cache-entries"));
    QC.setMaxEntries(::arg().asNum("max-cache-entries"));
+   DNSSECKeeper::setMaxEntries(::arg().asNum("max-cache-entries"));
 
    if (!PC.enabled() && ::arg().mustDo("log-dns-queries")) {
      g_log<<Logger::Warning<<"Packet cache disabled, logging queries without HIT/MISS"<<endl;
