@@ -938,6 +938,17 @@ int PacketHandler::processNotify(const DNSPacket& p)
     g_log<<Logger::Warning<<"Received NOTIFY for "<<p.qdomain<<" from "<<p.getRemote()<<" which is not a master (Refused)"<<endl;
     return RCode::Refused;
   }
+<<<<<<< working copy
+||||||| base
+    
+  // ok, we've done our checks
+  di.backend = 0;
+=======
+    
+  // ok, we've done our checks
+  di.backend = 0;
+  L<<Logger::Error<<"Received NOTIFY for "<<p->qdomain<<" from "<<p->getRemote()<<": forwardNotify and addSlaveCheckRequest() ..."<<endl;
+>>>>>>> merge rev
 
   if(!s_forwardNotify.empty()) {
     set<string> forwardNotify(s_forwardNotify);

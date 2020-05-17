@@ -248,7 +248,13 @@ static vector<DNSResourceRecord> doAxfr(const ComboAddress& raddr, const DNSName
   bool soa_received {false};
   while(retriever.getChunk(recs, nullptr, axfr_timeout)) {
     if(first) {
+<<<<<<< working copy
       g_log<<Logger::Error<<"AXFR started for '"<<domain<<"'"<<endl;
+||||||| base
+      L<<Logger::Error<<"AXFR started for '"<<domain<<"'"<<endl;
+=======
+      L<<Logger::Error<<"AXFR started for '"<<domain<<"' from remote "<<raddr.toStringWithPort()<<endl;
+>>>>>>> merge rev
       first=false;
     }
 
@@ -680,6 +686,7 @@ struct SlaveSenderReceiver
     uint32_t theirSerial;
     uint32_t theirInception;
     uint32_t theirExpire;
+    string master;
   };
 
   map<uint32_t, Answer> d_freshness;
@@ -694,8 +701,14 @@ struct SlaveSenderReceiver
 
   Identifier send(DomainNotificationInfo& dni)
   {
+<<<<<<< working copy
     shuffle(dni.di.masters.begin(), dni.di.masters.end(), pdns::dns_random_engine());
+||||||| base
+    random_shuffle(dni.di.masters.begin(), dni.di.masters.end());
+=======
+>>>>>>> merge rev
     try {
+<<<<<<< working copy
       return std::make_tuple(dni.di.zone,
                              *dni.di.masters.begin(),
                              d_resolver.sendResolve(*dni.di.masters.begin(),
@@ -704,7 +717,44 @@ struct SlaveSenderReceiver
                                                     QType::SOA,
                                                     nullptr,
                                                     dni.dnssecOk, dni.tsigkeyname, dni.tsigalgname, dni.tsigsecret)
+||||||| base
+      ComboAddress remote(*dni.di.masters.begin());
+      if (dni.localaddr.sin4.sin_family == 0) {
+        return make_pair(dni.di.zone,
+          d_resolver.sendResolve(ComboAddress(*dni.di.masters.begin(), 53),
+            dni.di.zone,
+            QType::SOA,
+            dni.dnssecOk, dni.tsigkeyname, dni.tsigalgname, dni.tsigsecret)
+=======
+      L<<Logger::Info<<"Sending SOA request for '"<<dni.di.zone<<"' to "<<dni.di.masters.back()<<endl;
+      if (dni.localaddr.sin4.sin_family == 0) {
+        return make_pair(dni.di.zone,
+          d_resolver.sendResolve(ComboAddress(dni.di.masters.back(), 53),
+            dni.di.zone,
+            QType::SOA,
+            dni.dnssecOk, dni.tsigkeyname, dni.tsigalgname, dni.tsigsecret)
+>>>>>>> merge rev
         );
+<<<<<<< working copy
+||||||| base
+      } else {
+        return make_pair(dni.di.zone,
+          d_resolver.sendResolve(ComboAddress(*dni.di.masters.begin(), 53), dni.localaddr,
+            dni.di.zone,
+            QType::SOA,
+            dni.dnssecOk, dni.tsigkeyname, dni.tsigalgname, dni.tsigsecret)
+        );
+      }
+=======
+      } else {
+        return make_pair(dni.di.zone,
+          d_resolver.sendResolve(ComboAddress(dni.di.masters.back(), 53), dni.localaddr,
+            dni.di.zone,
+            QType::SOA,
+            dni.dnssecOk, dni.tsigkeyname, dni.tsigalgname, dni.tsigsecret)
+        );
+      }
+>>>>>>> merge rev
     }
     catch(PDNSException& e) {
       throw runtime_error("While attempting to query freshness of '"+dni.di.zone.toLogString()+"': "+e.reason);
@@ -713,15 +763,37 @@ struct SlaveSenderReceiver
 
   bool receive(Identifier& id, Answer& a)
   {
+<<<<<<< working copy
     if(d_resolver.tryGetSOASerial(&(std::get<0>(id)), &(std::get<1>(id)), &a.theirSerial, &a.theirInception, &a.theirExpire, &(std::get<2>(id)))) {
+||||||| base
+    if(d_resolver.tryGetSOASerial(&id.first, &a.theirSerial, &a.theirInception, &a.theirExpire, &id.second)) {
+=======
+    if(d_resolver.tryGetSOASerial(&id.first, &a.theirSerial, &a.theirInception, &a.theirExpire, &id.second)) {
+      L<<Logger::Debug<<"Got response for zone '"<<id.first<<"' with serial "<<a.theirSerial<<endl;
+>>>>>>> merge rev
       return 1;
     }
     return 0;
   }
 
-  void deliverAnswer(DomainNotificationInfo& dni, const Answer& a, unsigned int usec)
+  void deliverAnswer(DomainNotificationInfo& dni, Answer& a, unsigned int usec)
   {
-    d_freshness[dni.di.id]=a;
+    L<<Logger::Info<<"Received serial "<<a.theirSerial<<" for zone '"<<dni.di.zone<<"' in "<<usec<<" usec from master "<<dni.di.masters.back()<<endl;
+    a.master = dni.di.masters.back();
+    // Check if we already got an answer for this domain
+    if (d_freshness.count(dni.di.id)) {
+      // Note: This check may be incorrect if one of the masters had a serial overflow,
+      // but it will recover once all masters have wrapped their serial.
+      if (a.theirSerial > d_freshness[dni.di.id].theirSerial) {
+        L<<Logger::Debug<<"Received serial "<<a.theirSerial<<" for zone '"<<dni.di.zone<<"' is bigger than previous serial "<<d_freshness[dni.di.id].theirSerial<<endl;
+        d_freshness[dni.di.id]=a;
+      } else {
+        L<<Logger::Debug<<"Received serial "<<a.theirSerial<<" for zone '"<<dni.di.zone<<"' is equal or lower than previous serial "<<d_freshness[dni.di.id].theirSerial<<endl;
+      }
+    } else {
+      L<<Logger::Debug<<"Received serial "<<a.theirSerial<<" for zone '"<<dni.di.zone<<"' is first answer"<<endl;
+      d_freshness[dni.di.id]=a;
+    }
   }
 
   Resolver d_resolver;
@@ -763,8 +835,19 @@ void CommunicatorClass::slaveRefresh(PacketHandler *P)
 
   UeberBackend *B=P->getBackend();
   vector<DomainInfo> rdomains;
+<<<<<<< working copy
   vector<DomainNotificationInfo> sdomains;
   set<DNSPacket, cmp> trysuperdomains;
+||||||| base
+  vector<DomainNotificationInfo> sdomains; 
+  vector<DNSPacket> trysuperdomains;
+
+=======
+  vector<DomainNotificationInfo> sdomains; 
+  vector<DNSPacket> trysuperdomains;
+  uint64_t numcheckdomains=0;
+
+>>>>>>> merge rev
   {
     std::lock_guard<std::mutex> l(d_lock);
     set<DomainInfo> requeue;
@@ -802,6 +885,7 @@ void CommunicatorClass::slaveRefresh(PacketHandler *P)
   }
   if(rdomains.empty()) { // if we have priority domains, check them first
     B->getUnfreshSlaveInfos(&rdomains);
+    L<<Logger::Info<<"No domains explicitely queued for freshness checks. Checking "<<rdomains.size()<<" unfresh slave zones reported by backend"<<endl;
   }
   sdomains.reserve(rdomains.size());
   DNSSECKeeper dk(B); // NOW HEAR THIS! This DK uses our B backend, so no interleaved access!
@@ -823,6 +907,7 @@ void CommunicatorClass::slaveRefresh(PacketHandler *P)
       if(di.masters.empty()) // slave domains w/o masters are ignored
         continue;
       // remove unfresh domains already queued for AXFR, no sense polling them again
+      // Note: If a zone has multiple masters this simple check may fail
       sr.master=*di.masters.begin();
       if(nameindex.count(sr)) {  // this does NOT however protect us against AXFRs already in progress!
         continue;
@@ -861,7 +946,20 @@ void CommunicatorClass::slaveRefresh(PacketHandler *P)
         dni.localaddr.sin4.sin_family = 0;
       }
 
+<<<<<<< working copy
       sdomains.push_back(std::move(dni));
+||||||| base
+      sdomains.push_back(dni);
+=======
+      numcheckdomains++;
+      // If a zone has multiple masters we check all of them (we strip the last IP from masters
+      // as the SlaveSenderReceiver will use the last master IP)
+      while (dni.di.masters.size() > 0) {
+        L<<Logger::Debug<<"Queueing domain '"<<dni.di.zone<<"' for SOA check to master "<<dni.di.masters.back()<<endl;
+        sdomains.push_back(dni);
+        dni.di.masters.pop_back();
+      }
+>>>>>>> merge rev
     }
   }
   if(sdomains.empty())
@@ -874,10 +972,22 @@ void CommunicatorClass::slaveRefresh(PacketHandler *P)
     return;
   }
   else {
+<<<<<<< working copy
     std::lock_guard<std::mutex> l(d_lock);
     g_log<<Logger::Warning<<sdomains.size()<<" slave domain"<<(sdomains.size()>1 ? "s" : "")<<" need"<<
       (sdomains.size()>1 ? "" : "s")<<
       " checking, "<<d_suckdomains.size()<<" queued for AXFR"<<endl;
+||||||| base
+    Lock l(&d_lock);
+    L<<Logger::Warning<<sdomains.size()<<" slave domain"<<(sdomains.size()>1 ? "s" : "")<<" need"<<
+      (sdomains.size()>1 ? "" : "s")<<
+      " checking, "<<d_suckdomains.size()<<" queued for AXFR"<<endl;
+=======
+    Lock l(&d_lock);
+    L<<Logger::Warning<<numcheckdomains<<" slave domain"<<(numcheckdomains>1 ? "s" : "")<<" need"<<
+      (numcheckdomains>1 ? "" : "s")<<
+      " checking (in total "<<sdomains.size()<<" masters), "<<d_suckdomains.size()<<" queued for AXFR"<<endl;
+>>>>>>> merge rev
   }
 
   SlaveSenderReceiver ssr;
@@ -886,19 +996,43 @@ void CommunicatorClass::slaveRefresh(PacketHandler *P)
 
   ifl.d_maxInFlight = 200;
 
+  uint64_t stdexceptions=0, pdnsexceptions=0;
   for(;;) {
     try {
       ifl.run();
       break;
     }
     catch(std::exception& e) {
+<<<<<<< working copy
       g_log<<Logger::Error<<"While checking domain freshness: " << e.what()<<endl;
+||||||| base
+      L<<Logger::Error<<"While checking domain freshness: " << e.what()<<endl;
+=======
+      L<<Logger::Error<<"While checking domain freshness: " << e.what()<<endl;
+      stdexceptions++;
+>>>>>>> merge rev
     }
     catch(PDNSException &re) {
+<<<<<<< working copy
       g_log<<Logger::Error<<"While checking domain freshness: " << re.reason<<endl;
+||||||| base
+      L<<Logger::Error<<"While checking domain freshness: " << re.reason<<endl;
+=======
+      L<<Logger::Error<<"While checking domain freshness: " << re.reason<<endl;
+      pdnsexceptions++;
+>>>>>>> merge rev
     }
   }
+<<<<<<< working copy
   g_log<<Logger::Warning<<"Received serial number updates for "<<ssr.d_freshness.size()<<" zone"<<addS(ssr.d_freshness.size())<<", had "<<ifl.getTimeouts()<<" timeout"<<addS(ifl.getTimeouts())<<endl;
+||||||| base
+  L<<Logger::Warning<<"Received serial number updates for "<<ssr.d_freshness.size()<<" zone"<<addS(ssr.d_freshness.size())<<", had "<<ifl.getTimeouts()<<" timeout"<<addS(ifl.getTimeouts())<<endl;
+=======
+  L<<Logger::Warning<<"Received serial number updates for "<<ssr.d_freshness.size()<<" zone"<<addS(ssr.d_freshness.size())
+    <<", had "<<ifl.getTimeouts()<<" timeout"<<addS(ifl.getTimeouts())
+    <<", "<<stdexceptions<<" std-exception"<<addS(stdexceptions)<<" and "
+    <<pdnsexceptions<<" pdns-exception"<<addS(pdnsexceptions)<<endl;
+>>>>>>> merge rev
 
   typedef DomainNotificationInfo val_t;
   time_t now = time(0);
@@ -989,11 +1123,20 @@ void CommunicatorClass::slaveRefresh(PacketHandler *P)
         addSuckRequest(di.zone, *di.masters.begin());
       }
       else {
+<<<<<<< working copy
         g_log<<Logger::Warning<<"Domain '"<< di.zone<<"' is fresh, but RRSIGs differ, so DNSSEC is stale, serial is "<<ourserial<<endl;
         addSuckRequest(di.zone, *di.masters.begin());
+||||||| base
+        L<<Logger::Warning<<"Domain '"<< di.zone<<"' is fresh, but RRSIGs differ, so DNSSEC is stale"<<endl;
+        addSuckRequest(di.zone, *di.masters.begin());
+=======
+        L<<Logger::Warning<<"Domain '"<< di.zone<<"' is fresh, but RRSIGs differ, so DNSSEC is stale"<<endl;
+        addSuckRequest(di.zone, ssr.d_freshness[di.id].master);
+>>>>>>> merge rev
       }
     }
     else {
+<<<<<<< working copy
       if(hasSOA) {
         g_log<<Logger::Warning<<"Domain '"<< di.zone<<"' is stale, master serial "<<theirserial<<", our serial "<< ourserial <<endl;
       }
@@ -1001,6 +1144,15 @@ void CommunicatorClass::slaveRefresh(PacketHandler *P)
         g_log<<Logger::Warning<<"Domain '"<< di.zone<<"' is empty, master serial "<<theirserial<<endl;
       }
       addSuckRequest(di.zone, *di.masters.begin());
+||||||| base
+      L<<Logger::Warning<<"Domain '"<< di.zone<<"' is stale, master serial "<<theirserial<<", our serial "<< ourserial <<endl;
+      addSuckRequest(di.zone, *di.masters.begin());
+=======
+      L<<Logger::Warning<<"Domain '"<< di.zone<<"' is stale, master serial "<<theirserial<<", our serial "<< ourserial <<endl;
+      addSuckRequest(di.zone, ssr.d_freshness[di.id].master);
+>>>>>>> merge rev
     }
+    // Remove domain from ssr.d_freshness map as we have the domains multiple times in sdomains and this would trigger the AXFR logic multiple times
+    ssr.d_freshness.erase(di.id);
   }
 }
