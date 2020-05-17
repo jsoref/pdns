@@ -152,6 +152,7 @@ dnsdist_SOURCES = \
 	dnsdist-lua-vars.cc \
 	dnsdist-prometheus.hh \
 	dnsdist-protobuf.cc dnsdist-protobuf.hh \
+	dnsdist-proxy-protocol.cc dnsdist-proxy-protocol.hh \
 	dnsdist-rings.cc dnsdist-rings.hh \
 	dnsdist-rules.hh \
 	dnsdist-secpoll.cc dnsdist-secpoll.hh \
@@ -180,6 +181,7 @@ dnsdist_SOURCES = \
 	namespaces.hh \
 	pdnsexception.hh \
 	protobuf.cc protobuf.hh \
+	proxy-protocol.cc proxy-protocol.hh \
 	dnstap.cc dnstap.hh \
 	qtype.cc qtype.hh \
 	remote_logger.cc remote_logger.hh \
@@ -192,6 +194,7 @@ dnsdist_SOURCES = \
 	tcpiohandler.cc tcpiohandler.hh \
 	threadname.hh threadname.cc \
 	uuid-utils.hh uuid-utils.cc \
+	views.hh \
 	xpf.cc xpf.hh \
 	ext/luawrapper/include/LuaContext.hpp \
 	ext/json11/json11.cpp \
@@ -215,6 +218,7 @@ testrunner_SOURCES = \
 	test-dnsparser_cc.cc \
 	test-iputils_hh.cc \
 	test-mplexer.cc \
+	test-proxy_protocol_cc.cc \
 	cachecleaner.hh \
 	circular_buffer.hh \
 	dnsdist.hh \
@@ -243,6 +247,7 @@ testrunner_SOURCES = \
 	namespaces.hh \
 	pdnsexception.hh \
 	pollmplexer.cc \
+	proxy-protocol.cc proxy-protocol.hh \
 	qtype.cc qtype.hh \
 	sholder.hh \
 	sodcrypto.cc \

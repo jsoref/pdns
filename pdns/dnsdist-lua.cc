@@ -97,7 +97,7 @@ void resetLuaSideEffect()
 
 typedef std::unordered_map<std::string, boost::variant<bool, int, std::string, std::vector<std::pair<int,int> >, std::vector<std::pair<int, std::string> >, std::map<std::string,std::string>  > > localbind_t;
 
-static void parseLocalBindVars(boost::optional<localbind_t> vars, bool& reusePort, int& tcpFastOpenQueueSize, std::string& interface, std::set<int>& cpus)
+static void parseLocalBindVars(boost::optional<localbind_t> vars, bool& reusePort, int& tcpFastOpenQueueSize, std::string& interface, std::set<int>& cpus, int& tcpListenQueueSize)
 {
   if (vars) {
     if (vars->count("reusePort")) {
@@ -106,11 +106,14 @@ static void parseLocalBindVars(boost::optional<localbind_t> vars, bool& reusePor
     if (vars->count("tcpFastOpenQueueSize")) {
       tcpFastOpenQueueSize = boost::get<int>((*vars)["tcpFastOpenQueueSize"]);
     }
+    if (vars->count("tcpListenQueueSize")) {
+      tcpListenQueueSize = boost::get<int>((*vars)["tcpListenQueueSize"]);
+    }
     if (vars->count("interface")) {
       interface = boost::get<std::string>((*vars)["interface"]);
     }
     if (vars->count("cpus")) {
-      for (const auto cpu : boost::get<std::vector<std::pair<int,int>>>((*vars)["cpus"])) {
+      for (const auto& cpu : boost::get<std::vector<std::pair<int,int>>>((*vars)["cpus"])) {
         cpus.insert(cpu.second);
       }
     }
@@ -437,6 +440,10 @@ static void setupLuaConfig(bool client, bool configCheck)
         ret->useECS=boost::get<bool>(vars["useClientSubnet"]);
       }
 
+      if(vars.count("useProxyProtocol")) {
+        ret->useProxyProtocol = boost::get<bool>(vars["useProxyProtocol"]);
+      }
+
       if(vars.count("disableZeroScope")) {
         ret->disableZeroScope=boost::get<bool>(vars["disableZeroScope"]);
       }
@@ -458,7 +465,7 @@ static void setupLuaConfig(bool client, bool configCheck)
       }
 
       if(vars.count("cpus")) {
-        for (const auto cpu : boost::get<vector<pair<int,string>>>(vars["cpus"])) {
+        for (const auto& cpu : boost::get<vector<pair<int,string>>>(vars["cpus"])) {
           cpus.insert(std::stoi(cpu.second));
         }
       }
@@ -571,10 +578,11 @@ static void setupLuaConfig(bool client, bool configCheck)
       }
       bool reusePort = false;
       int tcpFastOpenQueueSize = 0;
+      int tcpListenQueueSize = 0;
       std::string interface;
       std::set<int> cpus;
 
-      parseLocalBindVars(vars, reusePort, tcpFastOpenQueueSize, interface, cpus);
+      parseLocalBindVars(vars, reusePort, tcpFastOpenQueueSize, interface, cpus, tcpListenQueueSize);
 
       try {
 	ComboAddress loc(addr, 53);
@@ -590,7 +598,11 @@ static void setupLuaConfig(bool client, bool configCheck)
 
         // only works pre-startup, so no sync necessary
         g_frontends.push_back(std::unique_ptr<ClientState>(new ClientState(loc, false, reusePort, tcpFastOpenQueueSize, interface, cpus)));
-        g_frontends.push_back(std::unique_ptr<ClientState>(new ClientState(loc, true, reusePort, tcpFastOpenQueueSize, interface, cpus)));
+        auto tcpCS = std::unique_ptr<ClientState>(new ClientState(loc, true, reusePort, tcpFastOpenQueueSize, interface, cpus));
+        if (tcpListenQueueSize > 0) {
+          tcpCS->tcpListenQueueSize = tcpListenQueueSize;
+        }
+        g_frontends.push_back(std::move(tcpCS));
       }
       catch(const std::exception& e) {
 	g_outputBuffer="Error: "+string(e.what())+"\n";
@@ -607,16 +619,21 @@ static void setupLuaConfig(bool client, bool configCheck)
       }
       bool reusePort = false;
       int tcpFastOpenQueueSize = 0;
+      int tcpListenQueueSize = 0;
       std::string interface;
       std::set<int> cpus;
 
-      parseLocalBindVars(vars, reusePort, tcpFastOpenQueueSize, interface, cpus);
+      parseLocalBindVars(vars, reusePort, tcpFastOpenQueueSize, interface, cpus, tcpListenQueueSize);
 
       try {
 	ComboAddress loc(addr, 53);
         // only works pre-startup, so no sync necessary
         g_frontends.push_back(std::unique_ptr<ClientState>(new ClientState(loc, false, reusePort, tcpFastOpenQueueSize, interface, cpus)));
-        g_frontends.push_back(std::unique_ptr<ClientState>(new ClientState(loc, true, reusePort, tcpFastOpenQueueSize, interface, cpus)));
+        auto tcpCS = std::unique_ptr<ClientState>(new ClientState(loc, true, reusePort, tcpFastOpenQueueSize, interface, cpus));
+        if (tcpListenQueueSize > 0) {
+          tcpCS->tcpListenQueueSize = tcpListenQueueSize;
+        }
+        g_frontends.push_back(std::move(tcpCS));
       }
       catch(std::exception& e) {
         g_outputBuffer="Error: "+string(e.what())+"\n";
@@ -1208,11 +1225,12 @@ static void setupLuaConfig(bool client, bool configCheck)
 #ifdef HAVE_DNSCRYPT
       bool reusePort = false;
       int tcpFastOpenQueueSize = 0;
+      int tcpListenQueueSize = 0;
       std::string interface;
       std::set<int> cpus;
       std::vector<DNSCryptContext::CertKeyPaths> certKeys;
 
-      parseLocalBindVars(vars, reusePort, tcpFastOpenQueueSize, interface, cpus);
+      parseLocalBindVars(vars, reusePort, tcpFastOpenQueueSize, interface, cpus, tcpListenQueueSize);
 
       if (certFiles.type() == typeid(std::string) && keyFiles.type() == typeid(std::string)) {
         auto certFile = boost::get<std::string>(certFiles);
@@ -1251,6 +1269,10 @@ static void setupLuaConfig(bool client, bool configCheck)
         /* TCP */
         cs = std::unique_ptr<ClientState>(new ClientState(ComboAddress(addr, 443), true, reusePort, tcpFastOpenQueueSize, interface, cpus));
         cs->dnscryptCtx = ctx;
+        if (tcpListenQueueSize > 0) {
+          cs->tcpListenQueueSize = tcpListenQueueSize;
+        }
+
         g_frontends.push_back(std::move(cs));
       }
       catch(std::exception& e) {
@@ -1642,12 +1664,24 @@ static void setupLuaConfig(bool client, bool configCheck)
 
   g_lua.writeFunction("setConsistentHashingBalancingFactor", [](double factor) {
       setLuaSideEffect();
-      if (factor >= 0) {
+      if (factor >= 1.0) {
         g_consistentHashBalancingFactor = factor;
       }
       else {
         errlog("Invalid value passed to setConsistentHashingBalancingFactor()!");
         g_outputBuffer="Invalid value passed to setConsistentHashingBalancingFactor()!\n";
+        return;
+      }
+    });
+
+  g_lua.writeFunction("setWeightedBalancingFactor", [](double factor) {
+      setLuaSideEffect();
+      if (factor >= 1.0) {
+        g_weightedBalancingFactor = factor;
+      }
+      else {
+        errlog("Invalid value passed to setWeightedBalancingFactor()!");
+        g_outputBuffer="Invalid value passed to setWeightedBalancingFactor()!\n";
         return;
       }
     });
@@ -1872,11 +1906,12 @@ static void setupLuaConfig(bool client, bool configCheck)
 
     bool reusePort = false;
     int tcpFastOpenQueueSize = 0;
+    int tcpListenQueueSize = 0;
     std::string interface;
     std::set<int> cpus;
 
-    if(vars) {
-      parseLocalBindVars(vars, reusePort, tcpFastOpenQueueSize, interface, cpus);
+    if (vars) {
+      parseLocalBindVars(vars, reusePort, tcpFastOpenQueueSize, interface, cpus, tcpListenQueueSize);
 
       if (vars->count("idleTimeout")) {
         frontend->d_idleTimeout = boost::get<int>((*vars)["idleTimeout"]);
@@ -1897,11 +1932,19 @@ static void setupLuaConfig(bool client, bool configCheck)
         frontend->d_sendCacheControlHeaders = boost::get<bool>((*vars)["sendCacheControlHeaders"]);
       }
 
+      if (vars->count("trustForwardedForHeader")) {
+        frontend->d_trustForwardedForHeader = boost::get<bool>((*vars)["trustForwardedForHeader"]);
+      }
+
       parseTLSConfig(frontend->d_tlsConfig, "addDOHLocal", vars);
     }
     g_dohlocals.push_back(frontend);
     auto cs = std::unique_ptr<ClientState>(new ClientState(frontend->d_local, true, reusePort, tcpFastOpenQueueSize, interface, cpus));
     cs->dohFrontend = frontend;
+    if (tcpListenQueueSize > 0) {
+      cs->tcpListenQueueSize = tcpListenQueueSize;
+    }
+
     g_frontends.push_back(std::move(cs));
 #else
     throw std::runtime_error("addDOHLocal() called but DNS over HTTPS support is not present!");
@@ -1917,7 +1960,7 @@ static void setupLuaConfig(bool client, bool configCheck)
           ret << (fmt % "#" % "Address" % "HTTP" % "HTTP/1" % "HTTP/2" % "GET" % "POST" % "Bad" % "Errors" % "Redirects" % "Valid" % "# ticket keys" % "Rotation delay" % "Next rotation") << endl;
           size_t counter = 0;
           for (const auto& ctx : g_dohlocals) {
-            ret << (fmt % counter % ctx->d_local.toStringWithPort() % ctx->d_httpconnects % ctx->d_http1Stats.d_nbQueries % ctx->d_http1Stats.d_nbQueries % ctx->d_getqueries % ctx->d_postqueries % ctx->d_badrequests % ctx->d_errorresponses % ctx->d_redirectresponses % ctx->d_validresponses % ctx->getTicketsKeysCount() % ctx->getTicketsKeyRotationDelay() % ctx->getNextTicketsKeyRotation()) << endl;
+            ret << (fmt % counter % ctx->d_local.toStringWithPort() % ctx->d_httpconnects % ctx->d_http1Stats.d_nbQueries % ctx->d_http2Stats.d_nbQueries % ctx->d_getqueries % ctx->d_postqueries % ctx->d_badrequests % ctx->d_errorresponses % ctx->d_redirectresponses % ctx->d_validresponses % ctx->getTicketsKeysCount() % ctx->getTicketsKeyRotationDelay() % ctx->getNextTicketsKeyRotation()) << endl;
             counter++;
           }
           g_outputBuffer = ret.str();
@@ -2045,11 +2088,12 @@ static void setupLuaConfig(bool client, bool configCheck)
 
         bool reusePort = false;
         int tcpFastOpenQueueSize = 0;
+        int tcpListenQueueSize = 0;
         std::string interface;
         std::set<int> cpus;
 
         if (vars) {
-          parseLocalBindVars(vars, reusePort, tcpFastOpenQueueSize, interface, cpus);
+          parseLocalBindVars(vars, reusePort, tcpFastOpenQueueSize, interface, cpus, tcpListenQueueSize);
 
           if (vars->count("provider")) {
             frontend->d_provider = boost::get<const string>((*vars)["provider"]);
@@ -2074,6 +2118,9 @@ static void setupLuaConfig(bool client, bool configCheck)
           // only works pre-startup, so no sync necessary
           auto cs = std::unique_ptr<ClientState>(new ClientState(frontend->d_addr, true, reusePort, tcpFastOpenQueueSize, interface, cpus));
           cs->tlsFrontend = frontend;
+          if (tcpListenQueueSize > 0) {
+            cs->tcpListenQueueSize = tcpListenQueueSize;
+          }
           g_tlslocals.push_back(cs->tlsFrontend);
           g_frontends.push_back(std::move(cs));
         }

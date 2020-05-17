@@ -384,7 +384,7 @@ packets dropped because of (Lua) policy decision
 
 policy-result-noaction
 ^^^^^^^^^^^^^^^^^^^^^^
-packets that were not actioned upon by   the RPZ/filter engine
+packets that were not acted upon by   the RPZ/filter engine
 
 policy-result-drop
 ^^^^^^^^^^^^^^^^^^
@@ -405,6 +405,12 @@ packets that were forced to TCP by the   RPZ/filter engine
 policy-result-custom
 ^^^^^^^^^^^^^^^^^^^^
 packets that were sent a custom answer by   the RPZ/filter engine
+
+proxy-protocol-invalid
+^^^^^^^^^^^^^^^^^^^^^^
+.. versionadded:: 4.4
+
+Invalid proxy-protocol headers received.
 
 qa-latency
 ^^^^^^^^^^

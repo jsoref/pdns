@@ -47,13 +47,11 @@ AuthQueryCache::AuthQueryCache(size_t mapsCount): d_maps(mapsCount), d_lastclean
 AuthQueryCache::~AuthQueryCache()
 {
   try {
-    vector<WriteLock*> locks;
+    vector<WriteLock> locks;
     for(auto& mc : d_maps) {
-      locks.push_back(new WriteLock(&mc.d_mut));
+      locks.push_back(WriteLock(mc.d_mut));
     }
-    for(auto wl : locks) {
-      delete wl;
-    }
+    locks.clear();
   }
   catch(...) {
   }
@@ -209,13 +207,9 @@ uint64_t AuthQueryCache::purge(const string &match)
 
 void AuthQueryCache::cleanup()
 {
-  uint64_t maxCached = d_maxEntries;
-  uint64_t cacheSize = *d_statnumentries;
-  uint64_t totErased = 0;
-
-  totErased = pruneLockedCollectionsVector<SequencedTag>(d_maps, maxCached, cacheSize);
-
+  uint64_t totErased = pruneLockedCollectionsVector<SequencedTag>(d_maps);
   *d_statnumentries -= totErased;
+
   DLOG(g_log<<"Done with cache clean, cacheSize: "<<*d_statnumentries<<", totErased"<<totErased<<endl);
 }
 
