@@ -32,7 +32,7 @@
 #include <fstream>
 #include <yaml-cpp/yaml.h>
 
-pthread_rwlock_t GeoIPBackend::s_state_lock=PTHREAD_RWLOCK_INITIALIZER;
+ReadWriteLock GeoIPBackend::s_state_lock;
 
 struct GeoIPDNSResourceRecord: DNSResourceRecord {
   int weight;
@@ -519,7 +519,7 @@ string getGeoForLua(const std::string& ip, int qaint)
   return "";
 }
 
-bool queryGeoLocation(const Netmask& addr, GeoIPNetmask& gl, double& lat, double& lon,
+static bool queryGeoLocation(const Netmask& addr, GeoIPNetmask& gl, double& lat, double& lon,
                       boost::optional<int>& alt, boost::optional<int>& prec)
 {
   for(auto const& gi: s_geoip_files) {

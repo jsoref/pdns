@@ -71,15 +71,13 @@ private:
     std::atomic<time_t> lastAccess{0};
   };
 
-  pthread_rwlock_t d_lock;
+  ReadWriteLock d_lock;
 public:
   IsUpOracle()
   {
-    pthread_rwlock_init(&d_lock, nullptr);
   }
   ~IsUpOracle()
   {
-    pthread_rwlock_destroy(&d_lock);
   }
   bool isUp(const ComboAddress& remote, const opts_t& opts);
   bool isUp(const ComboAddress& remote, const std::string& url, const opts_t& opts);
@@ -284,7 +282,7 @@ bool doCompare(const T& var, const std::string& res, const C& cmp)
 }
 
 
-std::string getGeo(const std::string& ip, GeoIPInterface::GeoIPQueryAttribute qa)
+static std::string getGeo(const std::string& ip, GeoIPInterface::GeoIPQueryAttribute qa)
 {
   static bool initialized;
   extern std::function<std::string(const std::string& ip, int)> g_getGeo;
@@ -531,7 +529,7 @@ typedef struct AuthLuaRecordContext
 
 static thread_local unique_ptr<lua_record_ctx_t> s_lua_record_ctx;
 
-void setupLuaRecords()
+static void setupLuaRecords()
 {
   LuaContext& lua = *s_LUA->getLua();
 
