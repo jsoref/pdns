@@ -9,7 +9,12 @@ import clientsubnetoption
 from dnsdisttests import DNSDistTest
 
 import pycurl
+<<<<<<< working copy
 from io import BytesIO
+||||||| base
+=======
+from StringIO import StringIO
+>>>>>>> merge rev
 
 @unittest.skipIf('SKIP_DOH_TESTS' in os.environ, 'DNS over HTTPS tests are disabled')
 class DNSDistDOHTest(DNSDistTest):
@@ -36,7 +41,12 @@ class DNSDistDOHTest(DNSDistTest):
     def sendDOHQuery(cls, port, servername, baseurl, query, response=None, timeout=2.0, caFile=None, useQueue=True, rawQuery=False, rawResponse=False, customHeaders=[], useHTTPS=True):
         url = cls.getDOHGetURL(baseurl, query, rawQuery)
         conn = cls.openDOHConnection(port, caFile=caFile, timeout=timeout)
+<<<<<<< working copy
         response_headers = BytesIO()
+||||||| base
+=======
+        response_headers = StringIO()
+>>>>>>> merge rev
         #conn.setopt(pycurl.VERBOSE, True)
         conn.setopt(pycurl.URL, url)
         conn.setopt(pycurl.RESOLVE, ["%s:%d:127.0.0.1" % (servername, port)])
@@ -47,7 +57,16 @@ class DNSDistDOHTest(DNSDistTest):
                 conn.setopt(pycurl.CAINFO, caFile)
 
         conn.setopt(pycurl.HTTPHEADER, customHeaders)
+<<<<<<< working copy
         conn.setopt(pycurl.HEADERFUNCTION, response_headers.write)
+||||||| base
+        if caFile:
+            conn.setopt(pycurl.CAINFO, caFile)
+=======
+        conn.setopt(pycurl.HEADERFUNCTION, response_headers.write)
+        if caFile:
+            conn.setopt(pycurl.CAINFO, caFile)
+>>>>>>> merge rev
 
         if response:
             cls._toResponderQueue.put(response, True, timeout)
@@ -143,17 +162,30 @@ class TestDOH(DNSDistDOHTest):
     _serverKey = 'server.key'
     _serverCert = 'server.chain'
     _serverName = 'tls.tests.dnsdist.org'
+    _h2oServerToken = 'server: h2o/2.2.4'
+    _customServerToken = 'server: custom server token'
     _caCert = 'ca.pem'
     _dohServerPort = 8443
+<<<<<<< working copy
     _customResponseHeader1 = 'access-control-allow-origin: *'
     _customResponseHeader2 = 'user-agent: derp'
+||||||| base
+    _serverName = 'tls.tests.dnsdist.org'
+=======
+>>>>>>> merge rev
     _dohBaseURL = ("https://%s:%d/" % (_serverName, _dohServerPort))
     _config_template = """
     newServer{address="127.0.0.1:%s"}
+<<<<<<< working copy
 
     addDOHLocal("127.0.0.1:%s", "%s", "%s", { "/", "/coffee", "/PowerDNS", "/PowerDNS2", "/PowerDNS-999" }, {customResponseHeaders={["access-control-allow-origin"]="*",["user-agent"]="derp",["UPPERCASE"]="VaLuE"}})
     dohFE = getDOHFrontend(0)
     dohFE:setResponsesMap({newDOHResponseMapEntry('^/coffee$', 418, 'C0FFEE', {['FoO']='bar'})})
+||||||| base
+    addDOHLocal("127.0.0.1:%s", "%s", "%s", { "/" })
+=======
+    addDOHLocal("127.0.0.1:%s", "%s", "%s", "/", {serverTokens='custom server token'})
+>>>>>>> merge rev
 
     addAction("drop.doh.tests.powerdns.com.", DropAction())
     addAction("refused.doh.tests.powerdns.com.", RCodeAction(DNSRCode.REFUSED))
@@ -207,11 +239,17 @@ class TestDOH(DNSDistDOHTest):
         self.assertTrue(receivedResponse)
         receivedQuery.id = expectedQuery.id
         self.assertEquals(expectedQuery, receivedQuery)
+<<<<<<< working copy
         self.assertTrue((self._customResponseHeader1) in self._response_headers.decode())
         self.assertTrue((self._customResponseHeader2) in self._response_headers.decode())
         self.assertFalse(('UPPERCASE: VaLuE' in self._response_headers.decode()))
         self.assertTrue(('uppercase: VaLuE' in self._response_headers.decode()))
         self.assertTrue(('cache-control: max-age=3600' in self._response_headers.decode()))
+||||||| base
+=======
+        self.assertTrue((self._customServerToken) in self._response_headers)
+        self.assertTrue((self._h2oServerToken) in self._response_headers)
+>>>>>>> merge rev
         self.checkQueryEDNSWithoutECS(expectedQuery, receivedQuery)
         self.assertEquals(response, receivedResponse)
         self.checkHasHeader('cache-control', 'max-age=3600')
