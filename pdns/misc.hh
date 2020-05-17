@@ -287,12 +287,6 @@ inline void unixDie(const string &why)
 }
 
 string makeHexDump(const string& str);
-struct DNSRecord;
-struct DNSZoneRecord;
-void shuffle(vector<DNSRecord>& rrs);
-void shuffle(vector<DNSZoneRecord>& rrs);
-
-void orderAndShuffle(vector<DNSRecord>& rrs);
 
 void normalizeTV(struct timeval& tv);
 const struct timeval operator+(const struct timeval& lhs, const struct timeval& rhs);
@@ -609,3 +603,5 @@ bool isSettingThreadCPUAffinitySupported();
 int mapThreadToCPUList(pthread_t tid, const std::set<int>& cpus);
 
 std::vector<ComboAddress> getResolvers(const std::string& resolvConfPath);
+
+DNSName reverseNameFromIP(const ComboAddress& ip);

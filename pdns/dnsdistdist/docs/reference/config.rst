@@ -70,6 +70,9 @@ Listen Sockets
   .. versionchanged:: 1.4.0
     Removed ``doTCP`` from the options. A listen socket on TCP is always created.
 
+  .. versionchanged:: 1.5.0
+    Added ``tcpListenQueueSize`` parameter.
+
   Add to the list of listen addresses.
 
   :param str address: The IP Address with an optional port to listen on.
@@ -83,6 +86,7 @@ Listen Sockets
   * ``tcpFastOpenQueueSize=0``: int - Set the TCP Fast Open queue size, enabling TCP Fast Open when available and the value is larger than 0.
   * ``interface=""``: str - Set the network interface to use.
   * ``cpus={}``: table - Set the CPU affinity for this listener thread, asking the scheduler to run it on a single CPU id, or a set of CPU ids. This parameter is only available if the OS provides the pthread_setaffinity_np() function.
+  * ``tcpListenQueueSize=SOMAXCONN``: int - Set the size of the listen queue. Default is ``SOMAXCONN``.
 
   .. code-block:: lua
 
@@ -109,8 +113,8 @@ Listen Sockets
   .. versionadded:: 1.4.0
 
   .. versionchanged:: 1.5.0
-    ``sendCacheControlHeaders``, ``sessionTimeout`` options added.
-    ``url`` now defaults to ``/dns-query`` instead of ``/``
+    ``sendCacheControlHeaders``, ``sessionTimeout``, ``trustForwardedForHeader`` options added.
+    ``url`` now defaults to ``/dns-query`` instead of ``/``. Added ``tcpListenQueueSize`` parameter.
 
   Listen on the specified address and TCP port for incoming DNS over HTTPS connections, presenting the specified X.509 certificate.
   If no certificate (or key) files are specified, listen for incoming DNS over HTTP connections instead.
@@ -144,6 +148,8 @@ Listen Sockets
   * ``preferServerCiphers``: bool - Whether to prefer the order of ciphers set by the server instead of the one set by the client. Default is true, meaning that the order of the server is used.
   * ``keyLogFile``: str - Write the TLS keys in the specified file so that an external program can decrypt TLS exchanges, in the format described in https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format. Note that this feature requires OpenSSL >= 1.1.1.
   * ``sendCacheControlHeaders``: bool - Whether to parse the response to find the lowest TTL and set a HTTP Cache-Control header accordingly. Default is true.
+  * ``trustForwardedForHeader``: bool - Whether to parse any existing X-Forwarded-For header in the HTTP query and use the right-most value as the client source address and port, for ACL checks, rules, logging and so on. Default is false.
+  * ``tcpListenQueueSize=SOMAXCONN``: int - Set the size of the listen queue. Default is ``SOMAXCONN``.
 
 .. function:: addTLSLocal(address, certFile(s), keyFile(s) [, options])
 
@@ -156,7 +162,7 @@ Listen Sockets
   .. versionchanged:: 1.4.0
     ``ciphersTLS13``, ``minTLSVersion``, ``ocspResponses``, ``preferServerCiphers``, ``keyLogFile`` options added.
   .. versionchanged:: 1.5.0
-    ``sessionTimeout`` option added.
+    ``sessionTimeout`` and ``tcpListenQueueSize`` options added.
 
   Listen on the specified address and TCP port for incoming DNS over TLS connections, presenting the specified X.509 certificate.
 
@@ -173,7 +179,7 @@ Listen Sockets
   * ``interface=""``: str - Set the network interface to use.
   * ``cpus={}``: table - Set the CPU affinity for this listener thread, asking the scheduler to run it on a single CPU id, or a set of CPU ids. This parameter is only available if the OS provides the pthread_setaffinity_np() function.
   * ``provider``: str - The TLS library to use between GnuTLS and OpenSSL, if they were available and enabled at compilation time. Default is to use OpenSSL when available.
-  * ``ciphers``: str - The TLS ciphers to use. The exact format depends on the provider used. When the OpenSSL provder is used, ciphers for TLS 1.3 must be specified via ``ciphersTLS13``.
+  * ``ciphers``: str - The TLS ciphers to use. The exact format depends on the provider used. When the OpenSSL provider is used, ciphers for TLS 1.3 must be specified via ``ciphersTLS13``.
   * ``ciphersTLS13``: str - The ciphers to use for TLS 1.3, when the OpenSSL provider is used. When the GnuTLS provider is used, ``ciphers`` applies regardless of the TLS protocol and this setting is not used.
   * ``numberOfTicketsKeys``: int - The maximum number of tickets keys to keep in memory at the same time, if the provider supports it (GnuTLS doesn't, OpenSSL does). Only one key is marked as active and used to encrypt new tickets while the remaining ones can still be used to decrypt existing tickets after a rotation. Default to 5.
   * ``ticketKeyFile``: str - The path to a file from where TLS tickets keys should be loaded, to support RFC 5077. These keys should be rotated often and never written to persistent storage to preserve forward secrecy. The default is to generate a random key. The OpenSSL provider supports several tickets keys to be able to decrypt existing sessions after the rotation, while the GnuTLS provider only supports one key.
@@ -185,6 +191,7 @@ Listen Sockets
   * ``minTLSVersion``: str - Minimum version of the TLS protocol to support. Possible values are 'tls1.0', 'tls1.1', 'tls1.2' and 'tls1.3'. Default is to require at least TLS 1.0. Note that this value is ignored when the GnuTLS provider is in use, and the ``ciphers`` option should be set accordingly instead. For example, 'NORMAL:!VERS-TLS1.0:!VERS-TLS1.1' will disable TLS 1.0 and 1.1.
   * ``preferServerCiphers``: bool - Whether to prefer the order of ciphers set by the server instead of the one set by the client. Default is true, meaning that the order of the server is used.
   * ``keyLogFile``: str - Write the TLS keys in the specified file so that an external program can decrypt TLS exchanges, in the format described in https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format. Note that this feature requires OpenSSL >= 1.1.1.
+  * ``tcpListenQueueSize=SOMAXCONN``: int - Set the size of the listen queue. Default is ``SOMAXCONN``.
 
 .. function:: setLocal(address[, options])
 
@@ -407,6 +414,9 @@ Servers
   .. versionchanged:: 1.4.0
     Added ``checkInterval``, ``checkTimeout`` and ``rise`` to server_table.
 
+  .. versionchanged:: 1.5.0
+    Added ``useProxyProtocol`` to server_table.
+
   Add a new backend server. Call this function with either a string::
 
     newServer(
@@ -449,7 +459,8 @@ Servers
                              -- using the experimental XPF record from `draft-bellis-dnsop-xpf <https://datatracker.ietf.org/doc/draft-bellis-dnsop-xpf/>`_ and the specified option code. Default is disabled (0)
       sockets=NUM,           -- Number of sockets (and thus source ports) used toward the backend server, defaults to a single one
       disableZeroScope=BOOL, -- Disable the EDNS Client Subnet 'zero scope' feature, which does a cache lookup for an answer valid for all subnets (ECS scope of 0) before adding ECS information to the query and doing the regular lookup. This requires the ``parseECS`` option of the corresponding cache to be set to true
-      rise=NUM               -- Require NUM consecutive successful checks before declaring the backend up, default: 1
+      rise=NUM,              -- Require NUM consecutive successful checks before declaring the backend up, default: 1
+      useProxyProtocol=BOOL  -- Add a proxy protocol header to the query, passing along the client's IP address and port along with the original destination address and port. Default is disabled.
     })
 
   :param str server_string: A simple IP:PORT string.
@@ -1124,6 +1135,37 @@ faster than the existing rules.
     :param int action: The action to take when the dynamic block matches, see :ref:`here <DNSAction>`. (default to the one set with :func:`setDynBlocksAction`)
     :param int warningRate: If set to a non-zero value, the rate above which a warning message will be issued and a no-op block inserted
 
+  .. method:: DynBlockRulesGroup:setSuffixMatchRule(seconds, reason, blockingTime, action , visitor)
+
+    .. versionadded:: 1.4.0
+
+    Set a Lua visitor function that will be called for each label of every domain seen in queries and responses. The function receives a `StatNode` object representing the stats of the parent, a second one with the stats of the current label and one with the stats of the current node plus all its children.
+    Note that this function will not be called if a FFI version has been set using :meth:`DynBlockRulesGroup:setSuffixMatchRuleFFI`
+    If the function returns true, the current label will be blocked according to the `seconds`, `reason`, `blockingTime` and `action` parameters.
+    Selected domains can be excluded from this processing using the :meth:`DynBlockRulesGroup:excludeDomains` method.
+
+    This replaces the existing :func:`addDynBlockSMT` function.
+
+    :param int seconds: Number of seconds the rate has been exceeded
+    :param string reason: The message to show next to the blocks
+    :param int blockingTime: The number of seconds this block to expire
+    :param int action: The action to take when the dynamic block matches, see :ref:`here <DNSAction>`. (default to the one set with :func:`setDynBlocksAction`)
+    :param function visitor: The Lua function to call.
+
+  .. method:: DynBlockRulesGroup:setSuffixMatchRuleFFI(seconds, reason, blockingTime, action , visitor)
+
+    .. versionadded:: 1.4.0
+
+    Set a Lua FFI visitor function that will be called for each label of every domain seen in queries and responses. The function receives a `dnsdist_ffi_stat_node_t` object containing the stats of the parent, a second one with the stats of the current label and one with the stats of the current node plus all its children.
+    If the function returns true, the current label will be blocked according to the `seconds`, `reason`, `blockingTime` and `action` parameters.
+    Selected domains can be excluded from this processing using the :meth:`DynBlockRulesGroup:excludeDomains` method.
+
+    :param int seconds: Number of seconds the rate has been exceeded
+    :param string reason: The message to show next to the blocks
+    :param int blockingTime: The number of seconds this block to expire
+    :param int action: The action to take when the dynamic block matches, see :ref:`here <DNSAction>`. (default to the one set with :func:`setDynBlocksAction`)
+    :param function visitor: The Lua FFI function to call.
+
   .. method:: DynBlockRulesGroup:apply()
 
     Walk the in-memory query and response ring buffers and apply the configured rate-limiting rules, adding dynamic blocks when the limits have been exceeded.
@@ -1136,13 +1178,21 @@ faster than the existing rules.
 
     :param bool quiet: True means that insertions will not be logged, false that they will. Default is false.
 
+  .. method:: DynBlockRulesGroup:excludeDomains(domains)
+
+    .. versionadded:: 1.4.0
+
+    Exclude this domain, or list of domains, meaning that no dynamic block will ever be inserted for this domain via :meth:`DynBlockRulesGroup:setSuffixMatchRule` or :meth:`DynBlockRulesGroup:setSuffixMatchRuleFFI`. Default to empty, meaning rules are applied to all domains.
+
+    :param str domain: A domain, or list of domains, as strings, like for example "powerdns.com"
+
   .. method:: DynBlockRulesGroup:excludeRange(netmasks)
 
     .. versionadded:: 1.3.1
 
     Exclude this range, or list of ranges, meaning that no dynamic block will ever be inserted for clients in that range. Default to empty, meaning rules are applied to all ranges. When used in combination with :meth:`DynBlockRulesGroup:includeRange`, the more specific entry wins.
 
-    :param int netmasks: A netmask, or list of netmasks, as strings, like for example "192.0.2.1/24"
+    :param list netmasks: A netmask, or list of netmasks, as strings, like for example "192.0.2.1/24"
 
   .. method:: DynBlockRulesGroup:includeRange(netmasks)
 
@@ -1150,13 +1200,56 @@ faster than the existing rules.
 
     Include this range, or list of ranges, meaning that rules will be applied to this range. When used in combination with :meth:`DynBlockRulesGroup:excludeRange`, the more specific entry wins.
 
-    :param int netmasks: A netmask, or list of netmasks, as strings, like for example "192.0.2.1/24"
+    :param list netmasks: A netmask, or list of netmasks, as strings, like for example "192.0.2.1/24"
 
   .. method:: DynBlockRulesGroup:toString()
 
     .. versionadded:: 1.3.1
 
     Return a string describing the rules and range exclusions of this DynBlockRulesGroup.
+
+StatNode
+~~~~~~~~
+
+.. class:: StatNode
+
+  Represent metrics about a given node, for the visitor functions used with :meth:`DynBlockRulesGroup:setSuffixMatchRul` and :meth:`DynBlockRulesGroup:setSuffixMatchRuleFFI`. Note that some nodes includes the metrics for their children as well as their own.
+
+  .. attribute:: StatNode.bytes
+
+    The number of bytes for all responses returned for that node.
+
+  .. attribute:: StatNode.drops
+
+    The number of drops for that node.
+
+  .. attribute:: StatNode.fullname
+
+    The complete name of that node, ie 'www.powerdns.com'.
+
+  .. attribute:: StatNode.labelsCount
+
+    The number of labels in that node, for example 3 for 'www.powerdns.com'.
+
+  .. attribute:: StatNode.noerrors
+
+    The number of No Error answers returned for that node.
+
+  .. attribute:: StatNode.nxdomains
+
+    The number of NXDomain answers returned for that node.
+
+  .. attribute:: StatNode.queries
+
+    The number of queries for that node.
+
+  .. attribute:: StatNode.servfails
+
+    The number of Server Failure answers returned for that node.
+
+  .. method:: StatNode:numChildren
+
+    The number of children of that node.
 
 SuffixMatchNode
 ~~~~~~~~~~~~~~~
@@ -1185,6 +1278,16 @@ If you are looking for exact name matching, your might want to consider using a 
     :param DNSName name: The suffix to add to the set.
     :param string name: The suffix to add to the set.
     :param table name: The suffixes to add to the set. Elements of the table should be of the same type, either DNSName or string.
+
+  .. method:: SuffixMatchNode:remove(name)
+
+    .. versionadded:: 1.5.0
+
+    Remove a suffix from the current set.
+
+    :param DNSName name: The suffix to remove from the set.
+    :param string name: The suffix to remove from the set.
+    :param table name: The suffixes to remove from the set. Elements of the table should be of the same type, either DNSName or string.
 
   .. method:: SuffixMatchNode:check(name) -> bool
 
@@ -1314,7 +1417,7 @@ record if the received request had one, which is the case by default and can be 
 
 We must, however, provide a responder's maximum payload size in this record, and we can't easily know the
 maximum payload size of the actual backend so we need to provide one. The default value is 1500 and can be
-overriden using :func:`setPayloadSizeOnSelfGeneratedAnswers`.
+overridden using :func:`setPayloadSizeOnSelfGeneratedAnswers`.
 
 .. function:: setAddEDNSToSelfGeneratedResponses(add)
 

@@ -48,6 +48,7 @@
 #include "dnsdist-ecs.hh"
 #include "dnsdist-healthchecks.hh"
 #include "dnsdist-lua.hh"
+#include "dnsdist-proxy-protocol.hh"
 #include "dnsdist-rings.hh"
 #include "dnsdist-secpoll.hh"
 #include "dnsdist-xpf.hh"
@@ -239,6 +240,11 @@ bool responseContentMatches(const char* response, const uint16_t responseLen, co
   }
 
   const struct dnsheader* dh = reinterpret_cast<const struct dnsheader*>(response);
+  if (dh->qr == 0) {
+    ++g_stats.nonCompliantResponses;
+    return false;
+  }
+
   if (dh->qdcount == 0) {
     if ((dh->rcode != RCode::NoError && dh->rcode != RCode::NXDomain) || g_allowEmptyResponse) {
       return true;
@@ -1367,6 +1373,10 @@ static void processUDPQuery(ClientState& cs, LocalHolders& holders, const struct
 
     dh->id = idOffset;
 
+    if (ss->useProxyProtocol) {
+      addProxyProtocol(dq);
+    }
+
     int fd = pickBackendSocketForSending(ss);
     ssize_t ret = udpClientSendRequestToBackend(ss, fd, query, dq.len);
 
@@ -1409,7 +1419,7 @@ static void MultipleMessagesUDPClientThread(ClientState* cs, LocalHolders& holde
   /* initialize the structures needed to receive our messages */
   for (size_t idx = 0; idx < vectSize; idx++) {
     recvData[idx].remote.sin4.sin_family = cs->local.sin4.sin_family;
-    fillMSGHdr(&msgVec[idx].msg_hdr, &recvData[idx].iov, &recvData[idx].cbuf, sizeof(recvData[idx].cbuf), recvData[idx].packet, s_udpIncomingBufferSize, &recvData[idx].remote);
+    fillMSGHdr(&msgVec[idx].msg_hdr, &recvData[idx].iov, &recvData[idx].cbuf, sizeof(recvData[idx].cbuf), recvData[idx].packet, cs->dnscryptCtx ? sizeof(recvData[idx].packet) : s_udpIncomingBufferSize, &recvData[idx].remote);
   }
 
   /* go now */
@@ -1493,7 +1503,7 @@ try
     ComboAddress remote;
     ComboAddress dest;
     remote.sin4.sin_family = cs->local.sin4.sin_family;
-    fillMSGHdr(&msgh, &iov, &cbuf, sizeof(cbuf), packet, s_udpIncomingBufferSize, &remote);
+    fillMSGHdr(&msgh, &iov, &cbuf, sizeof(cbuf), packet, cs->dnscryptCtx ? sizeof(packet) : s_udpIncomingBufferSize, &remote);
 
     for(;;) {
       ssize_t got = recvmsg(cs->udpFD, &msgh, 0);
@@ -1533,7 +1543,7 @@ uint64_t g_maxTCPClientThreads{10};
 std::atomic<uint16_t> g_cacheCleaningDelay{60};
 std::atomic<uint16_t> g_cacheCleaningPercentage{100};
 
-void maintThread()
+static void maintThread()
 {
   setThreadName("dnsdist/main");
   int interval = 1;
@@ -1839,14 +1849,15 @@ static void setUpLocalBind(std::unique_ptr<ClientState>& cs)
 #endif
   }
 
-  if (!cs->tcp) {
-    if (cs->local.isIPv4()) {
-      try {
-        setSocketIgnorePMTU(cs->udpFD);
-      }
-      catch(const std::exception& e) {
-        warnlog("Failed to set IP_MTU_DISCOVER on UDP server socket for local address '%s': %s", cs->local.toStringWithPort(), e.what());
-      }
+  /* Only set this on IPv4 UDP sockets.
+     Don't set it for DNSCrypt binds. DNSCrypt pads queries for privacy
+     purposes, so we do receive large, sometimes fragmented datagrams. */
+  if (!cs->tcp && cs->local.isIPv4() && !cs->dnscryptCtx) {
+    try {
+      setSocketIgnorePMTU(cs->udpFD);
+    }
+    catch(const std::exception& e) {
+      warnlog("Failed to set IP_MTU_DISCOVER on UDP server socket for local address '%s': %s", cs->local.toStringWithPort(), e.what());
     }
   }
 
@@ -1885,7 +1896,8 @@ static void setUpLocalBind(std::unique_ptr<ClientState>& cs)
   SBind(fd, cs->local);
 
   if (cs->tcp) {
-    SListen(cs->tcpFD, SOMAXCONN);
+    SListen(cs->tcpFD, cs->tcpListenQueueSize);
+
     if (cs->tlsFrontend != nullptr) {
       warnlog("Listening on %s for TLS", cs->local.toStringWithPort());
     }
@@ -2188,6 +2200,10 @@ try
       // pre compute hashes
       auto backends = g_dstates.getLocal();
       for (auto& backend: *backends) {
+        if (backend->weight < 100) {
+          vinfolog("Warning, the backend '%s' has a very low weight (%d), which will not yield a good distribution of queries with the 'chashed' policy. Please consider raising it to at least '100'.", backend->getName(), backend->weight);
+        }
+
         backend->hash();
       }
     }
