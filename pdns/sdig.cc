@@ -7,6 +7,7 @@
 #include "ednsoptions.hh"
 #include "ednssubnet.hh"
 #include "misc.hh"
+#include "proxy-protocol.hh"
 #include "sstuff.hh"
 #include "statbag.hh"
 #include <boost/array.hpp>
@@ -17,9 +18,9 @@
 
 StatBag S;
 
-bool hidettl = false;
+static bool hidettl = false;
 
-string ttl(uint32_t ttl)
+static string ttl(uint32_t ttl)
 {
   if (hidettl)
     return "[ttl]";
@@ -27,16 +28,17 @@ string ttl(uint32_t ttl)
     return std::to_string(ttl);
 }
 
-void usage()
+static void usage()
 {
   cerr << "sdig" << endl;
-  cerr << "Syntax: sdig IP-ADDRESS-OR-DOH-URL PORT QUESTION QUESTION-TYPE "
+  cerr << "Syntax: sdig IP-ADDRESS-OR-DOH-URL PORT QNAME QTYPE "
           "[dnssec] [ednssubnet SUBNET/MASK] [hidesoadetails] [hidettl] "
-          "[recurse] [showflags] [tcp] [xpf XPFDATA] [class CLASSNUM]"
+          "[recurse] [showflags] [tcp] [xpf XPFDATA] [class CLASSNUM] "
+          "[proxy UDP(0)/TCP(1) SOURCE-IP-ADDRESS-AND-PORT DESTINATION-IP-ADDRESS-AND-PORT]"
        << endl;
 }
 
-const string nameForClass(uint16_t qclass, uint16_t qtype)
+static const string nameForClass(uint16_t qclass, uint16_t qtype)
 {
   if (qtype == QType::OPT)
     return "IN";
@@ -55,7 +57,7 @@ const string nameForClass(uint16_t qclass, uint16_t qtype)
   }
 }
 
-void fillPacket(vector<uint8_t>& packet, const string& q, const string& t,
+static void fillPacket(vector<uint8_t>& packet, const string& q, const string& t,
   bool dnssec, const boost::optional<Netmask> ednsnm,
   bool recurse, uint16_t xpfcode, uint16_t xpfversion,
   uint64_t xpfproto, char* xpfsrc, char* xpfdst,
@@ -84,7 +86,7 @@ void fillPacket(vector<uint8_t>& packet, const string& q, const string& t,
 
   if (xpfcode) {
     ComboAddress src(xpfsrc), dst(xpfdst);
-    pw.startRecord(DNSName("."), xpfcode, 0, QClass::IN, DNSResourceRecord::ADDITIONAL);
+    pw.startRecord(g_rootdnsname, xpfcode, 0, QClass::IN, DNSResourceRecord::ADDITIONAL);
     // xpf->toPacket(pw);
     pw.xfr8BitInt(xpfversion);
     pw.xfr8BitInt(xpfproto);
@@ -100,7 +102,7 @@ void fillPacket(vector<uint8_t>& packet, const string& q, const string& t,
   }
 }
 
-void printReply(const string& reply, bool showflags, bool hidesoadetails)
+static void printReply(const string& reply, bool showflags, bool hidesoadetails)
 {
   MOADNSParser mdp(false, reply);
   cout << "Reply to question for qname='" << mdp.d_qname.toString()
@@ -190,11 +192,12 @@ try {
   bool showflags = false;
   bool hidesoadetails = false;
   bool doh = false;
-  bool stdin = false;
+  bool fromstdin = false;
   boost::optional<Netmask> ednsnm;
   uint16_t xpfcode = 0, xpfversion = 0, xpfproto = 0;
   char *xpfsrc = NULL, *xpfdst = NULL;
   uint16_t qclass = QClass::IN;
+  string proxyheader;
 
   for (int i = 1; i < argc; i++) {
     if ((string)argv[i] == "--help") {
@@ -254,6 +257,16 @@ try {
         }
         qclass = atoi(argv[++i]);
       }
+      if (strcmp(argv[i], "proxy") == 0) {
+        if(argc < i+4) {
+          cerr<<"proxy needs three arguments"<<endl;
+          exit(EXIT_FAILURE);
+        }
+        bool ptcp = atoi(argv[++i]);
+        ComboAddress src(argv[++i]);
+        ComboAddress dest(argv[++i]);
+        proxyheader = makeProxyHeader(ptcp, src, dest, {});
+      }
     }
   }
 
@@ -262,7 +275,7 @@ try {
   if (*argv[1] == 'h') {
     doh = true;
   } else if(strcmp(argv[1], "stdin") == 0) {
-    stdin = true;
+    fromstdin = true;
   } else {
     dest = ComboAddress(argv[1] + (*argv[1] == '@'), atoi(argv[2]));
   }
@@ -295,18 +308,35 @@ try {
     mch.insert(std::make_pair("Content-Type", "application/dns-message"));
     mch.insert(std::make_pair("Accept", "application/dns-message"));
     string question(packet.begin(), packet.end());
+    // FIXME: how do we use proxyheader here?
     reply = mc.postURL(argv[1], question, mch);
     printReply(reply, showflags, hidesoadetails);
 #else
     throw PDNSException("please link sdig against libcurl for DoH support");
 #endif
-  } else if (stdin) {
+  } else if (fromstdin) {
     std::istreambuf_iterator<char> begin(std::cin), end;
     reply = string(begin, end);
+
+    ComboAddress source, destination;
+    bool wastcp;
+    bool proxy = false;
+    std::vector<ProxyProtocolValue> ignoredValues;
+    ssize_t offset = parseProxyHeader(reply, proxy, source, destination, wastcp, ignoredValues);
+    if (offset && proxy) {
+      cout<<"proxy "<<(wastcp ? "tcp" : "udp")<<" headersize="<<offset<<" source="<<source.toStringWithPort()<<" destination="<<destination.toStringWithPort()<<endl;
+      reply = reply.substr(offset);
+    }
+
+    if (tcp) {
+      reply = reply.substr(2);
+    }
+
     printReply(reply, showflags, hidesoadetails);
   } else if (tcp) {
     Socket sock(dest.sin4.sin_family, SOCK_STREAM);
     sock.connect(dest);
+    sock.writen(proxyheader);
     for (const auto& it : questions) {
       vector<uint8_t> packet;
       fillPacket(packet, it.first, it.second, dnssec, ednsnm, recurse, xpfcode,
@@ -345,6 +375,7 @@ try {
       xpfproto, xpfsrc, xpfdst, qclass);
     string question(packet.begin(), packet.end());
     Socket sock(dest.sin4.sin_family, SOCK_DGRAM);
+    question = proxyheader + question;
     sock.sendTo(question, dest);
     int result = waitForData(sock.getHandle(), 10);
     if (result < 0)

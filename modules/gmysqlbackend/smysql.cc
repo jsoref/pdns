@@ -65,7 +65,7 @@ private:
 static thread_local MySQLThreadCloser threadcloser;
 
 bool SMySQL::s_dolog;
-pthread_mutex_t SMySQL::s_myinitlock = PTHREAD_MUTEX_INITIALIZER;
+std::mutex SMySQL::s_myinitlock;
 
 class SMySQLStatement: public SSqlStatement
 {
@@ -181,8 +181,6 @@ public:
   }
 
   SSqlStatement* execute() {
-    int err;
-
     prepareStatement();
 
     if (!d_stmt) return this;
@@ -192,20 +190,20 @@ public:
       d_dtime.set();
     }
 
-    if ((err = mysql_stmt_bind_param(d_stmt, d_req_bind))) {
+    if (mysql_stmt_bind_param(d_stmt, d_req_bind) != 0) {
       string error(mysql_stmt_error(d_stmt));
       releaseStatement();
       throw SSqlException("Could not bind mysql statement: " + d_query + string(": ") + error);
     }
 
-    if ((err = mysql_stmt_execute(d_stmt))) {
+    if (mysql_stmt_execute(d_stmt) != 0) {
       string error(mysql_stmt_error(d_stmt));
       releaseStatement();
       throw SSqlException("Could not execute mysql statement: " + d_query + string(": ") + error);
     }
 
     // MySQL documentation says you can call this safely for all queries
-    if ((err = mysql_stmt_store_result(d_stmt))) {
+    if (mysql_stmt_store_result(d_stmt) != 0) {
       string error(mysql_stmt_error(d_stmt));
       releaseStatement();
       throw SSqlException("Could not store mysql statement: " + d_query + string(": ") + error);
@@ -241,7 +239,7 @@ public:
          stmt->bind_result_done to false, causing the second to reset the existing binding),
          and we can't bind it right after the call to mysql_stmt_store_result() if it returned
          no rows, because then the statement 'contains no metadata' */
-      if (d_res_bind != nullptr && (err = mysql_stmt_bind_result(d_stmt, d_res_bind))) {
+      if (d_res_bind != nullptr && mysql_stmt_bind_result(d_stmt, d_res_bind) != 0) {
         string error(mysql_stmt_error(d_stmt));
         releaseStatement();
         throw SSqlException("Could not bind parameters to mysql statement: " + d_query + string(": ") + error);
@@ -283,10 +281,10 @@ public:
         g_log<<Logger::Warning<<"Result field at row " << d_residx << " column " << i << " has been truncated, we allocated " << d_res_bind[i].buffer_length << " bytes but at least " << *d_res_bind[i].length << " was needed" << endl;
       }
       if (*d_res_bind[i].is_null) {
-        row.push_back("");
+        row.emplace_back("");
         continue;
       } else {
-        row.push_back(string((char*)d_res_bind[i].buffer, std::min(d_res_bind[i].buffer_length, *d_res_bind[i].length)));
+        row.emplace_back((char*)d_res_bind[i].buffer, std::min(d_res_bind[i].buffer_length, *d_res_bind[i].length));
       }
     }
 
@@ -295,7 +293,7 @@ public:
     if (d_residx >= d_resnum) {
       mysql_stmt_free_result(d_stmt);
       while(!mysql_stmt_next_result(d_stmt)) {
-        if ((err = mysql_stmt_store_result(d_stmt))) {
+        if (mysql_stmt_store_result(d_stmt) != 0) {
           string error(mysql_stmt_error(d_stmt));
           releaseStatement();
           throw SSqlException("Could not store mysql statement while processing additional sets: " + d_query + string(": ") + error);
@@ -304,7 +302,7 @@ public:
         // XXX: For some reason mysql_stmt_result_metadata returns NULL here, so we cannot
         // ensure row field count matches first result set.
         if (d_resnum > 0) { // ignore empty result set
-          if (d_res_bind != nullptr && (err = mysql_stmt_bind_result(d_stmt, d_res_bind))) {
+          if (d_res_bind != nullptr && mysql_stmt_bind_result(d_stmt, d_res_bind) != 0) {
             string error(mysql_stmt_error(d_stmt));
             releaseStatement();
             throw SSqlException("Could not bind parameters to mysql statement: " + d_query + string(": ") + error);
@@ -326,7 +324,7 @@ public:
 
     while(hasNextRow()) {
       nextRow(row);
-      result.push_back(row); 
+      result.push_back(std::move(row));
     }
 
     return this; 
@@ -367,8 +365,6 @@ public:
 private:
 
   void prepareStatement() {
-    int err;
-
     if (d_prepared) return;
     if (d_query.empty()) {
       d_prepared = true;
@@ -378,7 +374,7 @@ private:
     if ((d_stmt = mysql_stmt_init(d_db))==NULL)
       throw SSqlException("Could not initialize mysql statement, out of memory: " + d_query);
 
-    if ((err = mysql_stmt_prepare(d_stmt, d_query.c_str(), d_query.size()))) {
+    if (mysql_stmt_prepare(d_stmt, d_query.c_str(), d_query.size()) != 0) {
       string error(mysql_stmt_error(d_stmt));
       releaseStatement();
       throw SSqlException("Could not prepare statement: " + d_query + string(": ") + error);
@@ -444,7 +440,7 @@ void SMySQL::connect()
 {
   int retry=1;
 
-  Lock l(&s_myinitlock);
+  std::lock_guard<std::mutex> l(s_myinitlock);
   if (d_threadCleanup) {
     threadcloser.enable();
   }
@@ -515,7 +511,7 @@ SMySQL::~SMySQL()
 
 SSqlException SMySQL::sPerrorException(const string &reason)
 {
-  return SSqlException(reason+string(": ")+mysql_error(&d_db));
+  return SSqlException(reason+string(": ERROR ")+std::to_string(mysql_errno(&d_db))+" ("+string(mysql_sqlstate(&d_db))+"): "+mysql_error(&d_db));
 }
 
 std::unique_ptr<SSqlStatement> SMySQL::prepare(const string& query, int nparams)

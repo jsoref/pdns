@@ -19,8 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef DNSBACKEND_HH
-#define DNSBACKEND_HH
+#pragma once
 
 class DNSPacket;
 
@@ -183,6 +182,7 @@ public:
     unsigned int id;
     unsigned int flags;
     bool active;
+    bool published;
   };
 
   virtual bool getDomainKeys(const DNSName& name, std::vector<KeyData>& keys) { return false;}
@@ -190,6 +190,8 @@ public:
   virtual bool addDomainKey(const DNSName& name, const KeyData& key, int64_t& id){ return false; }
   virtual bool activateDomainKey(const DNSName& name, unsigned int id) { return false; }
   virtual bool deactivateDomainKey(const DNSName& name, unsigned int id) { return false; }
+  virtual bool publishDomainKey(const DNSName& name, unsigned int id) { return false; }
+  virtual bool unpublishDomainKey(const DNSName& name, unsigned int id) { return false; }
 
   virtual bool getTSIGKey(const DNSName& name, DNSName* algorithm, string* content) { return false; }
   virtual bool setTSIGKey(const DNSName& name, const DNSName& algorithm, const string& content) { return false; }
@@ -437,5 +439,3 @@ void fillSOAData(const string &content, SOAData &data);
 void fillSOAData(const DNSZoneRecord& in, SOAData& data);
 // the reverse
 std::shared_ptr<DNSRecordContent> makeSOAContent(const SOAData& sd);
-
-#endif

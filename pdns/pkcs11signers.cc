@@ -8,6 +8,8 @@
 #include <boost/format.hpp>
 #include <p11-kit/p11-kit.h>
 
+#include <mutex>
+
 #include "pdns/dnssecinfra.hh"
 #include "pdns/logger.hh"
 #include "pdns/pdnsexception.hh"
@@ -15,6 +17,7 @@
 #include "pdns/lock.hh"
 
 #ifdef HAVE_LIBCRYPTO_ECDSA
+#include <openssl/bn.h>
 #include <openssl/ec.h>
 #endif
 
@@ -205,7 +208,7 @@ class Pkcs11Slot {
     CK_SESSION_HANDLE d_session;
     CK_SLOT_ID d_slot;
     CK_RV d_err;
-    pthread_mutex_t d_m;
+    std::mutex d_m;
 
     void logError(const std::string& operation) const {
       if (d_err) {
@@ -222,8 +225,7 @@ class Pkcs11Slot {
     d_err(0)
   {
       CK_TOKEN_INFO tokenInfo;
-      pthread_mutex_init(&(this->d_m), NULL);
-      Lock l(&d_m);
+      std::lock_guard<std::mutex> l(d_m);
 
       if ((d_err = d_functions->C_OpenSession(this->d_slot, CKF_SERIAL_SESSION|CKF_RW_SESSION, 0, 0, &(this->d_session)))) {
         logError("C_OpenSession");
@@ -260,7 +262,7 @@ class Pkcs11Slot {
 
     CK_FUNCTION_LIST* f() { return d_functions; }
 
-    pthread_mutex_t *m() { return &d_m; }
+    std::mutex& m() { return d_m; }
 
     static std::shared_ptr<Pkcs11Slot> GetSlot(const std::string& module, const string& tokenId);
     static CK_RV HuntSlot(const string& tokenId, CK_SLOT_ID &slotId, _CK_SLOT_INFO* info, CK_FUNCTION_LIST* functions);
@@ -341,7 +343,7 @@ class Pkcs11Token {
     }
 
     void LoadAttributes() {
-      Lock l(d_slot->m());
+      std::lock_guard<std::mutex> l(d_slot->m());
       std::vector<P11KitAttribute> attr;
       std::vector<CK_OBJECT_HANDLE> key;
       attr.push_back(P11KitAttribute(CKA_CLASS, (unsigned long)CKO_PRIVATE_KEY));
@@ -406,7 +408,7 @@ class Pkcs11Token {
 
     int GenerateKeyPair(CK_MECHANISM_PTR mechanism, std::vector<P11KitAttribute>& pubAttributes, std::vector<P11KitAttribute>& privAttributes, CK_OBJECT_HANDLE_PTR pubKey, CK_OBJECT_HANDLE_PTR privKey) {
       {
-      Lock l(d_slot->m());
+      std::lock_guard<std::mutex> l(d_slot->m());
 
       size_t k;
       std::unique_ptr<CK_ATTRIBUTE[]> pubAttr(new CK_ATTRIBUTE[pubAttributes.size()]);
@@ -434,7 +436,7 @@ class Pkcs11Token {
     }
 
     int Sign(const std::string& data, std::string& result, CK_MECHANISM_PTR mechanism) {
-      Lock l(d_slot->m());
+      std::lock_guard<std::mutex> l(d_slot->m());
 
       CK_BYTE buffer[1024];
       CK_ULONG buflen = sizeof buffer; // should be enough for most signatures.
@@ -453,7 +455,7 @@ class Pkcs11Token {
     }
 
     int Verify(const std::string& data, const std::string& signature, CK_MECHANISM_PTR mechanism) {
-      Lock l(d_slot->m());
+      std::lock_guard<std::mutex> l(d_slot->m());
 
       if ((d_err = this->d_slot->f()->C_VerifyInit(d_slot->Session(), mechanism, d_public_key))) { logError("C_VerifyInit"); return d_err; }
       d_err = this->d_slot->f()->C_Verify(d_slot->Session(), (unsigned char*)data.c_str(), data.size(), (unsigned char*)signature.c_str(), signature.size());
@@ -462,7 +464,7 @@ class Pkcs11Token {
     }
 
     int Digest(const std::string& data, std::string& result, CK_MECHANISM_PTR mechanism) {
-      Lock l(d_slot->m());
+      std::lock_guard<std::mutex> l(d_slot->m());
 
       CK_BYTE buffer[1024];
       CK_ULONG buflen = sizeof buffer; // should be enough for most digests
@@ -489,7 +491,7 @@ class Pkcs11Token {
     }
 
     int DigestKey(std::string& result) {
-      Lock l(d_slot->m());
+      std::lock_guard<std::mutex> l(d_slot->m());
       CK_MECHANISM mech;
       mech.mechanism = CKM_SHA_1;
 
@@ -520,7 +522,7 @@ class Pkcs11Token {
     }
 
     int FindObjects(const std::vector<P11KitAttribute>& attributes, std::vector<CK_OBJECT_HANDLE>& objects, int maxobjects) {
-      Lock l(d_slot->m());
+      std::lock_guard<std::mutex> l(d_slot->m());
       return FindObjects2(attributes, objects, maxobjects);
     }
 
@@ -566,7 +568,7 @@ class Pkcs11Token {
 
     int GetAttributeValue(const CK_OBJECT_HANDLE& object, std::vector<P11KitAttribute>& attributes) 
     {
-      Lock l(d_slot->m());
+      std::lock_guard<std::mutex> l(d_slot->m());
       return GetAttributeValue2(object, attributes);
     }
 
@@ -783,7 +785,6 @@ void PKCS11DNSCryptoKeyEngine::create(unsigned int bits) {
   std::vector<P11KitAttribute> privAttr;
   CK_MECHANISM mech;
   CK_OBJECT_HANDLE pubKey, privKey;
-  CK_RV rv;
   std::shared_ptr<Pkcs11Token> d_slot;
   d_slot = Pkcs11Token::GetToken(d_module, d_slot_id, d_label, d_pub_label);
   if (d_slot->LoggedIn() == false)
@@ -818,7 +819,7 @@ void PKCS11DNSCryptoKeyEngine::create(unsigned int bits) {
   mech.pParameter = NULL;
   mech.ulParameterLen = 0;
 
-  if ((rv = d_slot->GenerateKeyPair(&mech, pubAttr, privAttr, &pubKey, &privKey))) {
+  if (d_slot->GenerateKeyPair(&mech, pubAttr, privAttr, &pubKey, &privKey)) {
     throw PDNSException("Keypair generation failed");
   }
 };

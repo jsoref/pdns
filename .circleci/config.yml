@@ -26,7 +26,7 @@ commands:
               git clone --depth 1 --branch $CIRCLE_BRANCH $CIRCLE_REPOSITORY_URL /opt/project
             fi
             cd /opt/project
-            git show -s
+            git --no-pager show -s
 
   get-workspace:
     description: "Attach workspace to /opt and symlink checkout into home"
@@ -70,10 +70,12 @@ commands:
             apt-get -y -qq install \
               bc \
               bind9utils \
+              curl \
               default-jre-headless \
               dnsutils \
               ldnsutils \
               libnet-dns-perl \
+              pdns-recursor \
               unbound-host
       - run:
           name: Install jdnssectools
@@ -88,6 +90,10 @@ commands:
       - run:
           name: Allow missing tools in verify-dnssec-zone
           command: touch regression-tests/tests/verify-dnssec-zone/allow-missing
+      - run:
+          name: Start PowerDNS Recursor in the background
+          command: pdns_recursor
+          background: true
 
   auth-regress:
     description: Run one auth regression context
@@ -129,6 +135,7 @@ commands:
             ZONE2LDAP=<< parameters.prefix >>bin/zone2ldap \
             PDNSUTIL=<< parameters.prefix >>bin/pdnsutil \
             PDNSCONTROL=<< parameters.prefix >>bin/pdns_control \
+            RESOLVERIP=127.0.0.1 \
             ./start-test-stop 5300 << parameters.context >>
       - when:
           condition: << parameters.doroot >>
@@ -153,6 +160,7 @@ commands:
                   ZONE2LDAP=<< parameters.prefix >>bin/zone2ldap \
                   PDNSUTIL=<< parameters.prefix >>bin/pdnsutil \
                   PDNSCONTROL=<< parameters.prefix >>bin/pdns_control \
+                  RESOLVERIP=127.0.0.1 \
                   ./start-test-stop 5300 << parameters.context >>
 
   install-recursor-deps:
@@ -178,9 +186,11 @@ commands:
           apt-get install -qq -y --no-install-recommends \
             libboost-all-dev \
             libcdb1 \
+            libcurl4 \
             libkrb5-3 \
             libldap-2.4-2 \
             liblmdb0 \
+            libluajit-5.1-2 \
             libpq5 \
             libssl1.1 \
             libsodium23 \
@@ -242,9 +252,11 @@ commands:
               git \
               libboost-all-dev \
               libcdb-dev \
+              libcurl4-openssl-dev \
               libkrb5-dev \
               libldap2-dev \
               liblmdb-dev \
+              libluajit-5.1-dev \
               libpq-dev \
               libsodium-dev \
               libsqlite3-dev \
@@ -493,14 +505,15 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            apt-get update && apt-get -qq --no-install-recommends install \
-            clang-format git
+            echo 'deb http://deb.debian.org/debian buster-backports main' > /etc/apt/sources.list.d/backports.list
+            apt-get update && apt-get -qq --no-install-recommends install git
+            apt-get -qq -t buster-backports --no-install-recommends install clang-format-8
       - get-workspace
       - run:
           name: Check formatting
           command: |
             ./build-scripts/format-code pdns/recursordist/*.[ch][ch]
-            git diff
+            git --no-pager diff
             exit $(git diff | wc -l)
           working_directory: ~/project
 
@@ -522,10 +535,12 @@ jobs:
             CFLAGS="-O1 -Werror=vla -Werror=shadow -Wformat=2 -Werror=format-security" \
             CXXFLAGS="-O1 -Werror=vla -Werror=shadow -Wformat=2 -Werror=format-security -Wp,-D_GLIBCXX_ASSERTIONS" \
             ./configure \
-              --disable-lua-records \
-              --with-modules='bind lmdb ldap gmysql gsqlite3 gpgsql godbc random tinydns' \
+              --with-modules='bind lmdb ldap gmysql gsqlite3 gpgsql godbc random tinydns lua2' \
               --enable-systemd \
               --enable-tools \
+              --enable-unit-tests \
+              --enable-backend-unit-tests \
+              --enable-fuzz-targets \
               --with-lmdb=/usr \
               --with-libsodium \
               --prefix=/opt/pdns-auth \
@@ -535,6 +550,9 @@ jobs:
           command: make -j3 -k
       - save-ccache-cache:
           product: auth
+      - run:
+          name: Run unit tests
+          command: PDNS_TEST_NO_IPV6=1 make check || (cat pdns/test-suite.log; false)
       - run:
           name: Install the binaries
           command: make install
@@ -611,7 +629,7 @@ jobs:
             TDS_Version=7.1
             __EOF__
       - run:
-          command: cat /usr/share/tdsodbc/odbcinst.ini >> /etc/odbcinst.ini
+          command: cat /usr/share/tdsodbc/odbcinst.ini <(echo Threading=1) >> /etc/odbcinst.ini
       - run:
           name: create database
           command: echo 'create database pdns' | isql -v pdns-mssql-docker-nodb sa SAsa12%%
@@ -730,6 +748,7 @@ jobs:
       - image: circleci/postgres:9
         environment:
           POSTGRES_USER: root
+          POSTGRES_HOST_AUTH_METHOD: trust
     steps:
       - auth-regress-setup
       - run:
@@ -796,7 +815,7 @@ jobs:
       - image: debian:buster
     steps:
       - auth-regress-setup
-      - run: apt-get install -y -qq jq curl
+      - run: apt-get install -y -qq jq
       - auth-regress:
           context: lmdb-nodnssec-both
       - auth-regress:
@@ -934,7 +953,7 @@ jobs:
             ./build-scripts/test-recursor
 
   test-recursor-bulk:
-    resource_class: small
+    resource_class: medium
 
     docker:
       - image: debian:buster
@@ -951,14 +970,194 @@ jobs:
             curl -LO http://s3-us-west-1.amazonaws.com/umbrella-static/top-1m.csv.zip && \
             unzip top-1m.csv.zip -d .
       - run:
-          name: Run bulktests
+          name: Run bulktest A
           command: |
             DNSBULKTEST=/usr/bin/dnsbulktest \
             RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
             THRESHOLD=95 \
             TRACE=no \
-            ./timestamp ./recursor-test 5300 50000 || \
-            (cat recursor.log; false)
+            ./timestamp ./recursor-test 5300 50000 2
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest B
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 4
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest C
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest D
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 16
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest E
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 2 4096
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest F
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 4 4096
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest G
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest H
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 16 4096
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest I
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 1
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest J
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 2
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest K
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 4
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest L
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 8
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest M
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 16
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest M
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 32
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest N
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 64
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest O
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 128
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest P
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 256
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest Q
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 512
+          workdir: ~/project/regression-tests
+      - run:
+          name: Run bulktest R
+          command: |
+            DNSBULKTEST=/usr/bin/dnsbulktest \
+            RECURSOR=/opt/pdns-recursor/sbin/pdns_recursor \
+            RECCONTROL=/opt/pdns-recursor/bin/rec_control \
+            THRESHOLD=95 \
+            TRACE=no \
+            ./timestamp ./recursor-test 5300 50000 8 4096 1024
           workdir: ~/project/regression-tests
 
   test-recursor-api:
@@ -1062,7 +1261,6 @@ jobs:
             CFLAGS="-O1 -Werror=vla -Wformat=2 -Werror=format-security" \
             CXXFLAGS="-O1 -Werror=vla -Wformat=2 -Werror=format-security -Wp,-D_GLIBCXX_ASSERTIONS" \
             ./configure \
-              --disable-lua-records \
               --disable-systemd \
               --with-modules='bind lmdb ldap gmysql gsqlite3 gpgsql godbc random tinydns' \
               --enable-tools \

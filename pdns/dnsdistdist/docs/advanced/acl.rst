@@ -42,7 +42,7 @@ So feel free to listen on the magic ``0.0.0.0`` or ``::`` addresses, dnsdist doe
 Modifying the ACL
 -----------------
 
-ACLs can be modfied at runtime from the :ref:`Console`.
+ACLs can be modified at runtime from the :ref:`Console`.
 To inspect the currently active :term:`ACL`, run :func:`showACL`.
 
 To add a new network range to the existing ACL, use :func:`addACL`:
@@ -51,6 +51,13 @@ To add a new network range to the existing ACL, use :func:`addACL`:
 
   addACL('192.0.2.0/25')
   addACL('2001:db8::1') -- No netmask specified, only allow this address
+
+To remove a previously added network range from the existing ACL, use :func:`rmACL`:
+
+.. code-block:: lua
+
+  rmACL('192.0.2.0/25')
+  rmACL('2001:db8::1') -- No netmask specified, only remove this address
 
 dnsdist also has the :func:`setACL` function that accepts a list of netmasks and resets the ACL to that list:
 
