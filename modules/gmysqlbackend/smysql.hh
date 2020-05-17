@@ -19,8 +19,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef SMYSQL_HH
-#define SMYSQL_HH
+#pragma once
+#include <mutex>
 
 #include <mysql.h>
 #include "pdns/backends/gsql/ssql.hh"
@@ -50,7 +50,7 @@ private:
   void connect();
 
   static bool s_dolog;
-  static pthread_mutex_t s_myinitlock;
+  static std::mutex s_myinitlock;
 
   MYSQL d_db;
   std::string d_database;
@@ -65,5 +65,3 @@ private:
   bool d_threadCleanup;
   bool d_clientSSL;
 };
-
-#endif /* SSMYSQL_HH */

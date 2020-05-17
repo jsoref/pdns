@@ -6,6 +6,7 @@
 
 #include "dnsdist-kvs.hh"
 
+#if defined(HAVE_LMDB) || defined(HAVE_CDB)
 static void doKVSChecks(std::unique_ptr<KeyValueStore>& kvs, const ComboAddress& lc, const ComboAddress& rem, const DNSQuestion& dq, const DNSName& plaintextDomain)
 {
   /* source IP */
@@ -195,6 +196,7 @@ static void doKVSChecks(std::unique_ptr<KeyValueStore>& kvs, const ComboAddress&
     BOOST_CHECK_EQUAL(value, "this is the value for the qname");
   }
 }
+#endif // defined(HAVE_LMDB) || defined(HAVE_CDB)
 
 BOOST_AUTO_TEST_SUITE(dnsdistkvs_cc)
 
@@ -224,11 +226,11 @@ BOOST_AUTO_TEST_CASE(test_LMDB) {
   {
     MDBEnv env(dbPath.c_str(), MDB_NOSUBDIR, 0600);
     auto transaction = env.getRWTransaction();
-    auto dbi = transaction.openDB("db-name", MDB_CREATE);
-    transaction.put(dbi, MDBInVal(std::string(reinterpret_cast<const char*>(&rem.sin4.sin_addr.s_addr), sizeof(rem.sin4.sin_addr.s_addr))), MDBInVal("this is the value for the remote addr"));
-    transaction.put(dbi, MDBInVal(qname.toDNSStringLC()), MDBInVal("this is the value for the qname"));
-    transaction.put(dbi, MDBInVal(plaintextDomain.toStringRootDot()), MDBInVal("this is the value for the plaintext domain"));
-    transaction.commit();
+    auto dbi = transaction->openDB("db-name", MDB_CREATE);
+    transaction->put(dbi, MDBInVal(std::string(reinterpret_cast<const char*>(&rem.sin4.sin_addr.s_addr), sizeof(rem.sin4.sin_addr.s_addr))), MDBInVal("this is the value for the remote addr"));
+    transaction->put(dbi, MDBInVal(qname.toDNSStringLC()), MDBInVal("this is the value for the qname"));
+    transaction->put(dbi, MDBInVal(plaintextDomain.toStringRootDot()), MDBInVal("this is the value for the plaintext domain"));
+    transaction->commit();
   }
 
   auto lmdb = std::unique_ptr<KeyValueStore>(new LMDBKVStore(dbPath, "db-name"));

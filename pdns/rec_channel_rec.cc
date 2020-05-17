@@ -37,12 +37,12 @@
 #include "secpoll-recursor.hh"
 #include "pubsuffix.hh"
 #include "namespaces.hh"
-pthread_mutex_t g_carbon_config_lock=PTHREAD_MUTEX_INITIALIZER;
+std::mutex g_carbon_config_lock;
 
 static map<string, const uint32_t*> d_get32bitpointers;
 static map<string, const std::atomic<uint64_t>*> d_getatomics;
 static map<string, function< uint64_t() > >  d_get64bitmembers;
-static pthread_mutex_t d_dynmetricslock = PTHREAD_MUTEX_INITIALIZER;
+static std::mutex d_dynmetricslock;
 static map<string, std::atomic<unsigned long>* > d_dynmetrics;
 
 static std::map<StatComponent, std::set<std::string>> s_blacklistedStats;
@@ -84,7 +84,7 @@ static void addGetStat(const string& name, function<uint64_t ()> f )
 
 std::atomic<unsigned long>* getDynMetric(const std::string& str)
 {
-  Lock l(&d_dynmetricslock);
+  std::lock_guard<std::mutex> l(d_dynmetricslock);
   auto f = d_dynmetrics.find(str);
   if(f != d_dynmetrics.end())
     return f->second;
@@ -105,7 +105,7 @@ static optional<uint64_t> get(const string& name)
   if(d_get64bitmembers.count(name))
     return d_get64bitmembers.find(name)->second();
 
-  Lock l(&d_dynmetricslock);
+  std::lock_guard<std::mutex> l(d_dynmetricslock);
   auto f =rplookup(d_dynmetrics, name);
   if(f)
     return (*f)->load();
@@ -141,7 +141,7 @@ map<string,string> getAllStatsMap(StatComponent component)
   }
 
   {
-    Lock l(&d_dynmetricslock);
+    std::lock_guard<std::mutex> l(d_dynmetricslock);
     for(const auto& a : d_dynmetrics) {
       if (blacklistMap.count(a.first) == 0) {
         ret.insert({a.first, std::to_string(*a.second)});
@@ -213,7 +213,7 @@ static uint64_t dumpNegCache(NegCache& negcache, int fd)
 
 static uint64_t* pleaseDump(int fd)
 {
-  return new uint64_t(t_RC->doDump(fd) + dumpNegCache(SyncRes::t_sstorage.negcache, fd) + t_packetCache->doDump(fd));
+  return new uint64_t(dumpNegCache(SyncRes::t_sstorage.negcache, fd) + t_packetCache->doDump(fd));
 }
 
 static uint64_t* pleaseDumpEDNSMap(int fd)
@@ -229,6 +229,11 @@ static uint64_t* pleaseDumpNSSpeeds(int fd)
 static uint64_t* pleaseDumpThrottleMap(int fd)
 {
   return new uint64_t(SyncRes::doDumpThrottleMap(fd));
+}
+
+static uint64_t* pleaseDumpFailedServers(int fd)
+{
+  return new uint64_t(SyncRes::doDumpFailedServers(fd));
 }
 
 template<typename T>
@@ -276,7 +281,7 @@ static string doDumpCache(T begin, T end)
     return "Error opening dump file for writing: "+stringerror()+"\n";
   uint64_t total = 0;
   try {
-    total = broadcastAccFunction<uint64_t>(boost::bind(pleaseDump, fd));
+    total = s_RC->doDump(fd) + broadcastAccFunction<uint64_t>(boost::bind(pleaseDump, fd));
   }
   catch(...){}
   
@@ -367,14 +372,36 @@ static string doDumpThrottleMap(T begin, T end)
   return "dumped "+std::to_string(total)+" records\n";
 }
 
-uint64_t* pleaseWipeCache(const DNSName& canon, bool subtree)
+template<typename T>
+static string doDumpFailedServers(T begin, T end)
 {
-  return new uint64_t(t_RC->doWipeCache(canon, subtree));
+  T i=begin;
+  string fname;
+
+  if(i!=end)
+    fname=*i;
+
+  int fd=open(fname.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0660);
+  if(fd < 0)
+    return "Error opening dump file for writing: "+stringerror()+"\n";
+  uint64_t total = 0;
+  try {
+    total = broadcastAccFunction<uint64_t>(boost::bind(pleaseDumpFailedServers, fd));
+  }
+  catch(...){}
+
+  close(fd);
+  return "dumped "+std::to_string(total)+" records\n";
 }
 
-uint64_t* pleaseWipePacketCache(const DNSName& canon, bool subtree)
+uint64_t* pleaseWipeCache(const DNSName& canon, bool subtree, uint16_t qtype)
 {
-  return new uint64_t(t_packetCache->doWipePacketCache(canon,0xffff, subtree));
+  return new uint64_t(s_RC->doWipeCache(canon, subtree));
+}
+
+uint64_t* pleaseWipePacketCache(const DNSName& canon, bool subtree, uint16_t qtype)
+{
+  return new uint64_t(t_packetCache->doWipePacketCache(canon, qtype, subtree));
 }
 
 
@@ -386,7 +413,7 @@ uint64_t* pleaseWipeAndCountNegCache(const DNSName& canon, bool subtree)
 
 
 template<typename T>
-static string doWipeCache(T begin, T end)
+static string doWipeCache(T begin, T end, uint16_t qtype)
 {
   vector<pair<DNSName, bool> > toWipe;
   for(T i=begin; i != end; ++i) {
@@ -408,8 +435,8 @@ static string doWipeCache(T begin, T end)
 
   int count=0, pcount=0, countNeg=0;
   for (auto wipe : toWipe) {
-    count+= broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, wipe.first, wipe.second));
-    pcount+= broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, wipe.first, wipe.second));
+    count+= broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, wipe.first, wipe.second, qtype));
+    pcount+= broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, wipe.first, wipe.second, qtype));
     countNeg+=broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, wipe.first, wipe.second));
   }
 
@@ -419,7 +446,7 @@ static string doWipeCache(T begin, T end)
 template<typename T>
 static string doSetCarbonServer(T begin, T end)
 {
-  Lock l(&g_carbon_config_lock);
+  std::lock_guard<std::mutex> l(g_carbon_config_lock);
   if(begin==end) {
     ::arg().set("carbon-server").clear();
     return "cleared carbon-server setting\n";
@@ -511,8 +538,8 @@ static string doAddNTA(T begin, T end)
   g_luaconfs.modify([who, why](LuaConfigItems& lci) {
       lci.negAnchors[who] = why;
       });
-  broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, who, true));
-  broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, who, true));
+  broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, who, true, 0xffff));
+  broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, who, true, 0xffff));
   broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, who, true));
   return "Added Negative Trust Anchor for " + who.toLogString() + " with reason '" + why + "'\n";
 }
@@ -559,8 +586,8 @@ static string doClearNTA(T begin, T end)
     g_luaconfs.modify([entry](LuaConfigItems& lci) {
         lci.negAnchors.erase(entry);
       });
-    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, entry, true));
-    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, entry, true));
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, entry, true, 0xffff));
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, entry, true, 0xffff));
     broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, entry, true));
     if (!first) {
       first = false;
@@ -616,8 +643,8 @@ static string doAddTA(T begin, T end)
       auto ds=std::dynamic_pointer_cast<DSRecordContent>(DSRecordContent::make(what));
       lci.dsAnchors[who].insert(*ds);
       });
-    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, who, true));
-    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, who, true));
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, who, true, 0xffff));
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, who, true, 0xffff));
     broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, who, true));
     g_log<<Logger::Warning<<endl;
     return "Added Trust Anchor for " + who.toStringRootDot() + " with data " + what + "\n";
@@ -662,8 +689,8 @@ static string doClearTA(T begin, T end)
     g_luaconfs.modify([entry](LuaConfigItems& lci) {
         lci.dsAnchors.erase(entry);
       });
-    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, entry, true));
-    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, entry, true));
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeCache, entry, true, 0xffff));
+    broadcastAccFunction<uint64_t>(boost::bind(pleaseWipePacketCache, entry, true, 0xffff));
     broadcastAccFunction<uint64_t>(boost::bind(pleaseWipeAndCountNegCache, entry, true));
     if (!first) {
       first = false;
@@ -885,6 +912,16 @@ static uint64_t getNsSpeedsSize()
   return broadcastAccFunction<uint64_t>(pleaseGetNsSpeedsSize);
 }
 
+uint64_t* pleaseGetFailedServersSize()
+{
+  return new uint64_t(SyncRes::getFailedServersSize());
+}
+
+uint64_t* pleaseGetEDNSStatusesSize()
+{
+  return new uint64_t(SyncRes::getEDNSStatusesSize());
+}
+
 uint64_t* pleaseGetConcurrentQueries()
 {
   return new uint64_t(getMT() ? getMT()->numProcesses() : 0);
@@ -895,19 +932,9 @@ static uint64_t getConcurrentQueries()
   return broadcastAccFunction<uint64_t>(pleaseGetConcurrentQueries);
 }
 
-uint64_t* pleaseGetCacheSize()
-{
-  return new uint64_t(t_RC ? t_RC->size() : 0);
-}
-
-static uint64_t* pleaseGetCacheBytes()
-{
-  return new uint64_t(t_RC ? t_RC->bytes() : 0);
-}
-
 static uint64_t doGetCacheSize()
 {
-  return broadcastAccFunction<uint64_t>(pleaseGetCacheSize);
+  return s_RC->size();
 }
 
 static uint64_t doGetAvgLatencyUsec()
@@ -917,27 +944,17 @@ static uint64_t doGetAvgLatencyUsec()
 
 static uint64_t doGetCacheBytes()
 {
-  return broadcastAccFunction<uint64_t>(pleaseGetCacheBytes);
-}
-
-uint64_t* pleaseGetCacheHits()
-{
-  return new uint64_t(t_RC ? t_RC->cacheHits : 0);
+  return s_RC->bytes();
 }
 
 static uint64_t doGetCacheHits()
 {
-  return broadcastAccFunction<uint64_t>(pleaseGetCacheHits);
-}
-
-uint64_t* pleaseGetCacheMisses()
-{
-  return new uint64_t(t_RC ? t_RC->cacheMisses : 0);
+  return s_RC->cacheHits;
 }
 
 static uint64_t doGetCacheMisses()
 {
-  return broadcastAccFunction<uint64_t>(pleaseGetCacheMisses);
+  return s_RC->cacheMisses;
 }
 
 uint64_t* pleaseGetPacketCacheSize()
@@ -1089,6 +1106,7 @@ void registerAllStats()
   addGetStat("ipv6-outqueries", &g_stats.ipv6queries);
   addGetStat("throttled-outqueries", &SyncRes::s_throttledqueries);
   addGetStat("dont-outqueries", &SyncRes::s_dontqueries);
+  addGetStat("qname-min-fallback-success", &SyncRes::s_qnameminfallbacksuccess);
   addGetStat("throttled-out", &SyncRes::s_throttledqueries);
   addGetStat("unreachables", &SyncRes::s_unreachables);
   addGetStat("ecs-queries", &SyncRes::s_ecsqueries);
@@ -1124,6 +1142,11 @@ void registerAllStats()
   addGetStat("user-msec", getUserTimeMsec);
   addGetStat("sys-msec", getSysTimeMsec);
 
+#ifdef __linux__
+  addGetStat("cpu-iowait", boost::bind(getCPUIOWait, string()));
+  addGetStat("cpu-steal", boost::bind(getCPUSteal, string()));
+#endif
+
   for(unsigned int n=0; n < g_numThreads; ++n)
     addGetStat("cpu-msec-thread-"+std::to_string(n), boost::bind(&doGetThreadCPUMsec, n));
 
@@ -1149,6 +1172,8 @@ void registerAllStats()
 
   addGetStat("rebalanced-queries", &g_stats.rebalancedQueries);
 
+  addGetStat("proxy-protocol-invalid", &g_stats.proxyProtocolInvalidCount);
+
   /* make sure that the ECS stats are properly initialized */
   SyncRes::clearECSStats();
   for (size_t idx = 0; idx < SyncRes::s_ecsResponsesBySubnetSize4.size(); idx++) {
@@ -1165,15 +1190,16 @@ void doExitGeneric(bool nicely)
 {
   g_log<<Logger::Error<<"Exiting on user request"<<endl;
   extern RecursorControlChannel s_rcc;
-  s_rcc.~RecursorControlChannel(); 
+  s_rcc.~RecursorControlChannel();
 
   extern string s_pidfname;
-  if(!s_pidfname.empty()) 
+  if(!s_pidfname.empty())
     unlink(s_pidfname.c_str()); // we can at least try..
-  if(nicely)
-    exit(1);
-  else
+  if(nicely) {
+    RecursorControlChannel::stop = 1;
+  } else {
     _exit(1);
+  }
 }
 
 void doExit()
@@ -1290,7 +1316,7 @@ vector<ComboAddress>* pleaseGetTimeouts()
   return ret;
 }
 
-string doGenericTopRemotes(pleaseremotefunc_t func)
+static string doGenericTopRemotes(pleaseremotefunc_t func)
 {
   typedef map<ComboAddress, int, ComboAddress::addressOnlyLessThan> counts_t;
   counts_t counts;
@@ -1358,7 +1384,7 @@ static DNSName nopFilter(const DNSName& name)
   return name;
 }
 
-string doGenericTopQueries(pleasequeryfunc_t func, boost::function<DNSName(const DNSName&)> filter=nopFilter)
+static string doGenericTopQueries(pleasequeryfunc_t func, boost::function<DNSName(const DNSName&)> filter=nopFilter)
 {
   typedef pair<DNSName,uint16_t> query_t;
   typedef map<query_t, int> counts_t;
@@ -1437,7 +1463,7 @@ static string addDontThrottleNames(T begin, T end) {
     dnt.add(d);
   }
 
-  g_dontThrottleNames.setState(dnt);
+  g_dontThrottleNames.setState(std::move(dnt));
 
   ret += " to the list of nameservers that may not be throttled";
   g_log<<Logger::Info<<ret<<", requested via control channel"<<endl;
@@ -1476,7 +1502,7 @@ static string addDontThrottleNetmasks(T begin, T end) {
     dnt.addMask(t);
   }
 
-  g_dontThrottleNetmasks.setState(dnt);
+  g_dontThrottleNetmasks.setState(std::move(dnt));
 
   ret += " to the list of nameserver netmasks that may not be throttled";
   g_log<<Logger::Info<<ret<<", requested via control channel"<<endl;
@@ -1490,7 +1516,7 @@ static string clearDontThrottleNames(T begin, T end) {
 
   if (begin + 1 == end && *begin == "*"){
     SuffixMatchNode smn;
-    g_dontThrottleNames.setState(smn);
+    g_dontThrottleNames.setState(std::move(smn));
     string ret = "Cleared list of nameserver names that may not be throttled";
     g_log<<Logger::Warning<<ret<<", requested via control channel"<<endl;
     return ret + "\n";
@@ -1522,7 +1548,7 @@ static string clearDontThrottleNames(T begin, T end) {
     dnt.remove(name);
   }
 
-  g_dontThrottleNames.setState(dnt);
+  g_dontThrottleNames.setState(std::move(dnt));
 
   ret += " from the list of nameservers that may not be throttled";
   g_log<<Logger::Info<<ret<<", requested via control channel"<<endl;
@@ -1537,7 +1563,7 @@ static string clearDontThrottleNetmasks(T begin, T end) {
   if (begin + 1 == end && *begin == "*"){
     auto nmg = g_dontThrottleNetmasks.getCopy();
     nmg.clear();
-    g_dontThrottleNetmasks.setState(nmg);
+    g_dontThrottleNetmasks.setState(std::move(nmg));
 
     string ret = "Cleared list of nameserver addresses that may not be throttled";
     g_log<<Logger::Warning<<ret<<", requested via control channel"<<endl;
@@ -1574,7 +1600,7 @@ static string clearDontThrottleNetmasks(T begin, T end) {
     dnt.deleteMask(mask);
   }
 
-  g_dontThrottleNetmasks.setState(dnt);
+  g_dontThrottleNetmasks.setState(std::move(dnt));
 
   ret += " from the list of nameservers that may not be throttled";
   g_log<<Logger::Info<<ret<<", requested via control channel"<<endl;
@@ -1612,7 +1638,8 @@ string RecursorControlParser::getAnswer(const string& question, RecursorControlP
 "dump-edns [status] <filename>    dump EDNS status to the named file\n"
 "dump-nsspeeds <filename>         dump nsspeeds statistics to the named file\n"
 "dump-rpz <zone name> <filename>  dump the content of a RPZ zone to the named file\n"
-"dump-throttlemap <filename>      dump the contents of the throttle to the named file\n"
+"dump-throttlemap <filename>      dump the contents of the throttle map to the named file\n"
+"dump-failedservers <filename>    dump the failed servers to the named file\n"
 "get [key1] [key2] ..             get specific statistics\n"
 "get-all                          get all statistics\n"
 "get-dont-throttle-names          get the list of names that are not allowed to be throttled\n"
@@ -1650,7 +1677,8 @@ string RecursorControlParser::getAnswer(const string& question, RecursorControlP
 "top-bogus-remotes                show top remotes receiving bogus answers\n"
 "unload-lua-script                unload Lua script\n"
 "version                          return Recursor version number\n"
-"wipe-cache domain0 [domain1] ..  wipe domain data from cache\n";
+"wipe-cache domain0 [domain1] ..  wipe domain data from cache\n"
+"wipe-cache-typed type domain0 [domain1] ..  wipe domain data with qtype from cache\n";
 
   if(cmd=="get-all")
     return getAllStats();
@@ -1684,6 +1712,9 @@ string RecursorControlParser::getAnswer(const string& question, RecursorControlP
   if(cmd=="dump-nsspeeds")
     return doDumpNSSpeeds(begin, end);
 
+  if(cmd=="dump-failedservers")
+    return doDumpFailedServers(begin, end);
+
   if(cmd=="dump-rpz") {
     return doDumpRPZ(begin, end);
   }
@@ -1692,7 +1723,13 @@ string RecursorControlParser::getAnswer(const string& question, RecursorControlP
    return doDumpThrottleMap(begin, end);
 
   if(cmd=="wipe-cache" || cmd=="flushname")
-    return doWipeCache(begin, end);
+    return doWipeCache(begin, end, 0xffff);
+
+  if(cmd=="wipe-cache-typed") {
+    uint16_t qtype = QType::chartocode(begin->c_str());
+    ++begin;
+    return doWipeCache(begin, end, qtype);
+  }
 
   if(cmd=="reload-lua-script")
     return doQueueReloadLuaScript(begin, end);

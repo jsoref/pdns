@@ -134,10 +134,10 @@ shared_ptr<DNSCryptoKeyEngine> DNSCryptoKeyEngine::makeFromISCString(DNSKEYRecor
 
 std::string DNSCryptoKeyEngine::convertToISC() const
 {
-  storvector_t stormap = this->convertToISCVector();
+  storvector_t storvector = this->convertToISCVector();
   ostringstream ret;
   ret<<"Private-key-format: v1.2\n";
-  for(const stormap_t::value_type& value :  stormap) {
+  for(const storvector_t::value_type& value :  storvector) {
     if(value.first != "Algorithm" && value.first != "PIN" && 
        value.first != "Slot" && value.first != "Engine" &&
        value.first != "Label" && value.first != "PubLabel")
@@ -351,12 +351,6 @@ shared_ptr<DNSCryptoKeyEngine> DNSCryptoKeyEngine::makeFromPEMString(DNSKEYRecor
   return 0;
 }
 
-
-static bool sharedDNSSECCompare(const shared_ptr<DNSRecordContent>& a, const shared_ptr<DNSRecordContent>& b)
-{
-  return a->serialize(g_rootdnsname, true, true) < b->serialize(g_rootdnsname, true, true);
-}
-
 /**
  * Returns the string that should be hashed to create/verify the RRSIG content
  *
@@ -370,10 +364,8 @@ static bool sharedDNSSECCompare(const shared_ptr<DNSRecordContent>& a, const sha
  *                            purposes, as the authoritative server correctly
  *                            sets qname to the wildcard.
  */
-string getMessageForRRSET(const DNSName& qname, const RRSIGRecordContent& rrc, vector<shared_ptr<DNSRecordContent> >& signRecords, bool processRRSIGLabels)
+string getMessageForRRSET(const DNSName& qname, const RRSIGRecordContent& rrc, const sortedRecords_t& signRecords, bool processRRSIGLabels)
 {
-  sort(signRecords.begin(), signRecords.end(), sharedDNSSECCompare);
-
   string toHash;
   toHash.append(const_cast<RRSIGRecordContent&>(rrc).serialize(g_rootdnsname, true, true));
   toHash.resize(toHash.size() - rrc.d_signature.length()); // chop off the end, don't sign the signature!
@@ -396,7 +388,7 @@ string getMessageForRRSET(const DNSName& qname, const RRSIGRecordContent& rrc, v
     }
   }
 
-  for(shared_ptr<DNSRecordContent>& add :  signRecords) {
+  for(const shared_ptr<DNSRecordContent>& add : signRecords) {
     toHash.append(nameToHash);
     uint16_t tmp=htons(rrc.d_type);
     toHash.append((char*)&tmp, 2);
@@ -640,7 +632,7 @@ static bool constantTimeStringEquals(const std::string& a, const std::string& b)
     return false;
   }
   const size_t size = a.size();
-#if OPENSSL_VERSION_NUMBER >= 0x0090819fL
+#ifdef HAVE_CRYPTO_MEMCMP
   return CRYPTO_memcmp(a.c_str(), b.c_str(), size) == 0;
 #else
   const volatile unsigned char *_a = (const volatile unsigned char *) a.c_str();

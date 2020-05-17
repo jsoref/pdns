@@ -2,6 +2,195 @@ Changelogs for 4.3.x
 ====================
 
 .. changelog::
+  :version: 4.3.0
+  :released: 3rd of March 2020
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8870
+
+    Only log qname parsing errors when 'log-common-errors' is set.
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8863
+
+    Update copyright year.
+
+.. changelog::
+  :version: 4.3.0-rc2
+  :released: 18th of February 2020
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8831
+
+    Refuse NSEC records with a bitmap length > 32.
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8827
+
+    Do continue rpz processing if the current policy is passthru.
+
+.. changelog::
+  :version: 4.3.0-rc1
+  :released: 3rd of February 2020
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8751
+
+    Update boost.m4.
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8738
+
+    Explicitly enable dnstap for debian-stretch and buster.
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8730
+
+    Make ``ComboAddress::setPort()`` update the current object.
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8728
+
+    EPEL 8 now has libfstrm-devel.
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8727
+
+    Fix the evaluation order for filtering policies (RPZ).
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8726
+
+    Give an explicit message if something is wrong with socket-dir.
+
+.. changelog::
+  :version: 4.3.0-beta2
+  :released: 16th of January 2020
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8704
+
+    Add the source and destination ports to the protobuf msg.
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8673
+
+    Debian postinst / do not fail on user creation if it already exists.
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8685
+    :tickets:  8676
+
+    Parsing `dont-throttle-names` and `dont-throttle-netmasks` as comma separated lists. (costypetrisor)
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8692
+    :tickets: 8664
+
+    An Opt-Out NSEC3 RR only proves that there is no secure delegation.
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8670
+    :tickets: 8642
+
+    Fix wrong zoneCuts caused by cache only lookup.
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8675
+    :tickets: 8646
+
+    Increase default max-qperq.
+
+.. changelog::
+  :version: 4.3.0-beta1
+  :released: 12th of December 2019
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8571
+
+    Better time based data structures
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8512
+
+    Remove duplicate RRs inside a RRSet when computing the signature
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8560
+
+    Check return value of dup() and avoid fd leak if if fdopen() fails
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8559
+    :tickets: 8558
+
+    Avoid startup race by setting the state of a thread before starting it.
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8561, 8477
+
+    QName Minimization is no longer experimental and is now enabled by default.
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8525
+    :tickets: 7771
+
+    Purge map of failed auths periodically by keeping a last changed timestamp.
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8521
+    :tickets: 8518
+
+    Make threads run until asked to stop.
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8440
+
+    Fix -Wshadow warnings (Aki Tuomi)
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8511
+
+    Do RFC 8020 only if cache entry is dnssec validated
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8510
+
+    Avoid mthread race when using the set of rootNSZones.
+
+  .. change::
+    :tags: Improvements
+    :pullreq: 8492
+
+    Add a parameter to limit the number of '$GENERATE' steps
+
+.. changelog::
   :version: 4.3.0-alpha3
   :released: 29th of October 2019
 
@@ -386,7 +575,7 @@ Changelogs for 4.3.x
     :tags: New Features
     :pullreq: 7538
 
-    Rec dnstap
+    DNSTAP logging for queries to, and responses from, auths
 
   .. change::
     :tags: Internals, Improvements
@@ -411,5 +600,4 @@ Changelogs for 4.3.x
     :pullreq: 7841
 
     Recursor: log udp tc bits during trace
-
 

@@ -68,7 +68,13 @@ static void dokill(int)
 
 string DLCurrentConfigHandler(const vector<string>&parts, Utility::pid_t ppid)
 {
-  return ::arg().configstring(true);
+  if(parts.size() > 1) {
+    if(parts.size() == 2 && parts[1] == "diff") {
+      return ::arg().configstring(true, false);
+    }
+    return "Syntax: current-config [diff]";
+  }
+  return ::arg().configstring(true, true);
 }
 
 string DLRQuitHandler(const vector<string>&parts, Utility::pid_t ppid)
@@ -122,7 +128,6 @@ string DLUptimeHandler(const vector<string>&parts, Utility::pid_t ppid)
 
 string DLPurgeHandler(const vector<string>&parts, Utility::pid_t ppid)
 {
-  DNSSECKeeper dk;
   ostringstream os;
   int ret=0;
 
@@ -130,14 +135,14 @@ string DLPurgeHandler(const vector<string>&parts, Utility::pid_t ppid)
     for (vector<string>::const_iterator i=++parts.begin();i<parts.end();++i) {
       ret+=purgeAuthCaches(*i);
       if(!boost::ends_with(*i, "$"))
-	dk.clearCaches(DNSName(*i));
+        DNSSECKeeper::clearCaches(DNSName(*i));
       else
-	dk.clearAllCaches(); // at least we do what we promise.. and a bit more!
+        DNSSECKeeper::clearAllCaches(); // at least we do what we promise.. and a bit more!
     }
   }
   else {
     ret = purgeAuthCaches();
-    dk.clearAllCaches();
+    DNSSECKeeper::clearAllCaches();
   }
 
   os<<ret;
@@ -249,7 +254,7 @@ string DLNotifyRetrieveHandler(const vector<string>&parts, Utility::pid_t ppid)
   if(di.kind != DomainInfo::Slave || di.masters.empty())
     return "Domain '"+domain.toString()+"' is not a slave domain (or has no master defined)";
 
-  random_shuffle(di.masters.begin(), di.masters.end());
+  shuffle(di.masters.begin(), di.masters.end(), pdns::dns_random_engine());
   Communicator.addSuckRequest(domain, di.masters.front()); 
   return "Added retrieval request for '"+domain.toString()+"' from master "+di.masters.front().toLogString();
 }

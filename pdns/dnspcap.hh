@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_DNSPCAP_HH
-#define PDNS_DNSPCAP_HH
-
+#pragma once
 #include <cstdio>
 #include <stdexcept>
 #include "iputils.hh"
@@ -85,7 +83,7 @@ public:
   class EofException : public runtime_error
   {
   public:
-    EofException(const string& str="") : runtime_error(str)
+    EofException(const string& str="PcapPacketReader::EofException") : runtime_error(str)
     {
     }
   };
@@ -143,5 +141,3 @@ private:
   FILE *d_fp;
   bool d_first{true};
 }; 
-
-#endif // DNSPCAP_HH

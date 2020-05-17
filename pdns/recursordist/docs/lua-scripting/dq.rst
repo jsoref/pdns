@@ -168,9 +168,19 @@ The DNSQuestion object contains at least the following fields:
 
   .. method:: DNSQuestion:addPolicyTag(tag)
 
-     Add a policy tag.
+     Add policyTag ``tag`` to the list of policyTags.
 
      :param str tag: The tag to add
+
+  .. method:: DNSQuestion:getPolicyTags() -> {str}
+
+      Get the current policy tags as a table of strings.
+
+  .. method:: DNSQuestion:setPolicyTags(tags)
+
+      Set the policy tags to ``tags``, overwriting any existing policy tags.
+
+      :param {str} tags: The policy tags
 
   .. method:: DNSQuestion:discardPolicy(policyname)
 
@@ -183,19 +193,15 @@ The DNSQuestion object contains at least the following fields:
 
       Returns the :class:`DNSHeader` of the query or nil.
 
-  .. method:: DNSQuestion:getPolicyTags() -> {str}
+  .. method:: DNSQuestion:getProxyProtocolValues() -> {ProxyProtocolValue}
 
-      Get the current policy tags as a table of strings.
+    .. versionadded:: 4.4.0
+
+      Get the Proxy Protocol Type-Length Values if any, as a table of  :class:`ProxyProtocolValue` objects.
 
   .. method:: DNSQuestion:getRecords() -> {DNSRecord}
 
       Get a table of DNS Records in this DNS Question (or answer by now).
-
-  .. method:: DNSQuestion:setPolicyTags(tags)
-
-      Set the policy tags to ``tags``, overwriting any existing policy tags.
-
-      :param {str} tags: The policy tags
 
   .. method:: DNSQuestion:setRecords(records)
 
@@ -224,16 +230,6 @@ The DNSQuestion object contains at least the following fields:
   .. method:: DNSQuestion:getEDNSSubnet() -> Netmask
 
       Returns the :class:`Netmask` specified in the EDNSSubnet option, or empty if there was none.
-
-  .. method:: DNSQuestion:addPolicyTag(tag)
-
-      Add policyTag ``tag`` to the list of policyTags
-
-      :param str tag: The tag to add
-
-  .. method:: DNSQuestion:getPolicyTags() -> {str}
-
-      Get a list the policyTags for this message.
 
 DNSHeader Object
 ================
@@ -300,3 +296,20 @@ The EDNSOptionView Class
   .. method:: EDNSOptionView:getContent()
 
     Returns a NULL-safe string object of the first value of this EDNS option.
+
+The ProxyProtocolValue Class
+============================
+
+.. class:: ProxyProtocolValue
+
+  .. versionadded:: 4.4.0
+
+  An object that represents the value of a Proxy Protocol Type-Length Value
+
+  .. method:: ProxyProtocolValue:getContent() -> str
+
+    Returns a NULL-safe string object.
+
+  .. method:: ProxyProtocolValue:getType() -> int
+
+    Returns the type of this value.

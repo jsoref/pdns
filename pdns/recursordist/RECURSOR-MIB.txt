@@ -15,7 +15,7 @@ IMPORTS
         FROM SNMPv2-CONF;
 
 rec MODULE-IDENTITY
-    LAST-UPDATED "201812240000Z"
+    LAST-UPDATED "202002170000Z"
     ORGANIZATION "PowerDNS BV"
     CONTACT-INFO "support@powerdns.com"
     DESCRIPTION
@@ -26,6 +26,12 @@ rec MODULE-IDENTITY
 
     REVISION "201812240000Z"
     DESCRIPTION "Added the dnssecAuthenticDataQueries and dnssecCheckDisabledQueries stats."
+
+    REVISION "201911140000Z"
+    DESCRIPTION "Added qnameMinFallbackSuccess stats."
+
+    REVISION "202002170000Z"
+    DESCRIPTION "Added proxyProtocolInvalid metric."
 
     ::= { powerdns 2 }
 
@@ -825,6 +831,22 @@ rebalancedQueries OBJECT-TYPE
         "Number of queries re-distributed because the first selected worker thread was above the target load"
     ::= { stats 99 }
 
+qnameMinFallbackSuccess OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of successful queries due to fallback mechanism within 'qname-minimization' setting"
+    ::= { stats 100 }
+
+proxyProtocolInvalid OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+        "Number of invalid proxy protocol headers received"
+    ::= { stats 101 }
+
 ---
 --- Traps / Notifications
 ---
@@ -967,7 +989,9 @@ recGroup OBJECT-GROUP
         variableResponses,
         specialMemoryUsage,
         rebalancedQueries,
-        trapReason
+        trapReason,
+        qnameMinFallbackSuccess,
+        proxyProtocolInvalid
     }
     STATUS current
     DESCRIPTION "Objects conformance group for PowerDNS Recursor"

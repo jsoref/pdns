@@ -19,12 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_DYNLISTENER
-#define PDNS_DYNLISTENER
-
+#pragma once
 #include <string>
 #include <vector>
-#include <pthread.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <iostream>
@@ -47,7 +44,6 @@ public:
   ~DynListener();
   void go();
   void theListener();
-  static void *theListenerHelper(void *p);
 
   typedef string g_funk_t(const vector<string> &parts, Utility::pid_t ppid); // guido!
   typedef struct { g_funk_t *func; string args; string usage; } g_funkwithusage_t;
@@ -68,7 +64,6 @@ private:
   NetmaskGroup d_tcprange;
   int d_s{-1};
   int d_client{-1};
-  pthread_t d_tid{0};
   bool d_nonlocal;
   bool d_tcp{false};
   pid_t d_ppid{0};
@@ -79,4 +74,3 @@ private:
   static g_funk_t* s_restfunc;
   bool testLive(const string& fname);
 };
-#endif /* PDNS_DYNLISTENER */

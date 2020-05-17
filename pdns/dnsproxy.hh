@@ -19,10 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PDNS_DNSPROXY
-#define PDNS_DNSPROXY
-#include <pthread.h>
+#pragma once
 #include <map>
+#include <mutex>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -57,11 +56,6 @@ public:
   bool completePacket(std::unique_ptr<DNSPacket>& r, const DNSName& target,const DNSName& aname, const uint8_t scopeMask);
 
   void mainloop();                  //!< this is the main loop that receives reply packets and sends them out again
-  static void *launchhelper(void *p)
-  {
-    static_cast<DNSProxy *>(p)->mainloop();
-    return 0;
-  }
   bool recurseFor(DNSPacket* p);
 private:
   struct ConntrackEntry
@@ -85,11 +79,9 @@ private:
   AtomicCounter* d_resanswers;
   AtomicCounter* d_udpanswers;
   AtomicCounter* d_resquestions;
-  pthread_mutex_t d_lock;
+  std::mutex d_lock;
   map_t d_conntrack;
   int d_sock;
   int getID_locked();
   uint16_t d_xor;
 };
-
-#endif

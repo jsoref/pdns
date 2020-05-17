@@ -101,7 +101,7 @@ const char *funnytext=
 This file is where it all happens - main is here, as are the two pivotal threads qthread() and athread()
 */
 
-void daemonize(void)
+static void daemonize(void)
 {
   if(fork())
     exit(0); // bye bye
@@ -154,7 +154,7 @@ static void writePid(void)
 
 int g_fd1[2], g_fd2[2];
 FILE *g_fp;
-pthread_mutex_t g_guardian_lock = PTHREAD_MUTEX_INITIALIZER;
+std::mutex g_guardian_lock;
 
 // The next two methods are not in dynhandler.cc because they use a few items declared in this file.
 static string DLCycleHandler(const vector<string>&parts, pid_t ppid)
@@ -176,7 +176,7 @@ static string DLRestHandler(const vector<string>&parts, pid_t ppid)
   }
   line.append(1,'\n');
   
-  Lock l(&g_guardian_lock);
+  std::lock_guard<std::mutex> l(g_guardian_lock);
 
   try {
     writen2(g_fd1[1],line.c_str(),line.size()+1);
@@ -216,7 +216,7 @@ static int guardian(int argc, char **argv)
   bool first=true;
   cpid=0;
 
-  pthread_mutex_lock(&g_guardian_lock);
+  g_guardian_lock.lock();
 
   for(;;) {
     int pid;
@@ -292,7 +292,7 @@ static int guardian(int argc, char **argv)
 
         writePid();
       }
-      pthread_mutex_unlock(&g_guardian_lock);  
+      g_guardian_lock.unlock();
       int status;
       cpid=pid;
       for(;;) {
@@ -314,7 +314,7 @@ static int guardian(int argc, char **argv)
         }
       }
 
-      pthread_mutex_lock(&g_guardian_lock);
+      g_guardian_lock.lock();
       close(g_fd1[1]);
       fclose(g_fp);
       g_fp=0;
@@ -415,7 +415,7 @@ int main(int argc, char **argv)
     string configname=::arg()["config-dir"]+"/"+s_programname+".conf";
     cleanSlashes(configname);
 
-    if(!::arg().mustDo("config") && !::arg().mustDo("no-config")) // "config" == print a configuration file
+    if(::arg()["config"] != "default" && !::arg().mustDo("no-config")) // "config" == print a configuration file
       ::arg().laxFile(configname.c_str());
     
     ::arg().laxParse(argc,argv); // reparse so the commandline still wins
@@ -494,7 +494,7 @@ int main(int argc, char **argv)
       }
       cerr<<" (";
       bool first = true;
-      for (auto const c : ::arg().getCommands()) {
+      for (const auto& c : ::arg().getCommands()) {
         if (!first) {
           cerr<<", ";
         }
@@ -512,7 +512,25 @@ int main(int argc, char **argv)
     }
     
     if(::arg().mustDo("config")) {
-      cout<<::arg().configstring()<<endl;
+      string config = ::arg()["config"];
+      if (config == "default") {
+        cout<<::arg().configstring(false, true);
+      } else if (config == "diff") {
+          cout<<::arg().configstring(true, false);
+      } else if (config == "check") {
+        try {
+          if(!::arg().mustDo("no-config"))
+            ::arg().file(configname.c_str());
+          ::arg().parse(argc,argv);
+          exit(0);
+        }
+        catch(const ArgException &A) {
+          cerr<<"Fatal error: "<<A.reason<<endl;
+          exit(1);
+        }
+      } else {
+        cout<<::arg().configstring(true, true);
+      }
       exit(0);
     }
 
@@ -569,7 +587,7 @@ int main(int argc, char **argv)
     DynListener::registerFunc("REMOTES", &DLRemotesHandler, "get top remotes");
     DynListener::registerFunc("SET",&DLSettingsHandler, "set config variables", "<var> <value>");
     DynListener::registerFunc("RETRIEVE",&DLNotifyRetrieveHandler, "retrieve slave domain", "<domain>");
-    DynListener::registerFunc("CURRENT-CONFIG",&DLCurrentConfigHandler, "retrieve the current configuration");
+    DynListener::registerFunc("CURRENT-CONFIG",&DLCurrentConfigHandler, "retrieve the current configuration", "[diff|default]");
     DynListener::registerFunc("LIST-ZONES",&DLListZones, "show list of zones", "[master|slave|native]");
     DynListener::registerFunc("TOKEN-LOGIN", &DLTokenLogin, "Login to a PKCS#11 token", "<module> <slot> <pin>");
 

@@ -8,6 +8,88 @@ Please upgrade to the PowerDNS Authoritative Server 4.0.0 from 3.4.2+.
 See the `3.X <https://doc.powerdns.com/3/authoritative/upgrading/>`__
 upgrade notes if your version is older than 3.4.2.
 
+4.2.x to 4.3.0
+--------------
+
+NSEC(3) TTL changed
+^^^^^^^^^^^^^^^^^^^
+
+NSEC(3) records now use the negative TTL, instead of the SOA minimum TTL.
+See :ref:`the DNSSEC TTL notes <dnssec-ttl-notes>`  for more information.
+
+Lua Netmask class methods changed
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Netmask class methods ``isIpv4`` and ``isIpv6`` have been deprecated in Lua, use :func:`Netmask.isIPv4` and :func:`Netmask.isIPv6` instead. In the C++ API, these methods have been removed.
+
+``socket-dir`` changed
+^^^^^^^^^^^^^^^^^^^^^^
+The default :ref:`setting-socket-dir` has changed to include ``pdns`` in the path.
+It is now whatever is passed to ``--with-socketdir`` during configure (``/var/run`` by default) plus ``pdns``.
+The systemd unit-file is updated to reflect this change and systemd will automatically create the directory with the proper permissions.
+The packaged sysV init-script also creates this directory.
+For other operating systems, update your init-scripts accordingly.
+
+Systemd service and permissions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The systemd service-file that is installed no longer uses the ``root`` user to start.
+It uses the user and group set with the ``--with-service-user`` and ``--with-service-group`` switches during configuration, "pdns" by default.
+This could mean that PowerDNS cannot read its configuration or zone-file data.
+It is recommended to recursively ``chown`` directories used by PowerDNS::
+
+  # For Debian-based systems
+  chown -R root:pdns /etc/powerdns
+  chown -R pdns:pdns /var/lib/powerdns
+
+  # For CentOS and RHEL based systems
+  chown -R root:pdns /etc/pdns
+  chown -R pdns:pdns /var/lib/pdns
+
+Packages provided on `the PowerDNS Repository <https://repo.powerdns.com>`__ will ``chown`` directories created by them accordingly in the post-installation steps.
+
+New settings
+^^^^^^^^^^^^
+
+- The :ref:`setting-axfr-fetch-timeout` setting has been added. This setting controls how long an inbound AXFR may be idle in seconds. Its default is 10
+- The :ref:`setting-max-generate-steps` setting has been added. This sets the maximum number of steps that will be performed when loading a BIND zone with the ``$GENERATE`` directive. The default is 0, which is unlimited.
+
+Removed settings
+^^^^^^^^^^^^^^^^
+
+- :ref:`setting-local-ipv6` has been deprecated, and will be removed in 4.4.0. IPv4 and IPv6 listen addresses can now be set with :ref:`setting-local-address`. The default for the latter has been changed to ``0.0.0.0, ::``.
+
+Schema changes
+^^^^^^^^^^^^^^
+- The new 'unpublished DNSSEC keys' feature comes with a mandatory schema change for all database backends (including BIND with a DNSSEC database). Please find files named "4.2.0_to_4.3.0_schema.X.sql" for your database backend in our Git repo, tarball, or distro-specific documentation path. For the LMDB backend, please review :ref:`setting-lmdb-schema-version`.
+- If you are upgrading from beta2 or rc2, AND ONLY THEN, please read `pull request #8975 <https://github.com/PowerDNS/pdns/pull/8975>`__ very carefully.
+
+Implicit 5->7 algorithm upgrades
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Since version 3.0 (the first version of the PowerDNS Authoritative Server that supported DNSSEC signing), we have automatically, silently, upgraded algorithm 5 (RSASHA1) keys to algorithm 7 (RSASHA1-NSEC3-SHA1) when the user enabled NSEC3. This has been a source of confusion, and because of that, we introduced warnings for users of this feature in 4.0 and 4.1. To see if you are affected, run ``pdnsutil check-all-zones`` from version 4.0 or up. In this release, the automatic upgrade is gone, and affected zones will break if no action is taken.
+
+.. _ixfr-in-corruption-4.3.0:
+
+IXFR-in corruption
+^^^^^^^^^^^^^^^^^^
+
+A bug in PowerDNS versions before 4.2.2/4.3.0 would cause wrong deletion or addition of records if IXFR deltas came in very quickly (within the query cache timeout, which defaults to 20/60 seconds).
+If you have zones which use inbound IXFR (in other words, the ``IXFR`` metadata item for that zone is set to ``1``), we strongly suggest triggering a completely fresh transfer.
+You could accomplish that by deleting all records in the zone with an SQL query and waiting for a fresh transfer, or (1) disabling IXFR (2) forcing a fresh transfer using ``pdns_control retrieve example.com`` (3) enabling IXFR again.
+
+4.X.X to 4.2.2
+--------------
+
+.. _ixfr-in-corruption-4.2.2:
+
+IXFR-in corruption
+^^^^^^^^^^^^^^^^^^
+
+A bug in PowerDNS versions before 4.2.2/4.3.0 would cause wrong deletion or addition of records if IXFR deltas came in very quickly (within the query cache timeout, which defaults to 20/60 seconds).
+If you have zones which use inbound IXFR (in other words, the ``IXFR`` metadata item for that zone is set to ``1``), we strongly suggest triggering a completely fresh transfer.
+You could accomplish that by deleting all records in the zone with an SQL query and waiting for a fresh transfer, or (1) disabling IXFR (2) forcing a fresh transfer using ``pdns_control retrieve example.com`` (3) enabling IXFR again.
+
+
 4.1.X to 4.2.0
 --------------
 
