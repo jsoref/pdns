@@ -27,6 +27,7 @@
 #include <vector>
 #include <inttypes.h>
 #include <sys/un.h>
+#include <signal.h>
 #include <pthread.h>
 #include "iputils.hh"
 #include "dnsname.hh"
@@ -53,6 +54,7 @@ public:
   std::string recv(std::string* remote=0, unsigned int timeout=5);
 
   int d_fd;
+  static volatile sig_atomic_t stop;
 private:
   struct sockaddr_un d_local;
 };
@@ -71,7 +73,7 @@ public:
 enum class StatComponent { API, Carbon, RecControl, SNMP };
 
 std::map<std::string, std::string> getAllStatsMap(StatComponent component);
-extern pthread_mutex_t g_carbon_config_lock;
+extern std::mutex g_carbon_config_lock;
 std::vector<std::pair<DNSName, uint16_t> >* pleaseGetQueryRing();
 std::vector<std::pair<DNSName, uint16_t> >* pleaseGetServfailQueryRing();
 std::vector<std::pair<DNSName, uint16_t> >* pleaseGetBogusQueryRing();

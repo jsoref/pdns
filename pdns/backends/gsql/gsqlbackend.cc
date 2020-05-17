@@ -110,6 +110,8 @@ GSQLBackend::GSQLBackend(const string &mode, const string &suffix)
 
   d_ActivateDomainKeyQuery = getArg("activate-domain-key-query");
   d_DeactivateDomainKeyQuery = getArg("deactivate-domain-key-query");
+  d_PublishDomainKeyQuery = getArg("publish-domain-key-query");
+  d_UnpublishDomainKeyQuery = getArg("unpublish-domain-key-query");
   d_RemoveDomainKeyQuery = getArg("remove-domain-key-query");
   d_ClearDomainAllKeysQuery = getArg("clear-domain-all-keys-query");
 
@@ -166,6 +168,8 @@ GSQLBackend::GSQLBackend(const string &mode, const string &suffix)
   d_RemoveDomainKeyQuery_stmt = NULL;
   d_ActivateDomainKeyQuery_stmt = NULL;
   d_DeactivateDomainKeyQuery_stmt = NULL;
+  d_PublishDomainKeyQuery_stmt = NULL;
+  d_UnpublishDomainKeyQuery_stmt = NULL;
   d_ClearDomainAllKeysQuery_stmt = NULL;
   d_getTSIGKeyQuery_stmt = NULL;
   d_setTSIGKeyQuery_stmt = NULL;
@@ -712,6 +716,7 @@ bool GSQLBackend::addDomainKey(const DNSName& name, const KeyData& key, int64_t&
     d_AddDomainKeyQuery_stmt->
       bind("flags", key.flags)->
       bind("active", key.active)->
+      bind("published", key.published)->
       bind("content", key.content)->
       bind("domain", name)->
       execute()->
@@ -783,6 +788,48 @@ bool GSQLBackend::deactivateDomainKey(const DNSName& name, unsigned int id)
   }
   return true;
 }
+
+bool GSQLBackend::publishDomainKey(const DNSName& name, unsigned int id)
+{
+  if(!d_dnssecQueries)
+    return false;
+
+  try {
+    reconnectIfNeeded();
+
+    d_PublishDomainKeyQuery_stmt->
+      bind("domain", name)->
+      bind("key_id", id)->
+      execute()->
+      reset();
+  }
+  catch (SSqlException &e) {
+    throw PDNSException("GSQLBackend unable to publish key with id "+ std::to_string(id) + " for domain '" + name.toLogString() + "': "+e.txtReason());
+  }
+  return true;
+}
+
+bool GSQLBackend::unpublishDomainKey(const DNSName& name, unsigned int id)
+{
+  if(!d_dnssecQueries)
+    return false;
+
+  try {
+    reconnectIfNeeded();
+
+    d_UnpublishDomainKeyQuery_stmt->
+      bind("domain", name)->
+      bind("key_id", id)->
+      execute()->
+      reset();
+  }
+  catch (SSqlException &e) {
+    throw PDNSException("GSQLBackend unable to unpublish key with id "+ std::to_string(id) + " for domain '" + name.toLogString() + "': "+e.txtReason());
+  }
+  return true;
+}
+
+
 
 bool GSQLBackend::removeDomainKey(const DNSName& name, unsigned int id)
 {
@@ -919,14 +966,15 @@ bool GSQLBackend::getDomainKeys(const DNSName& name, std::vector<KeyData>& keys)
     KeyData kd;
     while(d_ListDomainKeysQuery_stmt->hasNextRow()) {
       d_ListDomainKeysQuery_stmt->nextRow(row);
-      ASSERT_ROW_COLUMNS("list-domain-keys-query", row, 4);
+      ASSERT_ROW_COLUMNS("list-domain-keys-query", row, 5);
       //~ for(const auto& val: row) {
         //~ cerr<<"'"<<val<<"'"<<endl;
       //~ }
       kd.id = pdns_stou(row[0]);
       kd.flags = pdns_stou(row[1]);
       kd.active = row[2] == "1";
-      kd.content = row[3];
+      kd.published = row[3] == "1";
+      kd.content = row[4];
       keys.push_back(kd);
     }
 
@@ -1748,12 +1796,15 @@ bool GSQLBackend::searchComments(const string &pattern, int maxResults, vector<C
   return false;
 }
 
-void GSQLBackend::extractRecord(const SSqlStatement::row_t& row, DNSResourceRecord& r)
+void GSQLBackend::extractRecord(SSqlStatement::row_t& row, DNSResourceRecord& r)
 {
+  static const int defaultTTL = ::arg().asNum( "default-ttl" );
+
   if (row[1].empty())
-      r.ttl = ::arg().asNum( "default-ttl" );
+      r.ttl = defaultTTL;
   else
       r.ttl=pdns_stou(row[1]);
+
   if(!d_qname.empty())
     r.qname=d_qname;
   else
@@ -1761,10 +1812,13 @@ void GSQLBackend::extractRecord(const SSqlStatement::row_t& row, DNSResourceReco
 
   r.qtype=row[3];
 
-  if (r.qtype==QType::MX || r.qtype==QType::SRV)
+  if (r.qtype==QType::MX || r.qtype==QType::SRV) {
+    r.content.reserve(row[2].size() + row[0].size() + 1);
     r.content=row[2]+" "+row[0];
-  else
-    r.content=row[0];
+  }
+  else {
+    r.content=std::move(row[0]);
+  }
 
   r.last_modified=0;
 
@@ -1778,14 +1832,14 @@ void GSQLBackend::extractRecord(const SSqlStatement::row_t& row, DNSResourceReco
   r.domain_id=pdns_stou(row[4]);
 }
 
-void GSQLBackend::extractComment(const SSqlStatement::row_t& row, Comment& comment)
+void GSQLBackend::extractComment(SSqlStatement::row_t& row, Comment& comment)
 {
   comment.domain_id = pdns_stou(row[0]);
   comment.qname = DNSName(row[1]);
   comment.qtype = row[2];
   comment.modified_at = pdns_stou(row[3]);
-  comment.account = row[4];
-  comment.content = row[5];
+  comment.account = std::move(row[4]);
+  comment.content = std::move(row[5]);
 }
 
 SSqlStatement::~SSqlStatement() { 

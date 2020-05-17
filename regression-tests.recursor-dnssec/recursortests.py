@@ -40,6 +40,7 @@ max-cache-ttl=15
 threads=1
 loglevel=9
 disable-syslog=yes
+log-common-errors=yes
 """
     _config_template = """
 """
@@ -148,7 +149,7 @@ insecure.sub2.secure.example. 3600 IN NS ns1.insecure.example.
 
 *.cnamewildcard.secure.example. 3600 IN CNAME host1.secure.example.
 
-*.cnamewildcardnxdomain.secure.example. 3600 IN CNAME doesntexist.secure.example.
+*.cnamewildcardnxdomain.secure.example. 3600 IN CNAME doesnotexist.secure.example.
 
 cname-to-formerr.secure.example. 3600 IN CNAME host1.insecure-formerr.example.
 
@@ -356,6 +357,15 @@ PrivateKey: Ep9uo6+wwjb4MaOmqq7LHav2FLrjotVOeZg8JT1Qk04=
         '18': {'threads': 1,
                'zones': ['example']}
     }
+    # Other IPs used:
+    #  2: test_Interop.py
+    #  3-7: free?
+    # 19: free?
+    # 20: free?
+    # 21: test_ECS.py
+    # 22: test_EDNSBuffer.py
+    # 23: test_Lua.py
+    # 24: test_RoutingTag.py
 
     _auth_cmd = ['authbind',
                  os.environ['PDNS']]
@@ -401,7 +411,6 @@ options {
 module-dir=../regression-tests/modules
 launch=bind
 daemon=no
-local-ipv6=
 bind-config={confdir}/named.conf
 bind-dnssec-db={bind_dnssec_db}
 socket-dir={confdir}
@@ -489,6 +498,7 @@ distributor-threads={threads}""".format(confdir=confdir,
         authcmd = list(cls._auth_cmd)
         authcmd.append('--config-dir=%s' % confdir)
         authcmd.append('--local-address=%s' % ipaddress)
+        authcmd.append('--local-ipv6=')
         print(' '.join(authcmd))
 
         logFile = os.path.join(confdir, 'pdns.log')

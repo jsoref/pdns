@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef DNSPARSER_HH
-#define DNSPARSER_HH
-
+#pragma once
 #include <map>
 #include <sstream>
 #include <stdexcept>
@@ -183,7 +181,7 @@ private:
   uint16_t d_pos;
   uint16_t d_startrecordpos; // needed for getBlob later on
   uint16_t d_recordlen;      // ditto
-  uint16_t not_used; // Aligns the whole class on 8-byte boundries
+  uint16_t not_used; // Aligns the whole class on 8-byte boundaries
   const std::string& d_content;
 };
 
@@ -222,7 +220,7 @@ public:
     return typeid(*this)==typeid(rhs) && this->getZoneRepresentation() == rhs.getZoneRepresentation();
   }
   
-  static shared_ptr<DNSRecordContent> unserialize(const DNSName& qname, uint16_t qtype, const string& serialized);
+  static shared_ptr<DNSRecordContent> deserialize(const DNSName& qname, uint16_t qtype, const string& serialized);
 
   void doRecordCheck(const struct DNSRecord&){}
 
@@ -408,4 +406,121 @@ std::shared_ptr<T> getRR(const DNSRecord& dr)
   return std::dynamic_pointer_cast<T>(dr.d_content);
 }
 
-#endif
+/** Simple DNSPacketMangler. Ritual is: get a pointer into the packet and moveOffset() to beyond your needs
+ *  If you survive that, feel free to read from the pointer */
+class DNSPacketMangler
+{
+public:
+  explicit DNSPacketMangler(std::string& packet)
+    : d_packet((char*) packet.c_str()), d_length(packet.length()), d_notyouroffset(12), d_offset(d_notyouroffset)
+  {}
+  DNSPacketMangler(char* packet, size_t length)
+    : d_packet(packet), d_length(length), d_notyouroffset(12), d_offset(d_notyouroffset)
+  {}
+
+  /*! Advances past a wire-format domain name
+   * The name is not checked for adherence to length restrictions.
+   * Compression pointers are not followed.
+   */
+  void skipDomainName()
+  {
+    uint8_t len;
+    while((len=get8BitInt())) {
+      if(len >= 0xc0) { // extended label
+        get8BitInt();
+        return;
+      }
+      skipBytes(len);
+    }
+  }
+
+  void skipBytes(uint16_t bytes)
+  {
+    moveOffset(bytes);
+  }
+  void rewindBytes(uint16_t by)
+  {
+    rewindOffset(by);
+  }
+  uint32_t get32BitInt()
+  {
+    const char* p = d_packet + d_offset;
+    moveOffset(4);
+    uint32_t ret;
+    memcpy(&ret, (void*)p, sizeof(ret));
+    return ntohl(ret);
+  }
+  uint16_t get16BitInt()
+  {
+    const char* p = d_packet + d_offset;
+    moveOffset(2);
+    uint16_t ret;
+    memcpy(&ret, (void*)p, sizeof(ret));
+    return ntohs(ret);
+  }
+
+  uint8_t get8BitInt()
+  {
+    const char* p = d_packet + d_offset;
+    moveOffset(1);
+    return *p;
+  }
+
+  void skipRData()
+  {
+    int toskip = get16BitInt();
+    moveOffset(toskip);
+  }
+
+  void decreaseAndSkip32BitInt(uint32_t decrease)
+  {
+    const char *p = d_packet + d_offset;
+    moveOffset(4);
+
+    uint32_t tmp;
+    memcpy(&tmp, (void*) p, sizeof(tmp));
+    tmp = ntohl(tmp);
+    tmp-=decrease;
+    tmp = htonl(tmp);
+    memcpy(d_packet + d_offset-4, (const char*)&tmp, sizeof(tmp));
+  }
+
+  void setAndSkip32BitInt(uint32_t value)
+  {
+    moveOffset(4);
+
+    value = htonl(value);
+    memcpy(d_packet + d_offset-4, (const char*)&value, sizeof(value));
+  }
+
+  uint32_t getOffset() const
+  {
+    return d_offset;
+  }
+
+private:
+  void moveOffset(uint16_t by)
+  {
+    d_notyouroffset += by;
+    if(d_notyouroffset > d_length)
+      throw std::out_of_range("dns packet out of range: "+std::to_string(d_notyouroffset) +" > "
+      + std::to_string(d_length) );
+  }
+
+  void rewindOffset(uint16_t by)
+  {
+    if(d_notyouroffset < by)
+      throw std::out_of_range("Rewinding dns packet out of range: "+std::to_string(d_notyouroffset) +" < "
+                              + std::to_string(by));
+    d_notyouroffset -= by;
+    if(d_notyouroffset < 12)
+      throw std::out_of_range("Rewinding dns packet out of range: "+std::to_string(d_notyouroffset) +" < "
+                              + std::to_string(12));
+  }
+
+  char* d_packet;
+  size_t d_length;
+
+  uint32_t d_notyouroffset;  // only 'moveOffset' can touch this
+  const uint32_t&  d_offset; // look.. but don't touch
+};

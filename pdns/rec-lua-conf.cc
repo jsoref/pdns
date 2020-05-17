@@ -51,9 +51,9 @@ typename C::value_type::second_type constGet(const C& c, const std::string& name
   return iter->second;
 }
 
-typedef std::unordered_map<std::string, boost::variant<bool, uint32_t, std::string > > rpzOptions_t;
+typedef std::unordered_map<std::string, boost::variant<bool, uint32_t, std::string, std::vector<std::pair<int, std::string>> > > rpzOptions_t;
 
-static void parseRPZParameters(rpzOptions_t& have, std::string& polName, boost::optional<DNSFilterEngine::Policy>& defpol, bool& defpolOverrideLocal, uint32_t& maxTTL, size_t& zoneSizeHint)
+static void parseRPZParameters(rpzOptions_t& have, std::string& polName, boost::optional<DNSFilterEngine::Policy>& defpol, bool& defpolOverrideLocal, uint32_t& maxTTL, size_t& zoneSizeHint, std::unordered_set<std::string>& tags)
 {
   if(have.count("policyName")) {
     polName = boost::get<std::string>(have["policyName"]);
@@ -61,7 +61,7 @@ static void parseRPZParameters(rpzOptions_t& have, std::string& polName, boost::
   if(have.count("defpol")) {
     defpol=DNSFilterEngine::Policy();
     defpol->d_kind = (DNSFilterEngine::PolicyKind)boost::get<uint32_t>(have["defpol"]);
-    defpol->d_name = std::make_shared<std::string>(polName);
+    defpol->setName(polName);
     if(defpol->d_kind == DNSFilterEngine::PolicyKind::Custom) {
       defpol->d_custom.push_back(DNSRecordContent::mastermake(QType::CNAME, QClass::IN,
                                                               boost::get<string>(have["defcontent"])));
@@ -81,6 +81,12 @@ static void parseRPZParameters(rpzOptions_t& have, std::string& polName, boost::
   }
   if(have.count("zoneSizeHint")) {
     zoneSizeHint = static_cast<size_t>(boost::get<uint32_t>(have["zoneSizeHint"]));
+  }
+  if (have.count("tags")) {
+    const auto tagsTable = boost::get<std::vector<std::pair<int, std::string>>>(have["tags"]);
+    for (const auto& tag : tagsTable) {
+      tags.insert(tag.second);
+    }
   }
 }
 
@@ -238,10 +244,12 @@ void loadRecursorLuaConfig(const std::string& fname, luaConfigDelayedThreads& de
         if(options) {
           auto& have = *options;
           size_t zoneSizeHint = 0;
-          parseRPZParameters(have, polName, defpol, defpolOverrideLocal, maxTTL, zoneSizeHint);
+          std::unordered_set<std::string> tags;
+          parseRPZParameters(have, polName, defpol, defpolOverrideLocal, maxTTL, zoneSizeHint, tags);
           if (zoneSizeHint > 0) {
             zone->reserve(zoneSizeHint);
           }
+          zone->setTags(std::move(tags));
         }
         g_log<<Logger::Warning<<"Loading RPZ from file '"<<filename<<"'"<<endl;
         zone->setName(polName);
@@ -286,10 +294,12 @@ void loadRecursorLuaConfig(const std::string& fname, luaConfigDelayedThreads& de
         if (options) {
           auto& have = *options;
           size_t zoneSizeHint = 0;
-          parseRPZParameters(have, polName, defpol, defpolOverrideLocal, maxTTL, zoneSizeHint);
+          std::unordered_set<std::string> tags;
+          parseRPZParameters(have, polName, defpol, defpolOverrideLocal, maxTTL, zoneSizeHint, tags);
           if (zoneSizeHint > 0) {
             zone->reserve(zoneSizeHint);
           }
+          zone->setTags(std::move(tags));
 
           if(have.count("tsigname")) {
             tt.name=DNSName(toLower(boost::get<string>(have["tsigname"])));
@@ -300,6 +310,9 @@ void loadRecursorLuaConfig(const std::string& fname, luaConfigDelayedThreads& de
 
           if(have.count("refresh")) {
             refresh = boost::get<uint32_t>(have["refresh"]);
+            if (refresh == 0) {
+              g_log<<Logger::Warning<<"rpzMaster refresh value of 0 ignored"<<endl;
+            }
           }
 
           if(have.count("maxReceivedMBytes")) {
@@ -335,7 +348,6 @@ void loadRecursorLuaConfig(const std::string& fname, luaConfigDelayedThreads& de
         DNSName domain(zoneName);
         zone->setDomain(domain);
         zone->setName(polName);
-        zone->setRefresh(refresh);
         zoneIdx = lci.dfe.addZone(zone);
 
         if (!seedFile.empty()) {
@@ -365,7 +377,7 @@ void loadRecursorLuaConfig(const std::string& fname, luaConfigDelayedThreads& de
         exit(1);  // FIXME proper exit code?
       }
 
-      delayedThreads.rpzMasterThreads.push_back(std::make_tuple(masters, defpol, defpolOverrideLocal, maxTTL, zoneIdx, tt, maxReceivedXFRMBytes, localAddress, axfrTimeout, sr, dumpFile));
+      delayedThreads.rpzMasterThreads.push_back(std::make_tuple(masters, defpol, defpolOverrideLocal, maxTTL, zoneIdx, tt, maxReceivedXFRMBytes, localAddress, axfrTimeout, refresh, sr, dumpFile));
     });
 
   typedef vector<pair<int,boost::variant<string, vector<pair<int, string> > > > > argvec_t;
@@ -570,7 +582,7 @@ void loadRecursorLuaConfig(const std::string& fname, luaConfigDelayedThreads& de
 
   try {
     Lua.executeCode(ifs);
-    g_luaconfs.setState(lci);
+    g_luaconfs.setState(std::move(lci));
   }
   catch(const LuaContext::ExecutionErrorException& e) {
     g_log<<Logger::Error<<"Unable to load Lua script from '"+fname+"': ";
@@ -598,7 +610,7 @@ void startLuaConfigDelayedThreads(const luaConfigDelayedThreads& delayedThreads,
 {
   for (const auto& rpzMaster : delayedThreads.rpzMasterThreads) {
     try {
-      std::thread t(RPZIXFRTracker, std::get<0>(rpzMaster), std::get<1>(rpzMaster), std::get<2>(rpzMaster), std::get<3>(rpzMaster), std::get<4>(rpzMaster), std::get<5>(rpzMaster), std::get<6>(rpzMaster) * 1024 * 1024, std::get<7>(rpzMaster), std::get<8>(rpzMaster), std::get<9>(rpzMaster), std::get<10>(rpzMaster), generation);
+      std::thread t(RPZIXFRTracker, std::get<0>(rpzMaster), std::get<1>(rpzMaster), std::get<2>(rpzMaster), std::get<3>(rpzMaster), std::get<4>(rpzMaster), std::get<5>(rpzMaster), std::get<6>(rpzMaster) * 1024 * 1024, std::get<7>(rpzMaster), std::get<8>(rpzMaster), std::get<9>(rpzMaster), std::get<10>(rpzMaster), std::get<11>(rpzMaster), generation);
       t.detach();
     }
     catch(const std::exception& e) {

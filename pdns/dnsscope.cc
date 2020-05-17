@@ -74,7 +74,7 @@ struct QuestionData
 typedef map<QuestionIdentifier, QuestionData> statmap_t;
 statmap_t statmap;
 
-unsigned int liveQuestions()
+static unsigned int liveQuestions()
 {
   unsigned int ret=0;
   for(statmap_t::value_type& val :  statmap) {
@@ -107,7 +107,7 @@ struct LiveCounts
   }
 };
 
-void visitor(const StatNode* node, const StatNode::Stat& selfstat, const StatNode::Stat& childstat)
+static void visitor(const StatNode* node, const StatNode::Stat& selfstat, const StatNode::Stat& childstat)
 {
   // 20% servfails, >100 children, on average less than 2 copies of a query
   // >100 different subqueries
@@ -123,7 +123,7 @@ void visitor(const StatNode* node, const StatNode::Stat& selfstat, const StatNod
   }
 }
 
-const struct timeval operator-(const struct pdns_timeval& lhs, const struct pdns_timeval& rhs)
+static const struct timeval operator-(const struct pdns_timeval& lhs, const struct pdns_timeval& rhs)
 {
   struct timeval a{lhs.tv_sec, static_cast<suseconds_t>(lhs.tv_usec)}, b{rhs.tv_sec, static_cast<suseconds_t>(rhs.tv_usec)};
   return operator-(a,b);
@@ -212,7 +212,7 @@ try
   typedef map<uint16_t,uint32_t> rcodes_t;
   rcodes_t rcodes;
   
-  time_t lowestTime=2000000000, highestTime=0;
+  time_t lowestTime=0, highestTime=0;
   time_t lastsec=0;
   LiveCounts lastcounts;
   std::unordered_set<ComboAddress, ComboAddress::addressOnlyHash> requestors, recipients, rdnonra;
@@ -290,7 +290,8 @@ try
 	    lastcounts = lc;
 	  }
 
-	  lowestTime=min((time_t)lowestTime,  (time_t)pr.d_pheader.ts.tv_sec);
+    if(lowestTime) { lowestTime = min((time_t)lowestTime,  (time_t)pr.d_pheader.ts.tv_sec); }
+    else { lowestTime = pr.d_pheader.ts.tv_sec; }
 	  highestTime=max((time_t)highestTime, (time_t)pr.d_pheader.ts.tv_sec);
 
 	  QuestionIdentifier qi=QuestionIdentifier::create(pr.getSource(), pr.getDest(), header, qname, qtype);
@@ -359,7 +360,7 @@ try
 	      rem.sin4.sin_port=0;
 
 	      if(doServFailTree)
-		root.submit(qname, header.rcode, rem);
+		root.submit(qname, header.rcode, pr.d_len, rem);
 	    }
 
 	    if(!qd.d_qcount || qd.d_qcount == qd.d_answercount) {

@@ -2,6 +2,40 @@ Changelogs for 4.1.x
 ====================
 
 .. changelog::
+  :version: 4.1.15
+  :released: 6th of December 2019
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8554
+
+    Backport 8525 to rec 4.1.x: Purge map of failed auths periodically by keeping a last changed timestamp
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8544
+
+    Backport 8470 to rec 4.1.x: prime NS records of root-servers.net parent (.net) 
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8543
+
+    Backport 8340 to rec 4.1.x: issue with "zz" abbreviation for IPv6 RPZ triggers
+
+  .. change::
+    :tags: Bug Fixes
+    :pullreq: 8542
+
+    Backport 7068 to 4.1.x: Do the edns data dump for all threads
+
+  .. change::
+    :tags: Internals
+    :pullreq: 8123
+
+    Backport #7951 to 4.1.x: update boost.m4
+
+.. changelog::
   :version: 4.1.14
   :released: 13th of June 2019
 
@@ -717,7 +751,7 @@ Changelogs for 4.1.x
     :pullreq: 5912
 
     Fix going Insecure on NSEC3 hashes with too many iterations, since
-    we could have gone Bogus on a positive answer synthetized from a
+    we could have gone Bogus on a positive answer synthesized from a
     wildcard if the corresponding NSEC3 had more iterations that we were
     willing to accept, while the correct result is Insecure.
 
@@ -904,7 +938,7 @@ Changelogs for 4.1.x
     :tags: Internals, Improvements
     :pullreq: 5543
 
-    Wrap the webserver's and Resolver::tryGetSOASerial objects into smart pointers (also thanks to Christian Hofstaedtler for reviewing!)
+    Wrap the webserver's and Resolver::tryGetSOASerial objects into smart pointers (also thanks to Chris Hofstaedtler for reviewing!)
 
   .. change::
     :tags: Internals, Improvements
@@ -1057,7 +1091,7 @@ Changelogs for 4.1.x
     :tags: Improvements
     :pullreq: 5699
 
-    Implement dynamic cache sizeing.
+    Implement dynamic cache sizing.
 
   .. change::
     :tags: Bug Fixes, DNSSEC
@@ -1332,7 +1366,7 @@ Changelogs for 4.1.x
     :pullreq: 5466
     :tickets: 5398
 
-    Clean up auth/recursor code mismatches in the API (Christian Hofstaedtler).
+    Clean up auth/recursor code mismatches in the API (Chris Hofstaedtler).
 
   .. change::
     :tags: Bug Fixes

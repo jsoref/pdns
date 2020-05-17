@@ -92,11 +92,9 @@ private:
   public:
     CacheShard(): d_entriesCount(0)
     {
-      pthread_rwlock_init(&d_lock, 0);
     }
     CacheShard(const CacheShard& old): d_entriesCount(0)
     {
-      pthread_rwlock_init(&d_lock, 0);
     }
 
     void setSize(size_t maxSize)
@@ -105,7 +103,7 @@ private:
     }
 
     std::unordered_map<uint32_t,CacheValue> d_map;
-    pthread_rwlock_t d_lock;
+    ReadWriteLock d_lock;
     std::atomic<uint64_t> d_entriesCount;
   };
 

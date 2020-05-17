@@ -51,6 +51,7 @@ private:
 #include <sodium.h>
 
 #include "dnsname.hh"
+#include "lock.hh"
 
 #define DNSCRYPT_PROVIDER_PUBLIC_KEY_SIZE (crypto_sign_ed25519_PUBLICKEYBYTES)
 #define DNSCRYPT_PROVIDER_PRIVATE_KEY_SIZE (crypto_sign_ed25519_SECRETKEYBYTES)
@@ -262,7 +263,8 @@ public:
 
   DNSCryptContext(const std::string& pName, const std::vector<CertKeyPaths>& certKeys);
   DNSCryptContext(const std::string& pName, const DNSCryptCert& certificate, const DNSCryptPrivateKey& pKey);
-
+  ~DNSCryptContext();
+  
   void reloadCertificates();
   void loadNewCertificate(const std::string& certFile, const std::string& keyFile, bool active=true, bool reload=false);
   void addNewCertificate(const DNSCryptCert& newCert, const DNSCryptPrivateKey& newKey, bool active=true, bool reload=false);
@@ -284,7 +286,7 @@ private:
 
   void addNewCertificate(std::shared_ptr<DNSCryptCertificatePair>& newCert, bool reload=false);
 
-  pthread_rwlock_t d_lock;
+  ReadWriteLock d_lock;
   std::vector<std::shared_ptr<DNSCryptCertificatePair>> d_certs;
   std::vector<CertKeyPaths> d_certKeyPaths;
   DNSName providerName;

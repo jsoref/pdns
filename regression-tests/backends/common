@@ -35,10 +35,6 @@ start_master ()
 				source ./backends/lmdb-master
 				;;
 
-			opendbx*)
-				source ./backends/opendbx-master
-				;;
-
 			remote*)
 				source ./backends/remote-master
 				;;
@@ -61,10 +57,6 @@ start_master ()
 
 			ext-bind*)
 				source ./ext/bind-master
-				;;
-
-			lua*)
-				source ./backends/lua-master
 				;;
 
 			*)

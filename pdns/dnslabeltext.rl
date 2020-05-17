@@ -5,6 +5,7 @@
 #include <string>
 #include "dnsname.hh"
 #include "namespaces.hh"
+#include "dnswriter.hh"
 
 namespace {
 void appendSplit(vector<string>& ret, string& segment, char c)
@@ -83,7 +84,7 @@ vector<string> segmentDNSText(const string& input )
 };
 
 
-DNSName::string_t segmentDNSNameRaw(const char* realinput)
+DNSName::string_t segmentDNSNameRaw(const char* realinput, size_t inputlen)
 {
 %%{
         machine dnsnameraw;
@@ -100,7 +101,6 @@ DNSName::string_t segmentDNSNameRaw(const char* realinput)
           return ret;
         }
 
-        unsigned int inputlen=strlen(realinput);
         ret.reserve(inputlen+1);
 
         const char *p = realinput, *pe = realinput + inputlen;

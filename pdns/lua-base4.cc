@@ -10,6 +10,7 @@
 #include "namespaces.hh"
 #include "ednssubnet.hh"
 #include "lua-base4.hh"
+#include "ext/luawrapper/include/LuaContext.hpp"
 #include "dns_random.hh"
 
 BaseLua4::BaseLua4() {
@@ -31,16 +32,6 @@ void BaseLua4::loadString(const std::string &script) {
 
 //  By default no features
 void BaseLua4::getFeatures(Features &) { }
-
-#if !defined(HAVE_LUA)
-
-void BaseLua4::prepareContext() { return; }
-void BaseLua4::loadStream(std::istream &is) { return; }
-BaseLua4::~BaseLua4() { }
-
-#else
-
-#include "ext/luawrapper/include/LuaContext.hpp"
 
 void BaseLua4::prepareContext() {
   d_lw = std::unique_ptr<LuaContext>(new LuaContext);
@@ -165,8 +156,10 @@ void BaseLua4::prepareContext() {
   d_lw->writeFunction("newNetmask", [](const string& s) { return Netmask(s); });
   d_lw->registerFunction<ComboAddress(Netmask::*)()>("getNetwork", [](const Netmask& nm) { return nm.getNetwork(); } ); // const reference makes this necessary
   d_lw->registerFunction<ComboAddress(Netmask::*)()>("getMaskedNetwork", [](const Netmask& nm) { return nm.getMaskedNetwork(); } );
-  d_lw->registerFunction("isIpv4", &Netmask::isIpv4);
-  d_lw->registerFunction("isIpv6", &Netmask::isIpv6);
+  d_lw->registerFunction("isIpv4", &Netmask::isIPv4);
+  d_lw->registerFunction("isIPv4", &Netmask::isIPv4);
+  d_lw->registerFunction("isIpv6", &Netmask::isIPv6);
+  d_lw->registerFunction("isIPv6", &Netmask::isIPv6);
   d_lw->registerFunction("getBits", &Netmask::getBits);
   d_lw->registerFunction("toString", &Netmask::toString);
   d_lw->registerFunction("empty", &Netmask::empty);
@@ -258,5 +251,3 @@ void BaseLua4::loadStream(std::istream &is) {
 }
 
 BaseLua4::~BaseLua4() { }
-
-#endif

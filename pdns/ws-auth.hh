@@ -19,8 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef WS_HH
-#define WS_HH
+#pragma once
 #include <string>
 #include <map>
 #include <time.h>
@@ -79,8 +78,6 @@ public:
   static string makePercentage(const double& val);
 
 private:
-  static void *webThreadHelper(void *);
-  static void *statThreadHelper(void *p);
   void indexfunction(HttpRequest* req, HttpResponse* resp);
   void cssfunction(HttpRequest* req, HttpResponse* resp);
   void jsonstat(HttpRequest* req, HttpResponse* resp);
@@ -89,7 +86,6 @@ private:
   void printargs(ostringstream &ret);
   void webThread();
   void statThread();
-  pthread_t d_tid;
 
   time_t d_start;
   double d_min10, d_min5, d_min1;
@@ -97,5 +93,3 @@ private:
   Ewma d_qcachehits, d_qcachemisses;
   WebServer *d_ws{nullptr};
 };
-
-#endif
