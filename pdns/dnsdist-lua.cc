@@ -2284,6 +2284,7 @@ vector<std::function<void(void)>> setupLua(bool client, bool configCheck, const 
   setupLuaRules();
   setupLuaVars();
 
+<<<<<<< working copy
 #ifdef LUAJIT_VERSION
   g_lua.executeCode(getLuaFFIWrappers());
 #endif
@@ -2295,6 +2296,17 @@ vector<std::function<void(void)>> setupLua(bool client, bool configCheck, const 
     vinfolog("Read configuration from '%s'", config);
 
   g_lua.executeCode(ifs);
+||||||| base
+  std::ifstream ifs(config);
+  if(!ifs)
+    warnlog("Unable to read configuration from '%s'", config);
+  else
+    vinfolog("Read configuration from '%s'", config);
+
+  g_lua.executeCode(ifs);
+=======
+  g_lua.executeCode("dofile('"+config+"')");
+>>>>>>> merge rev
 
   auto ret = *g_launchWork;
   delete g_launchWork;
