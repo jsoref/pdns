@@ -106,7 +106,7 @@ static Json getServerDetail() {
  */
 void apiDiscovery(HttpRequest* req, HttpResponse* resp) {
   if(req->method != "GET")
-    throw HttpMethodNotAllowedException();
+    throw ApiException(ApiException::ErrMethodNotAllowed, "Method '" + req->method + "' not allowed here", 405);
 
   Json version1 = Json::object {
     { "version", 1 },
@@ -119,7 +119,7 @@ void apiDiscovery(HttpRequest* req, HttpResponse* resp) {
 
 void apiServer(HttpRequest* req, HttpResponse* resp) {
   if(req->method != "GET")
-    throw HttpMethodNotAllowedException();
+    throw ApiException(ApiException::ErrMethodNotAllowed, "Method '" + req->method + "' not allowed here", 405);
 
   Json doc = Json::array {getServerDetail()};
   resp->setBody(doc);
@@ -127,14 +127,14 @@ void apiServer(HttpRequest* req, HttpResponse* resp) {
 
 void apiServerDetail(HttpRequest* req, HttpResponse* resp) {
   if(req->method != "GET")
-    throw HttpMethodNotAllowedException();
+    throw ApiException(ApiException::ErrMethodNotAllowed, "Method '" + req->method + "' not allowed here", 405);
 
   resp->setBody(getServerDetail());
 }
 
 void apiServerConfig(HttpRequest* req, HttpResponse* resp) {
   if(req->method != "GET")
-    throw HttpMethodNotAllowedException();
+    throw ApiException(ApiException::ErrMethodNotAllowed, "Method '" + req->method + "' not allowed here", 405);
 
   vector<string> items = ::arg().list();
   string value;
@@ -156,7 +156,7 @@ void apiServerConfig(HttpRequest* req, HttpResponse* resp) {
 
 void apiServerStatistics(HttpRequest* req, HttpResponse* resp) {
   if(req->method != "GET")
-    throw HttpMethodNotAllowedException();
+    throw ApiException(ApiException::ErrMethodNotAllowed, "Method '" + req->method + "' not allowed here", 405);
 
   Json::array doc;
   string name = req->getvars["statistic"];
@@ -278,12 +278,12 @@ void apiServerStatistics(HttpRequest* req, HttpResponse* resp) {
 
 DNSName apiNameToDNSName(const string& name) {
   if (!isCanonical(name)) {
-    throw ApiException("DNS Name '" + name + "' is not canonical");
+    throw ApiException(ApiException::ErrNotFQDN, "DNS Name '" + name + "' is not canonical");
   }
   try {
     return DNSName(name);
   } catch (...) {
-    throw ApiException("Unable to parse DNS Name '" + name + "'");
+    throw ApiException(ApiException::ErrParsingError, "Unable to parse DNS Name '" + name + "'");
   }
 }
 
@@ -292,7 +292,7 @@ DNSName apiZoneIdToName(const string& id) {
   ostringstream ss;
 
   if(id.empty())
-    throw HttpBadRequestException();
+    throw ApiException(ApiException::ErrBadRequest, "Bad request", 400);
 
   std::size_t lastpos = 0, pos = 0;
   while ((pos = id.find('=', lastpos)) != string::npos) {
@@ -304,7 +304,7 @@ DNSName apiZoneIdToName(const string& id) {
     } else if (id[pos+1] >= 'A' && id[pos+1] <= 'F') {
       c = id[pos+1] - 'A' + 10;
     } else {
-      throw HttpBadRequestException();
+      throw ApiException(ApiException::ErrBadRequest, "Bad request", 400);
     }
     c = c * 16;
 
@@ -314,7 +314,7 @@ DNSName apiZoneIdToName(const string& id) {
     } else if (id[pos+2] >= 'A' && id[pos+2] <= 'F') {
       c += id[pos+2] - 'A' + 10;
     } else {
-      throw HttpBadRequestException();
+      throw ApiException(ApiException::ErrBadRequest, "Bad request", 400);
     }
 
     ss << c;
@@ -330,7 +330,7 @@ DNSName apiZoneIdToName(const string& id) {
   try {
     return DNSName(zonename);
   } catch (...) {
-    throw ApiException("Unable to parse DNS Name '" + zonename + "'");
+    throw ApiException(ApiException::ErrParsingError, "Unable to parse DNS Name '" + zonename + "'");
   }
 }
 
@@ -366,7 +366,7 @@ string apiZoneNameToId(const DNSName& dname) {
 
 void apiCheckNameAllowedCharacters(const string& name) {
   if (name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890_/.-") != std::string::npos)
-    throw ApiException("Name '"+name+"' contains unsupported characters");
+    throw ApiException(ApiException::ErrInvalidInput, "Name '"+name+"' contains unsupported characters");
 }
 
 void apiCheckQNameAllowedCharacters(const string& qname) {
