@@ -19,9 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef COMMON_STARTUP_HH
-#define COMMON_STARTUP_HH
-
+#pragma once
 #include "auth-packetcache.hh"
 #include "auth-querycache.hh"
 #include "utility.hh"
@@ -47,7 +45,6 @@ extern std::shared_ptr<UDPNameserver> N;
 extern vector<std::shared_ptr<UDPNameserver> > g_udpReceivers;
 extern int avg_latency;
 extern std::unique_ptr<TCPNameserver> TN;
-extern ArgvMap & arg( void );
 extern void declareArguments();
 extern void declareStats();
 extern void mainthread();
@@ -61,5 +58,3 @@ extern bool g_LuaRecordSharedState;
 extern time_t g_luaHealthChecksInterval;
 extern time_t g_luaHealthChecksExpireDelay;
 #endif // HAVE_LUA_RECORDS
-
-#endif // COMMON_STARTUP_HH

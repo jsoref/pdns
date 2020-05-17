@@ -20,7 +20,7 @@
 extern StatBag S;
 extern CommunicatorClass Communicator;
 
-pthread_mutex_t PacketHandler::s_rfc2136lock=PTHREAD_MUTEX_INITIALIZER;
+std::mutex PacketHandler::s_rfc2136lock;
 
 // Implement section 3.2.1 and 3.2.2 of RFC2136
 int PacketHandler::checkUpdatePrerequisites(const DNSRecord *rr, DomainInfo *di) {
@@ -646,7 +646,7 @@ int PacketHandler::forwardPacket(const string &msgPrefix, const DNSPacket& p, co
         closesocket(sock);
       }
       catch(const PDNSException& e) {
-        g_log<<Logger::Error<<"Error closing master forwarding socket after a timeout occured: "<<e.reason<<endl;
+        g_log<<Logger::Error<<"Error closing master forwarding socket after a timeout occurred: "<<e.reason<<endl;
       }
       continue;
     }
@@ -656,7 +656,7 @@ int PacketHandler::forwardPacket(const string &msgPrefix, const DNSPacket& p, co
         closesocket(sock);
       }
       catch(const PDNSException& e) {
-        g_log<<Logger::Error<<"Error closing master forwarding socket after an error occured: "<<e.reason<<endl;
+        g_log<<Logger::Error<<"Error closing master forwarding socket after an error occurred: "<<e.reason<<endl;
       }
       continue;
     }
@@ -823,7 +823,7 @@ int PacketHandler::processUpdate(DNSPacket& p) {
   }
 
 
-  Lock l(&s_rfc2136lock); //TODO: i think this lock can be per zone, not for everything
+  std::lock_guard<std::mutex> l(s_rfc2136lock); //TODO: i think this lock can be per zone, not for everything
   g_log<<Logger::Info<<msgPrefix<<"starting transaction."<<endl;
   if (!di.backend->startTransaction(p.qdomain, -1)) { // Not giving the domain_id means that we do not delete the existing records.
     g_log<<Logger::Error<<msgPrefix<<"Backend for domain "<<p.qdomain<<" does not support transaction. Can't do Update packet."<<endl;

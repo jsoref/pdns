@@ -10,7 +10,7 @@ RecursorStats g_stats;
 GlobalStateHolder<LuaConfigItems> g_luaconfs;
 GlobalStateHolder<SuffixMatchNode> g_dontThrottleNames;
 GlobalStateHolder<NetmaskGroup> g_dontThrottleNetmasks;
-thread_local std::unique_ptr<MemRecursorCache> t_RC{nullptr};
+std::unique_ptr<MemRecursorCache> s_RC{nullptr};
 unsigned int g_numThreads = 1;
 bool g_lowercaseOutgoing = false;
 
@@ -20,11 +20,6 @@ ArgvMap& arg()
 {
   static ArgvMap theArg;
   return theArg;
-}
-
-int getMTaskerTID()
-{
-  return 0;
 }
 
 void primeRootNSZones(bool)
@@ -52,8 +47,8 @@ int asyncresolve(const ComboAddress& ip, const DNSName& domain, int type, bool d
 void primeHints(void)
 {
   vector<DNSRecord> nsset;
-  if (!t_RC)
-    t_RC = std::unique_ptr<MemRecursorCache>(new MemRecursorCache());
+  if (!s_RC)
+    s_RC = std::unique_ptr<MemRecursorCache>(new MemRecursorCache());
 
   DNSRecord arr, aaaarr, nsrr;
   nsrr.d_name = g_rootdnsname;
@@ -72,18 +67,18 @@ void primeHints(void)
     arr.d_content = std::make_shared<ARecordContent>(ComboAddress(rootIps4[c - 'a']));
     vector<DNSRecord> aset;
     aset.push_back(arr);
-    t_RC->replace(time(nullptr), DNSName(templ), QType(QType::A), aset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true); // auth, nuke it all
+    s_RC->replace(time(nullptr), DNSName(templ), QType(QType::A), aset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true); // auth, nuke it all
     if (rootIps6[c - 'a'] != NULL) {
       aaaarr.d_content = std::make_shared<AAAARecordContent>(ComboAddress(rootIps6[c - 'a']));
 
       vector<DNSRecord> aaaaset;
       aaaaset.push_back(aaaarr);
-      t_RC->replace(time(nullptr), DNSName(templ), QType(QType::AAAA), aaaaset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true);
+      s_RC->replace(time(nullptr), DNSName(templ), QType(QType::AAAA), aaaaset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), true);
     }
 
     nsset.push_back(nsrr);
   }
-  t_RC->replace(time(nullptr), g_rootdnsname, QType(QType::NS), nsset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), false); // and stuff in the cache
+  s_RC->replace(time(nullptr), g_rootdnsname, QType(QType::NS), nsset, vector<std::shared_ptr<RRSIGRecordContent>>(), vector<std::shared_ptr<DNSRecord>>(), false); // and stuff in the cache
 }
 
 LuaConfigItems::LuaConfigItems()
@@ -110,7 +105,7 @@ void initSR(bool debug)
     g_log.toConsole(Logger::Error);
   }
 
-  t_RC = std::unique_ptr<MemRecursorCache>(new MemRecursorCache());
+  s_RC = std::unique_ptr<MemRecursorCache>(new MemRecursorCache());
 
   SyncRes::s_maxqperq = 50;
   SyncRes::s_maxtotusec = 1000 * 7000;
@@ -141,6 +136,7 @@ void initSR(bool debug)
   SyncRes::clearDelegationOnly();
   SyncRes::clearDontQuery();
   SyncRes::setECSScopeZeroAddress(Netmask("127.0.0.1/32"));
+  SyncRes::s_qnameminimization = false;
 
   SyncRes::clearNSSpeeds();
   BOOST_CHECK_EQUAL(SyncRes::getNSSpeedsSize(), 0U);
@@ -170,7 +166,6 @@ void initSR(bool debug)
   ::arg().set("version-string", "string reported on version.pdns or version.bind") = "PowerDNS Unit Tests";
   ::arg().set("rng") = "auto";
   ::arg().set("entropy-source") = "/dev/urandom";
-  ::arg().setSwitch("qname-minimization", "Use Query Name Minimization") = "yes";
 }
 
 void initSR(std::unique_ptr<SyncRes>& sr, bool dnssec, bool debug, time_t fakeNow)
@@ -284,7 +279,7 @@ bool addRRSIG(const testkeysset_t& keys, std::vector<DNSRecord>& records, const 
   const uint16_t type = records[recordsCount - 1].d_type;
 
   sortedRecords_t recordcontents;
-  for (const auto record : records) {
+  for (const auto& record : records) {
     if (record.d_name == name && record.d_type == type) {
       recordcontents.insert(record.d_content);
     }
@@ -361,11 +356,11 @@ void addNSECRecordToLW(const DNSName& domain, const DNSName& next, const std::se
   records.push_back(rec);
 }
 
-void addNSEC3RecordToLW(const DNSName& hashedName, const std::string& hashedNext, const std::string& salt, unsigned int iterations, const std::set<uint16_t>& types, uint32_t ttl, std::vector<DNSRecord>& records)
+void addNSEC3RecordToLW(const DNSName& hashedName, const std::string& hashedNext, const std::string& salt, unsigned int iterations, const std::set<uint16_t>& types, uint32_t ttl, std::vector<DNSRecord>& records, bool optOut)
 {
   NSEC3RecordContent nrc;
   nrc.d_algorithm = 1;
-  nrc.d_flags = 0;
+  nrc.d_flags = optOut ? 1 : 0;
   nrc.d_iterations = iterations;
   nrc.d_salt = salt;
   nrc.d_nexthash = hashedNext;
@@ -383,15 +378,15 @@ void addNSEC3RecordToLW(const DNSName& hashedName, const std::string& hashedNext
   records.push_back(rec);
 }
 
-void addNSEC3UnhashedRecordToLW(const DNSName& domain, const DNSName& zone, const std::string& next, const std::set<uint16_t>& types, uint32_t ttl, std::vector<DNSRecord>& records, unsigned int iterations)
+void addNSEC3UnhashedRecordToLW(const DNSName& domain, const DNSName& zone, const std::string& next, const std::set<uint16_t>& types, uint32_t ttl, std::vector<DNSRecord>& records, unsigned int iterations, bool optOut)
 {
   static const std::string salt = "deadbeef";
   std::string hashed = hashQNameWithSalt(salt, iterations, domain);
 
-  addNSEC3RecordToLW(DNSName(toBase32Hex(hashed)) + zone, next, salt, iterations, types, ttl, records);
+  addNSEC3RecordToLW(DNSName(toBase32Hex(hashed)) + zone, next, salt, iterations, types, ttl, records, optOut);
 }
 
-void addNSEC3NarrowRecordToLW(const DNSName& domain, const DNSName& zone, const std::set<uint16_t>& types, uint32_t ttl, std::vector<DNSRecord>& records, unsigned int iterations)
+void addNSEC3NarrowRecordToLW(const DNSName& domain, const DNSName& zone, const std::set<uint16_t>& types, uint32_t ttl, std::vector<DNSRecord>& records, unsigned int iterations, bool optOut)
 {
   static const std::string salt = "deadbeef";
   std::string hashed = hashQNameWithSalt(salt, iterations, domain);
@@ -399,7 +394,7 @@ void addNSEC3NarrowRecordToLW(const DNSName& domain, const DNSName& zone, const 
   incrementHash(hashedNext);
   decrementHash(hashed);
 
-  addNSEC3RecordToLW(DNSName(toBase32Hex(hashed)) + zone, hashedNext, salt, iterations, types, ttl, records);
+  addNSEC3RecordToLW(DNSName(toBase32Hex(hashed)) + zone, hashedNext, salt, iterations, types, ttl, records, optOut);
 }
 
 void generateKeyMaterial(const DNSName& name, unsigned int algo, uint8_t digest, testkeysset_t& keys)
@@ -419,7 +414,7 @@ void generateKeyMaterial(const DNSName& name, unsigned int algo, uint8_t digest,
   dsAnchors[name].insert(keys[name].second);
 }
 
-int genericDSAndDNSKEYHandler(LWResult* res, const DNSName& domain, DNSName auth, int type, const testkeysset_t& keys, bool proveCut, boost::optional<time_t> now)
+int genericDSAndDNSKEYHandler(LWResult* res, const DNSName& domain, DNSName auth, int type, const testkeysset_t& keys, bool proveCut, boost::optional<time_t> now, bool nsec3, bool optOut)
 {
   if (type == QType::DS) {
     auth.chopOff();
@@ -438,12 +433,18 @@ int genericDSAndDNSKEYHandler(LWResult* res, const DNSName& domain, DNSName auth
         /* sign the SOA */
         addRRSIG(keys, res->d_records, auth, 300, false, boost::none, boost::none, now);
         /* add a NSEC denying the DS */
-        std::set<uint16_t> types = {QType::NSEC};
+        std::set<uint16_t> types = {nsec3 ? QType::NSEC : QType::NSEC3};
         if (proveCut) {
           types.insert(QType::NS);
         }
 
-        addNSECRecordToLW(domain, DNSName("z") + domain, types, 600, res->d_records);
+        if (!nsec3) {
+          addNSECRecordToLW(domain, DNSName("z") + domain, types, 600, res->d_records);
+        }
+        else {
+          addNSEC3UnhashedRecordToLW(domain, auth, (DNSName("z") + domain).toString(), types, 600, res->d_records, 10, optOut);
+        }
+
         addRRSIG(keys, res->d_records, auth, 300, false, boost::none, boost::none, now);
       }
     }

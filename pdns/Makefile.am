@@ -47,7 +47,6 @@ EXTRA_DIST = \
 	effective_tld_names.dat \
 	mtasker.cc \
 	inflighter.cc \
-	bind-dnssec.schema.sqlite3.sql \
 	bindparser.h \
 	named.conf.parsertest \
 	pdns.service.in \
@@ -212,6 +211,7 @@ pdns_server_SOURCES = \
 	secpoll-auth.cc secpoll-auth.hh \
 	serialtweaker.cc \
 	sha.hh \
+	shuffle.cc shuffle.hh \
 	signingpipe.cc signingpipe.hh \
 	sillyrecords.cc \
 	slavecommunicator.cc \
@@ -323,6 +323,7 @@ pdnsutil_SOURCES = \
 	qtype.cc \
 	rcpgenerator.cc rcpgenerator.hh \
 	serialtweaker.cc \
+	shuffle.cc shuffle.hh \
 	signingpipe.cc \
 	sillyrecords.cc \
 	sstuff.hh \
@@ -485,6 +486,7 @@ sdig_SOURCES = \
 	logger.cc \
 	misc.cc misc.hh \
 	nsecrecords.cc \
+	proxy-protocol.cc proxy-protocol.hh \
 	qtype.cc \
 	rcpgenerator.cc rcpgenerator.hh \
 	sdig.cc \
@@ -916,7 +918,9 @@ dnsbulktest_SOURCES = \
 	rcpgenerator.cc \
 	sillyrecords.cc \
 	statbag.cc \
-	unix_utility.cc
+	unix_utility.cc \
+	arguments.cc arguments.hh \
+	dns_random.cc dns_random.hh
 
 dnsbulktest_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -1079,6 +1083,7 @@ pdns_notify_LDADD = \
 
 if LIBSODIUM
 pdns_notify_LDADD += $(LIBSODIUM_LIBS)
+dnsbulktest_LDADD += $(LIBSODIUM_LIBS)
 endif
 
 dnsscope_SOURCES = \
@@ -1250,7 +1255,7 @@ endif
 endif
 
 pdns.conf-dist: pdns_server
-	$(AM_V_GEN)./pdns_server --no-config --config 2>/dev/null > $@
+	$(AM_V_GEN)./pdns_server --no-config --config=default 2>/dev/null > $@
 
 testrunner_SOURCES = \
 	arguments.cc \
@@ -1291,10 +1296,12 @@ testrunner_SOURCES = \
 	nsecrecords.cc \
 	opensslsigners.cc opensslsigners.hh \
 	pollmplexer.cc \
+	proxy-protocol.cc proxy-protocol.hh \
 	qtype.cc \
 	rcpgenerator.cc \
 	responsestats.cc \
 	responsestats-auth.cc \
+	shuffle.cc shuffle.hh \
 	sillyrecords.cc \
 	statbag.cc \
 	test-arguments_cc.cc \
@@ -1321,6 +1328,7 @@ testrunner_SOURCES = \
 	test-nameserver_cc.cc \
 	test-packetcache_cc.cc \
 	test-packetcache_hh.cc \
+	test-proxy_protocol_cc.cc \
 	test-rcpgenerator_cc.cc \
 	test-signers.cc \
 	test-sha_hh.cc \
@@ -1419,6 +1427,7 @@ fuzz_targets_programs =  \
 	fuzz_target_dnsdistcache \
 	fuzz_target_moadnsparser \
 	fuzz_target_packetcache \
+	fuzz_target_proxyprotocol \
 	fuzz_target_zoneparsertng
 
 fuzz_targets: $(fuzz_targets_programs)
@@ -1474,6 +1483,16 @@ fuzz_target_packetcache_SOURCES = \
 fuzz_target_packetcache_DEPENDENCIES = $(fuzz_targets_deps)
 fuzz_target_packetcache_LDFLAGS = $(fuzz_targets_ldflags)
 fuzz_target_packetcache_LDADD = $(fuzz_targets_libs)
+
+fuzz_target_proxyprotocol_SOURCES = \
+	fuzz_proxyprotocol.cc \
+	iputils.hh \
+	proxy-protocol.cc \
+	proxy-protocol.hh
+
+fuzz_target_proxyprotocol_DEPENDENCIES = $(fuzz_targets_deps)
+fuzz_target_proxyprotocol_LDFLAGS = $(fuzz_targets_ldflags)
+fuzz_target_proxyprotocol_LDADD = $(fuzz_targets_libs)
 
 fuzz_target_dnsdistcache_SOURCES = \
 	fuzz_dnsdistcache.cc \

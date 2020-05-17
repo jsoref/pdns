@@ -25,6 +25,8 @@
 #include "dnsdist.hh"
 #include "dnsdist-ecs.hh"
 #include "dnsdist-kvs.hh"
+#include "dnsdist-lua-ffi.hh"
+#include "dolog.hh"
 #include "dnsparser.hh"
 
 class MaxQPSIPRule : public DNSRule
@@ -232,13 +234,9 @@ private:
 public:
   TimedIPSetRule()
   {
-    pthread_rwlock_init(&d_lock4, 0);
-    pthread_rwlock_init(&d_lock6, 0);
   }
   ~TimedIPSetRule()
   {
-    pthread_rwlock_destroy(&d_lock4);
-    pthread_rwlock_destroy(&d_lock6);
   }
   bool matches(const DNSQuestion* dq) const override
   {
@@ -300,7 +298,7 @@ public:
 
   void cleanup()
   {
-    time_t now=time(0);
+    time_t now = time(nullptr);
     {
       WriteLock rl(&d_lock4);
 
@@ -358,8 +356,8 @@ private:
   };
   std::unordered_map<IPv6, time_t, IPv6Hash> d_ip6s;
   std::unordered_map<uint32_t, time_t> d_ip4s;
-  mutable pthread_rwlock_t d_lock4;
-  mutable pthread_rwlock_t d_lock6;
+  mutable ReadWriteLock d_lock4;
+  mutable ReadWriteLock d_lock6;
 };
 
 
@@ -1123,4 +1121,61 @@ public:
 private:
   std::shared_ptr<KeyValueStore> d_kvs;
   std::shared_ptr<KeyValueLookupKey> d_key;
+};
+
+class LuaRule : public DNSRule
+{
+public:
+  typedef std::function<bool(const DNSQuestion* dq)> func_t;
+  LuaRule(const func_t& func): d_func(func)
+  {}
+
+  bool matches(const DNSQuestion* dq) const override
+  {
+    try {
+      std::lock_guard<std::mutex> lock(g_luamutex);
+      return d_func(dq);
+    } catch (const std::exception &e) {
+      warnlog("LuaRule failed inside Lua: %s", e.what());
+    } catch (...) {
+      warnlog("LuaRule failed inside Lua: [unknown exception]");
+    }
+    return false;
+  }
+
+  string toString() const override
+  {
+    return "Lua script";
+  }
+private:
+  func_t d_func;
+};
+
+class LuaFFIRule : public DNSRule
+{
+public:
+  typedef std::function<bool(dnsdist_ffi_dnsquestion_t* dq)> func_t;
+  LuaFFIRule(const func_t& func): d_func(func)
+  {}
+
+  bool matches(const DNSQuestion* dq) const override
+  {
+    dnsdist_ffi_dnsquestion_t dqffi(const_cast<DNSQuestion*>(dq));
+    try {
+      std::lock_guard<std::mutex> lock(g_luamutex);
+      return d_func(&dqffi);
+    } catch (const std::exception &e) {
+      warnlog("LuaFFIRule failed inside Lua: %s", e.what());
+    } catch (...) {
+      warnlog("LuaFFIRule failed inside Lua: [unknown exception]");
+    }
+    return false;
+  }
+
+  string toString() const override
+  {
+    return "Lua FFI script";
+  }
+private:
+  func_t d_func;
 };

@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "dnsdist.hh"
+#include "dnsdist-lua.hh"
 #include "ednsoptions.hh"
 
 #undef BADSIG  // signal.h SIG_ERR
@@ -31,6 +32,7 @@ void setupLuaVars()
       {"Nxdomain", (int)DNSAction::Action::Nxdomain},
       {"Refused", (int)DNSAction::Action::Refused},
       {"Spoof", (int)DNSAction::Action::Spoof},
+      {"SpoofRaw", (int)DNSAction::Action::SpoofRaw},
       {"Allow", (int)DNSAction::Action::Allow},
       {"HeaderModify", (int)DNSAction::Action::HeaderModify},
       {"Pool", (int)DNSAction::Action::Pool},
