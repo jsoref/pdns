@@ -35,11 +35,26 @@ public:
   DNSDistPacketCache(size_t maxEntries, uint32_t maxTTL=86400, uint32_t minTTL=0, uint32_t tempFailureTTL=60, uint32_t maxNegativeTTL=3600, uint32_t staleTTL=60, bool dontAge=false, uint32_t shards=1, bool deferrableInsertLock=true, bool parseECS=false);
   ~DNSDistPacketCache();
 
+<<<<<<< working copy
   void insert(uint32_t key, const boost::optional<Netmask>& subnet, uint16_t queryFlags, bool dnssecOK, const DNSName& qname, uint16_t qtype, uint16_t qclass, const char* response, uint16_t responseLen, bool tcp, uint8_t rcode, boost::optional<uint32_t> tempFailureTTL);
   bool get(const DNSQuestion& dq, uint16_t consumed, uint16_t queryId, char* response, uint16_t* responseLen, uint32_t* keyOut, boost::optional<Netmask>& subnetOut, bool dnssecOK, uint32_t allowExpired=0, bool skipAging=false);
   size_t purgeExpired(size_t upTo=0);
   size_t expunge(size_t upTo=0);
   size_t expungeByName(const DNSName& name, uint16_t qtype=QType::ANY, bool suffixMatch=false);
+||||||| base
+  void insert(uint32_t key, const boost::optional<Netmask>& subnet, uint16_t queryFlags, const DNSName& qname, uint16_t qtype, uint16_t qclass, const char* response, uint16_t responseLen, bool tcp, uint8_t rcode, boost::optional<uint32_t> tempFailureTTL);
+  bool get(const DNSQuestion& dq, uint16_t consumed, uint16_t queryId, char* response, uint16_t* responseLen, uint32_t* keyOut, boost::optional<Netmask>& subnetOut, uint32_t allowExpired=0, bool skipAging=false);
+  void purgeExpired(size_t upTo=0);
+  void expunge(size_t upTo=0);
+  void expungeByName(const DNSName& name, uint16_t qtype=QType::ANY, bool suffixMatch=false);
+=======
+  void insert(uint32_t key, const boost::optional<Netmask>& subnet, uint16_t queryFlags, const DNSName& qname, uint16_t qtype, uint16_t qclass, const char* response, uint16_t responseLen, bool tcp, uint8_t rcode, boost::optional<uint32_t> tempFailureTTL);
+  bool get(const DNSQuestion& dq, uint16_t consumed, uint16_t queryId, char* response, uint16_t* responseLen, uint32_t* keyOut, boost::optional<Netmask>& subnetOut, uint32_t allowExpired=0, bool skipAging=false);
+  void purgeExpired(size_t upTo=0);
+  void expunge(size_t upTo=0);
+  void expungeByName(const DNSName& name, uint16_t qtype=QType::ANY, bool suffixMatch=false);
+  void expungeByNames(const std::vector<DNSName> names, uint16_t qtype=QType::ANY, bool suffixMatch=false);
+>>>>>>> merge rev
   bool isFull();
   string toString();
   uint64_t getSize();
