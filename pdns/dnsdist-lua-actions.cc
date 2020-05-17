@@ -520,6 +520,8 @@ private:
   func_t d_func;
 };
 
+thread_local std::default_random_engine SpoofAction::t_randomEngine;
+
 DNSAction::Action SpoofAction::operator()(DNSQuestion* dq, std::string* ruleresult) const
 {
   uint16_t qtype = dq->qtype;
@@ -553,8 +555,9 @@ DNSAction::Action SpoofAction::operator()(DNSQuestion* dq, std::string* ruleresu
     }
   }
 
-  if(addrs.size() > 1)
-    random_shuffle(addrs.begin(), addrs.end());
+  if (addrs.size() > 1) {
+    shuffle(addrs.begin(), addrs.end(), t_randomEngine);
+  }
 
   unsigned int consumed=0;
   DNSName ignore((char*)dq->dh, dq->len, sizeof(dnsheader), false, 0, 0, &consumed);
@@ -1418,6 +1421,37 @@ private:
   bool d_nxd;
 };
 
+class SetProxyProtocolValuesAction : public DNSAction
+{
+public:
+  SetProxyProtocolValuesAction(const std::vector<std::pair<uint8_t, std::string>>& values)
+  {
+    d_values.reserve(values.size());
+    for (const auto& value : values) {
+      d_values.push_back({value.second, value.first});
+    }
+  }
+
+  DNSAction::Action operator()(DNSQuestion* dq, std::string* ruleresult) const override
+  {
+    if (!dq->proxyProtocolValues) {
+      dq->proxyProtocolValues = make_unique<std::vector<ProxyProtocolValue>>();
+    }
+
+    *(dq->proxyProtocolValues) = d_values;
+
+    return Action::None;
+  }
+
+  std::string toString() const override
+  {
+    return "set Proxy-Protocol values";
+  }
+
+private:
+  std::vector<ProxyProtocolValue> d_values;
+};
+
 template<typename T, typename ActionT>
 static void addAction(GlobalStateHolder<vector<T> > *someRulActions, const luadnsrule_t& var, const std::shared_ptr<ActionT>& action, boost::optional<luaruleparams_t>& params) {
   setLuaSideEffect();
@@ -1818,5 +1852,9 @@ void setupLuaActions()
       auto action = std::dynamic_pointer_cast<SetNegativeAndSOAAction>(ret);
       parseResponseConfig(vars, action->d_responseConfig);
       return ret;
+    });
+
+  g_lua.writeFunction("SetProxyProtocolValuesAction", [](const std::vector<std::pair<uint8_t, std::string>>& values) {
+      return std::shared_ptr<DNSAction>(new SetProxyProtocolValuesAction(values));
     });
 }
