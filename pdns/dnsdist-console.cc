@@ -348,7 +348,7 @@ const std::vector<ConsoleKeyword> g_consoleKeywords{
   { "addDNSCryptBind", true, "\"127.0.0.1:8443\", \"provider name\", \"/path/to/resolver.cert\", \"/path/to/resolver.key\", {reusePort=false, tcpFastOpenQueueSize=0, interface=\"\", cpus={}}", "listen to incoming DNSCrypt queries on 127.0.0.1 port 8443, with a provider name of `provider name`, using a resolver certificate and associated key stored respectively in the `resolver.cert` and `resolver.key` files. The fifth optional parameter is a table of parameters" },
   { "addDOHLocal", true, "addr, certFile, keyFile [, urls [, vars]]", "listen to incoming DNS over HTTPS queries on the specified address using the specified certificate and key. The last two parameters are tables" },
   { "addDynBlocks", true, "addresses, message[, seconds[, action]]", "block the set of addresses with message `msg`, for `seconds` seconds (10 by default), applying `action` (default to the one set with `setDynBlocksAction()`)" },
-  { "addDynBlockSMT", true, "names, msessage[, seconds [, action]]", "block the set of names with message `msg`, for `seconds` seconds (10 by default), applying `action` (default to the one set with `setDynBlocksAction()`)" },
+  { "addDynBlockSMT", true, "names, message[, seconds [, action]]", "block the set of names with message `msg`, for `seconds` seconds (10 by default), applying `action` (default to the one set with `setDynBlocksAction()`)" },
   { "addLocal", true, "addr [, {doTCP=true, reusePort=false, tcpFastOpenQueueSize=0, interface=\"\", cpus={}}]", "add `addr` to the list of addresses we listen on" },
   { "addCacheHitResponseAction", true, "DNS rule, DNS response action [, {uuid=\"UUID\"}]", "add a cache hit response rule" },
   { "addResponseAction", true, "DNS rule, DNS response action [, {uuid=\"UUID\"}]", "add a response rule" },
@@ -397,7 +397,7 @@ const std::vector<ConsoleKeyword> g_consoleKeywords{
   { "getBind", true, "n", "returns the listener at index n" },
   { "getBindCount", true, "", "returns the number of listeners all kinds" },
   { "getDNSCryptBind", true, "n", "return the `DNSCryptContext` object corresponding to the bind `n`" },
-  { "geDNSCrypttBindCount", true, "", "returns the number of DNSCrypt listeners" },
+  { "getDNSCryptBindCount", true, "", "returns the number of DNSCrypt listeners" },
   { "getDOHFrontend", true, "n", "returns the DOH frontend with index n" },
   { "getDOHFrontendCount", true, "", "returns the number of DoH listeners" },
   { "getPool", true, "name", "return the pool named `name`, or \"\" for the default pool" },
@@ -452,8 +452,8 @@ const std::vector<ConsoleKeyword> g_consoleKeywords{
   { "newDNSName", true, "name", "make a DNSName based on this .-terminated name" },
   { "newDNSNameSet", true, "", "returns a new DNSNameSet" },
   { "newDynBPFFilter", true, "bpf", "Return a new dynamic eBPF filter associated to a given BPF Filter" },
-  { "newFrameStreamTcpLogger", true, "addr", "create a FrameStream logger object writing to a TCP address (addr should be ip:port), to use with `DnstapLogAction()` and `DnstapLogResponseAction()`" },
-  { "newFrameStreamUnixLogger", true, "socket", "create a FrameStream logger object writing to a local unix socket, to use with `DnstapLogAction()` and `DnstapLogResponseAction()`" },
+  { "newFrameStreamTcpLogger", true, "addr [, options]", "create a FrameStream logger object writing to a TCP address (addr should be ip:port), to use with `DnstapLogAction()` and `DnstapLogResponseAction()`" },
+  { "newFrameStreamUnixLogger", true, "socket [, options]", "create a FrameStream logger object writing to a local unix socket, to use with `DnstapLogAction()` and `DnstapLogResponseAction()`" },
 #ifdef HAVE_LMDB
   { "newLMDBKVStore", true, "fname, dbName", "Return a new KeyValueStore object associated to the corresponding LMDB database" },
 #endif
@@ -492,6 +492,7 @@ const std::vector<ConsoleKeyword> g_consoleKeywords{
   { "reloadAllCertificates", true, "", "reload all DNSCrypt and TLS certificates, along with their associated keys" },
   { "RemoteLogAction", true, "RemoteLogger [, alterFunction [, serverID]]", "send the content of this query to a remote logger via Protocol Buffer. `alterFunction` is a callback, receiving a DNSQuestion and a DNSDistProtoBufMessage, that can be used to modify the Protocol Buffer content, for example for anonymization purposes. `serverID` is the server identifier." },
   { "RemoteLogResponseAction", true, "RemoteLogger [,alterFunction [,includeCNAME [, serverID]]]", "send the content of this response to a remote logger via Protocol Buffer. `alterFunction` is the same callback than the one in `RemoteLogAction` and `includeCNAME` indicates whether CNAME records inside the response should be parsed and exported. The default is to only exports A and AAAA records. `serverID` is the server identifier." },
+  { "rmACL", true, "netmask", "remove netmask from ACL" },
   { "rmCacheHitResponseRule", true, "id", "remove cache hit response rule in position 'id', or whose uuid matches if 'id' is an UUID string" },
   { "rmResponseRule", true, "id", "remove response rule in position 'id', or whose uuid matches if 'id' is an UUID string" },
   { "rmRule", true, "id", "remove rule in position 'id', or whose uuid matches if 'id' is an UUID string" },
@@ -550,6 +551,7 @@ const std::vector<ConsoleKeyword> g_consoleKeywords{
   { "setUDPTimeout", true, "n", "set the maximum time dnsdist will wait for a response from a backend over UDP, in seconds" },
   { "setVerboseHealthChecks", true, "bool", "set whether health check errors will be logged" },
   { "setWebserverConfig", true, "[{password=string, apiKey=string, customHeaders}]", "Updates webserver configuration" },
+  { "setWeightedBalancingFactor", true, "factor", "Set the balancing factor for bounded-load weighted policies (whashed, wrandom)" },
   { "setWHashedPertubation", true, "value", "Set the hash perturbation value to be used in the whashed policy instead of a random one, allowing to have consistent whashed results on different instance" },
   { "show", true, "string", "outputs `string`" },
   { "showACL", true, "", "show our ACL set" },
@@ -574,6 +576,7 @@ const std::vector<ConsoleKeyword> g_consoleKeywords{
   { "showTLSErrorCounters", true, "", "show metrics about TLS handshake failures" },
   { "showVersion", true, "", "show the current version" },
   { "shutdown", true, "", "shut down `dnsdist`" },
+  { "SetProxyProtocolValuesAction", true, "values", "Set the Proxy-Protocol values for this queries to 'values'" },
   { "SkipCacheAction", true, "", "Don’t lookup the cache for this query, don’t store the answer" },
   { "SNIRule", true, "name", "Create a rule which matches on the incoming TLS SNI value, if any (DoT or DoH)" },
   { "snmpAgent", true, "enableTraps [, masterSocket]", "enable `SNMP` support. `enableTraps` is a boolean indicating whether traps should be sent and `masterSocket` an optional string specifying how to connect to the master agent"},
@@ -611,7 +614,7 @@ const std::vector<ConsoleKeyword> g_consoleKeywords{
 };
 
 extern "C" {
-char* my_generator(const char* text, int state)
+static char* my_generator(const char* text, int state)
 {
   string t(text);
   /* to keep it readable, we try to keep only 4 keywords per line

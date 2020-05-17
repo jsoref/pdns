@@ -50,6 +50,7 @@
 #include "ednssubnet.hh"
 #include "gss_context.hh"
 #include "dns_random.hh"
+#include "shuffle.hh"
 
 bool DNSPacket::s_doEDNSSubnetProcessing;
 uint16_t DNSPacket::s_udpTruncationThreshold;
@@ -123,7 +124,7 @@ void DNSPacket::clearRecords()
   d_dedup.clear();
 }
 
-void DNSPacket::addRecord(const DNSZoneRecord &rr)
+void DNSPacket::addRecord(DNSZoneRecord&& rr)
 {
   // this removes duplicates from the packet.
   // in case we are not compressing for AXFR, no such checking is performed!
@@ -140,7 +141,7 @@ void DNSPacket::addRecord(const DNSZoneRecord &rr)
     d_dedup.insert(hash);
   }
 
-  d_rrs.push_back(rr);
+  d_rrs.push_back(std::move(rr));
 }
 
 vector<DNSZoneRecord*> DNSPacket::getAPRecords()
@@ -226,7 +227,7 @@ void DNSPacket::wrapup()
   static bool mustNotShuffle = ::arg().mustDo("no-shuffle");
 
   if(!d_tcp && !mustNotShuffle) {
-    shuffle(d_rrs);
+    pdns::shuffle(d_rrs);
   }
   d_wrapped=true;
 

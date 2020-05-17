@@ -33,7 +33,6 @@
 
 #include <boost/variant.hpp>
 
-#include "bpf-filter.hh"
 #include "capabilities.hh"
 #include "circular_buffer.hh"
 #include "dnscrypt.hh"
@@ -50,6 +49,7 @@
 #include "sholder.hh"
 #include "tcpiohandler.hh"
 #include "uuid-utils.hh"
+#include "proxy-protocol.hh"
 
 void carbonDumpThread();
 uint64_t uptimeOfProcess(const std::string& str);
@@ -85,6 +85,7 @@ struct DNSQuestion
   const ComboAddress* local{nullptr};
   const ComboAddress* remote{nullptr};
   std::shared_ptr<QTag> qTag{nullptr};
+  std::unique_ptr<std::vector<ProxyProtocolValue>> proxyProtocolValues{nullptr};
   std::shared_ptr<std::map<uint16_t, EDNSOptionView> > ednsOptions;
   std::shared_ptr<DNSCryptQuery> dnsCryptQuery{nullptr};
   std::shared_ptr<DNSDistPacketCache> packetCache{nullptr};
@@ -573,15 +574,13 @@ typedef std::function<std::tuple<bool, string>(const DNSQuestion* dq)> QueryCoun
 struct QueryCount {
   QueryCount()
   {
-    pthread_rwlock_init(&queryLock, nullptr);
   }
   ~QueryCount()
   {
-    pthread_rwlock_destroy(&queryLock);
   }
   QueryCountRecords records;
   QueryCountFilter filter;
-  pthread_rwlock_t queryLock;
+  ReadWriteLock queryLock;
   bool enabled{false};
 };
 
@@ -621,6 +620,7 @@ struct ClientState
   std::atomic<double> tcpAvgConnectionDuration{0.0};
   int udpFD{-1};
   int tcpFD{-1};
+  int tcpListenQueueSize{SOMAXCONN};
   int fastOpenQueueSize{0};
   bool muted{false};
   bool tcp;
@@ -769,11 +769,10 @@ struct DownstreamState
         fd = -1;
       }
     }
-    pthread_rwlock_destroy(&d_lock);
   }
   boost::uuids::uuid id;
   std::vector<unsigned int> hashes;
-  mutable pthread_rwlock_t d_lock;
+  mutable ReadWriteLock d_lock;
   std::vector<int> sockets;
   const std::string sourceItfName;
   std::mutex socketsLock;
@@ -833,6 +832,7 @@ struct DownstreamState
   bool mustResolve{false};
   bool upStatus{false};
   bool useECS{false};
+  bool useProxyProtocol{false};
   bool setCD{false};
   bool disableZeroScope{false};
   std::atomic<bool> connected{false};
@@ -910,11 +910,9 @@ struct ServerPool
 {
   ServerPool()
   {
-    pthread_rwlock_init(&d_lock, nullptr);
   }
   ~ServerPool()
   {
-    pthread_rwlock_destroy(&d_lock);
   }
 
   const std::shared_ptr<DNSDistPacketCache> getCache() const { return packetCache; };
@@ -994,7 +992,7 @@ struct ServerPool
 
 private:
   ServerPolicy::NumberedServerVector d_servers;
-  pthread_rwlock_t d_lock;
+  ReadWriteLock d_lock;
   bool d_useECS{false};
 };
 
@@ -1064,14 +1062,11 @@ extern uint32_t g_staleCacheEntriesTTL;
 extern bool g_apiReadWrite;
 extern std::string g_apiConfigDirectory;
 extern bool g_servFailOnNoPolicy;
-extern uint32_t g_hashperturb;
 extern bool g_useTCPSinglePipe;
 extern uint16_t g_downstreamTCPCleanupInterval;
 extern size_t g_udpVectorSize;
 extern bool g_preserveTrailingData;
 extern bool g_allowEmptyResponse;
-extern bool g_roundrobinFailOnNoServer;
-extern double g_consistentHashBalancingFactor;
 
 #ifdef HAVE_EBPF
 extern shared_ptr<BPFFilter> g_defaultBPFFilter;
@@ -1097,7 +1092,6 @@ struct LocalHolders
 
 struct dnsheader;
 
-void controlThread(int fd, ComboAddress local);
 vector<std::function<void(void)>> setupLua(bool client, const std::string& config);
 
 struct WebserverConfig

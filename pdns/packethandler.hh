@@ -102,7 +102,7 @@ private:
   void tkeyHandler(const DNSPacket& p, std::unique_ptr<DNSPacket>& r); //<! process TKEY record, and adds TKEY record to (r)eply, or error code.
 
   static AtomicCounter s_count;
-  static pthread_mutex_t s_rfc2136lock;
+  static std::mutex s_rfc2136lock;
   bool d_logDNSDetails;
   bool d_doIPv6AdditionalProcessing;
   bool d_doDNAME;
@@ -115,4 +115,3 @@ private:
   DNSSECKeeper d_dk; // B is shared with DNSSECKeeper
 };
 
-std::shared_ptr<DNSRecordContent> makeSOAContent(const SOAData& sd);

@@ -24,6 +24,7 @@ public:
   std::string d_keyLogFile;
 
   size_t d_maxStoredSessions{20480};
+  time_t d_sessionTimeout{0};
   time_t d_ticketsKeyRotationDelay{43200};
   uint8_t d_numberOfTicketsKeys{5};
   LibsslTLSVersion d_minTLSVersion{LibsslTLSVersion::TLS10};
@@ -93,7 +94,7 @@ public:
 
 private:
   boost::circular_buffer<std::shared_ptr<OpenSSLTLSTicketKey> > d_ticketKeys;
-  pthread_rwlock_t d_lock;
+  ReadWriteLock d_lock;
 };
 
 void* libssl_get_ticket_key_callback_data(SSL* s);
