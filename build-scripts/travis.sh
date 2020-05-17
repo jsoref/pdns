@@ -380,10 +380,28 @@ install_dnsdist() {
   run "sudo chmod 0755 /var/agentx"
 }
 
+<<<<<<< working copy
 check_for_dangling_symlinks() {
   run '! find -L . -name missing-sources -prune -o ! -name pubsuffix.cc -type l | grep .'
 }
 
+||||||| base
+=======
+install_nobuild_swagger() {
+  # Install swagger codegen
+
+  TMP_DIR="$(mktemp -d)"
+  export SWAGGER_BIN=${TMP_DIR}/swagger-codegen-cli.jar
+  export SWAGGER_CONFIG=${TMP_DIR}/swagger-config.json
+
+  # Generate a stub swagger config
+  run "echo '{ \"packageName\": \"pdnsapi\" }' > ${SWAGGER_CONFIG}"
+
+  # Authoritative source, based on instructions here: https://github.com/swagger-api/swagger-codegen#prerequisites
+  run "wget -O ${SWAGGER_BIN} http://central.maven.org/maven2/io/swagger/swagger-codegen-cli/2.3.0/swagger-codegen-cli-2.3.0.jar"
+}
+
+>>>>>>> merge rev
 build_auth() {
   run "autoreconf -vi"
   run "./configure \
@@ -639,6 +657,27 @@ test_repo(){
   run "git status"
   run "git status | grep -q clean"
 }
+
+test_nobuild_swagger() { # Try to generate bindings for some common languages to see if the swagger spec is valid
+
+  pwd
+  tree
+
+  # Generate golang client bindings from the api spec as a check for spec validity
+  run "java -jar ${SWAGGER_BIN} generate \
+      -c ${SWAGGER_CONFIG} \
+      -i docs/http-api/swagger/authoritative-api-swagger.yaml \
+      -l go \
+      -o out/go"
+
+}
+
+# This block is for static checks that don't require a compile
+if [[ $PDNS_BUILD_PRODUCT == 'nobuild*' ]]; then
+  install_$PDNS_BUILD_PRODUCT
+  test_$PDNS_BUILD_PRODUCT
+  exit $?
+fi
 
 # global build requirements
 run "sudo apt-get -qq --no-install-recommends install \

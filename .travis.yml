@@ -10,8 +10,33 @@ env:
   - PDNS_BUILD_PRODUCT=dnsdist
   - PDNS_BUILD_PRODUCT=ixfrdist
 
+<<<<<<< working copy
 cache:
   - pip
+||||||| base
+matrix:
+  exclude:
+    - compiler: clang
+      env: PDNS_BUILD_PRODUCT=recursor
+  include:
+    - compiler: clang
+      env: PDNS_BUILD_PRODUCT=recursor COMPILER=clang++-3.6
+      addons:
+        apt:
+          packages: ['clang-3.6']
+=======
+matrix:
+  exclude:
+    - compiler: clang
+      env: PDNS_BUILD_PRODUCT=recursor
+  include:
+    - compiler: clang
+      env: PDNS_BUILD_PRODUCT=recursor COMPILER=clang++-3.6
+      addons:
+        apt:
+          packages: ['clang-3.6']
+    - env: PDNS_BUILD_PRODUCT=nobuild_swagger
+>>>>>>> merge rev
 
 before_script:
   - git describe --always --dirty=+
