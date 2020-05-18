@@ -544,7 +544,7 @@ The IP address sent via EDNS Client Subnet to authoritative servers listed in
 an ECS source prefix-length set to 0.
 The default is to look for the first usable (not an ``any`` one) address in
 `query-local-address`_ (starting with IPv4). If no suitable address is
-found, the recursor fallbacks to sending 127.0.0.1.
+found, the recursor falls back to sending 127.0.0.1.
 
 .. _setting-edns-outgoing-bufsize:
 
