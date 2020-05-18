@@ -443,7 +443,7 @@ This can have odd effects, depending on your network, and may even be a security
 Therefore, the PowerDNS Recursor by default does not query private space IP addresses.
 This setting can be used to expand or reduce the limitations.
 
-Queries to addresses for zones as configured in any of the settings `forward-zones`_, `forward-zones-file`_ or `forward-zones-recurse`_ are performed regardless of these limitations.
+Queries to addresses for zones as configured in any of the settings `forward-zones`_, `forward-zones-file`_, or `forward-zones-recurse`_ are performed regardless of these limitations.
 
 .. _setting-ecs-add-for:
 
@@ -1011,7 +1011,7 @@ Total maximum number of milliseconds of wallclock time the server may use to ans
 -  Default: 10000
 
 Under heavy load the recursor might be busy processing incoming UDP queries for a long while before there is no more of these, and might therefore
-neglect scheduling new ``mthreads``, handling responses from authoritative servers or responding to :doc:`rec_control <manpages/rec_control.1>`
+neglect scheduling new ``mthreads``, handling responses from authoritative servers, or responding to :doc:`rec_control <manpages/rec_control.1>`
 requests.
 This setting caps the maximum number of incoming UDP DNS queries processed in a single round of looping on ``recvmsg()`` after being woken up by the multiplexer, before
 returning back to normal processing and handling other events.
@@ -1075,7 +1075,7 @@ observed domain>.<lookup domain>". For example if 'new-domain-lookup'
 is configured as 'nod.powerdns.com', and a new domain 'xyz123.tv' is
 detected, then an A record lookup will be made for
 'xyz123.tv.nod.powerdns.com'. This feature gives a way to share the
-newly observed domain with partners, vendors or security teams. The
+newly observed domain with partners, vendors, or security teams. The
 result of the DNS lookup will be ignored by the recursor.
 
 .. _setting-new-domain-db-size:
@@ -1499,7 +1499,7 @@ When using `chroot`_ the default becomes to ``/``.
 
 ``socket-owner``, ``socket-group``, ``socket-mode``
 ---------------------------------------------------
-Owner, group and mode of the controlsocket.
+Owner, group, and mode of the controlsocket.
 Owner and group can be specified by name, mode is in octal.
 
 .. _setting-spoof-nearmiss-max:
