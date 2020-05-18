@@ -174,7 +174,7 @@ Change the instance or third string of the metric key. The default is recursor.
 -----------------
 -  IP address
 
-If set to an IP or IPv6 address, will send all available metrics to this server via the carbon protocol, which is used by graphite and metronome. Moreover you can specify more than one server using a comma-delimited list, ex: carbon-server=10.10.10.10,10.10.10.20.
+If set to an IP or IPv6 address, will send all available metrics to this server via the carbon protocol, which is used by graphite and metronome. Moreover, you can specify more than one server using a comma-delimited list, ex: carbon-server=10.10.10.10,10.10.10.20.
 You may specify an alternate port by appending :port, for example: ``127.0.0.1:2004``.
 See :doc:`metrics`.
 
@@ -587,7 +587,7 @@ By default, this option is empty, meaning no EDNS Client Subnet information is s
 
 PowerDNS can read entropy from a (hardware) source.
 This is used for generating random numbers which are very hard to predict.
-Generally on UNIX platforms, this source will be ``/dev/urandom``, which will always supply random numbers, even if entropy is lacking.
+Generally, on UNIX platforms, this source will be ``/dev/urandom``, which will always supply random numbers, even if entropy is lacking.
 Change to ``/dev/random`` if PowerDNS should block waiting for enough entropy to arrive.
 
 .. _setting-etc-hosts-file:
@@ -759,7 +759,7 @@ Disable this if the process supervisor timestamps these lines already.
 
 Bind to addresses even if one or more of the `local-address`_'s do not exist on this server.
 Setting this option will enable the needed socket options to allow binding to non-local addresses.
-This feature is intended to facilitate ip-failover setups, but it may also mask configuration issues and for this reason it is disabled by default.
+This feature is intended to facilitate ip-failover setups, but it may also mask configuration issues, and for this reason, it is disabled by default.
 
 .. _setting-loglevel:
 
@@ -810,7 +810,7 @@ Do not pass names like 'local0'!
 Set to true to lowercase the outgoing queries.
 When set to 'no' (the default) a query from a client using mixed case in the DNS labels (such as a user entering mixed-case names or `draft-vixie-dnsext-dns0x20-00 <http://tools.ietf.org/html/draft-vixie-dnsext-dns0x20-00>`_), PowerDNS preserves the case of the query.
 Broken authoritative servers might give a wrong or broken answer on this encoding.
-Setting ``lowercase-outgoing`` to 'yes' makes the PowerDNS Recursor lowercase all the labels in the query to the authoritative servers, but still return the proper case to the client requesting.
+Setting ``lowercase-outgoing`` to 'yes' makes the PowerDNS Recursor lowercase all the labels in the query to the authoritative servers but still return the proper case to the client requesting.
 
 .. _setting-lua-config-file:
 
@@ -1010,7 +1010,7 @@ Total maximum number of milliseconds of wallclock time the server may use to ans
 -  Integer
 -  Default: 10000
 
-Under heavy load the recursor might be busy processing incoming UDP queries for a long while before there is no more of these, and might therefore
+Under heavy load, the recursor might be busy processing incoming UDP queries for a long while before there is no more of these, and might, therefore,
 neglect scheduling new ``mthreads``, handling responses from authoritative servers, or responding to :doc:`rec_control <manpages/rec_control.1>`
 requests.
 This setting caps the maximum number of incoming UDP DNS queries processed in a single round of looping on ``recvmsg()`` after being woken up by the multiplexer, before
@@ -1071,7 +1071,7 @@ recursor log file. The log line looks something like::
 
 If a domain is specified, then each time a newly observed domain is
 detected, the recursor will perform an A record lookup of "<newly
-observed domain>.<lookup domain>". For example if 'new-domain-lookup'
+observed domain>.<lookup domain>". For example, if 'new-domain-lookup'
 is configured as 'nod.powerdns.com', and a new domain 'xyz123.tv' is
 detected, then an A record lookup will be made for
 'xyz123.tv.nod.powerdns.com'. This feature gives a way to share the
@@ -1303,7 +1303,7 @@ described in :rfc:`7816`.
 Send out local queries from this address, or addresses. By adding multiple
 addresses, increased spoofing resilience is achieved. When no address of a certain
 address family is configured, there are *no* queries sent with that address family.
-In the default configuration this means that IPv6 is not used for outgoing queries.
+In the default configuration, this means that IPv6 is not used for outgoing queries.
 
 .. _setting-query-local-address6:
 
@@ -1630,7 +1630,7 @@ May destroy performance under load.
 
 This option sets the low limit of UDP port number to bind on.
 
-In combination with `udp-source-port-max`_ it configures the UDP
+In combination with `udp-source-port-max`_, it configures the UDP
 port range to use. Port numbers are randomized within this range on
 initialization, and exceptions can be configured with `udp-source-port-avoid`_
 
