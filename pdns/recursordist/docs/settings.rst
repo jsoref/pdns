@@ -1,9 +1,9 @@
 PowerDNS Recursor Settings
 ==========================
-Each setting can appear on the command line, prefixed by '--', or in the configuration file.
+Each setting can appear on the command line, prefixed by ``--``, or in the configuration file.
 The command line overrides the configuration file.
 
-**Note**: Settings marked as 'Boolean' can either be set to an empty value, which means on, or to 'no' or 'off' which means off.
+**Note**: Settings marked as 'Boolean' can either be set to an empty value, which means on, or to ``no`` or ``off`` which means off.
 Anything else means on.
 
 As an example:
@@ -174,7 +174,7 @@ Change the instance or third string of the metric key. The default is recursor.
 -----------------
 -  IP address
 
-If set to an IP or IPv6 address, will send all available metrics to this server via the carbon protocol, which is used by graphite and metronome. Moreover, you can specify more than one server using a comma-delimited list, ex: carbon-server=10.10.10.10,10.10.10.20.
+If set to an IP or IPv6 address, will send all available metrics to this server via the carbon protocol, which is used by graphite and metronome. Moreover, you can specify more than one server using a comma-delimited list, ex: ``carbon-server=10.10.10.10,10.10.10.20``.
 You may specify an alternate port by appending :port, for example: ``127.0.0.1:2004``.
 See :doc:`metrics`.
 
@@ -195,7 +195,7 @@ When using ``chroot``, all other paths (except for `config-dir`_) set in the con
 When using ``chroot`` and the API (`webserver`_), `api-readonly`_ **must** be set and `api-config-dir`_ unset.
 
 When running on a system where systemd manages services, ``chroot`` does not work out of the box, as PowerDNS cannot use the ``NOTIFY_SOCKET``.
-Either do not ``chroot`` on these systems or set the 'Type' of this service to 'simple' instead of 'notify' (refer to the systemd documentation on how to modify unit-files).
+Either do not ``chroot`` on these systems or set the ``Type`` of this service to ``simple`` instead of ``notify`` (refer to the systemd documentation on how to modify unit-files).
 
 .. _setting-client-tcp-timeout:
 
@@ -247,7 +247,7 @@ Starting with version 4.2.0, the thread handling the control channel, the webser
 id 0 and more than one distributor thread can be started using the :ref:`setting-distributor-threads` setting, so the distributor
 threads if any are assigned id 1 and counting, and the other threads follow behind.
 
-This parameter is only available on OS that provides the `pthread_setaffinity_np()` function.
+This parameter is only available on OS that provides the ``pthread_setaffinity_np()`` function.
 
 .. _setting-daemon:
 
@@ -615,7 +615,7 @@ If set, this flag will export the host names and IP addresses mentioned in ``/et
 ----------------------------------
 -  String
 
-If set, all hostnames in the `export-etc-hosts`_ file are loaded in canonical form, based on this suffix, unless the name contains a '.', in which case the name is unchanged.
+If set, all hostnames in the `export-etc-hosts`_ file are loaded in canonical form, based on this suffix, unless the name contains a ``.``, in which case the name is unchanged.
 So an entry called 'pc' with ``export-etc-hosts-search-suffix='home.com'`` will lead to the generation of 'pc.home.com' within the recursor.
 An entry called 'server1.home' will be stored as 'server1.home', regardless of this setting.
 
@@ -656,12 +656,12 @@ Same as `forward-zones`_, parsed from a file. Only 1 zone is allowed per line, s
 
     example.org=203.0.113.210, 192.0.2.4:5300
 
-Zones prefixed with a '+' are forwarded with the recursion-desired bit set, for which see `forward-zones-recurse`_.
-Default behaviour without '+' is as with `forward-zones`_.
+Zones prefixed with a ``+`` are forwarded with the recursion-desired bit set, for which see `forward-zones-recurse`_.
+Default behaviour without ``+`` is as with `forward-zones`_.
 
 .. versionchanged:: 4.0.0
 
-  Comments are allowed, everything behind '#' is ignored.
+  Comments are allowed, everything behind ``#`` is ignored.
 
 The DNSSEC notes from `forward-zones`_ apply here as well.
 
@@ -798,7 +798,7 @@ Log additions and removals to RPZ zones at Info (6) level instead of Debug (7).
 
 If set to a digit, logging is performed under this LOCAL facility.
 See :ref:`logging`.
-Do not pass names like 'local0'!
+Do not pass names like ``local0``!
 
 .. _setting-lowercase-outgoing:
 
@@ -808,9 +808,9 @@ Do not pass names like 'local0'!
 -  Default: no
 
 Set to true to lowercase the outgoing queries.
-When set to 'no' (the default) a query from a client using mixed case in the DNS labels (such as a user entering mixed-case names or `draft-vixie-dnsext-dns0x20-00 <http://tools.ietf.org/html/draft-vixie-dnsext-dns0x20-00>`_), PowerDNS preserves the case of the query.
+When set to ``no`` (the default) a query from a client using mixed case in the DNS labels (such as a user entering mixed-case names or `draft-vixie-dnsext-dns0x20-00 <http://tools.ietf.org/html/draft-vixie-dnsext-dns0x20-00>`_), PowerDNS preserves the case of the query.
 Broken authoritative servers might give a wrong or broken answer on this encoding.
-Setting ``lowercase-outgoing`` to 'yes' makes the PowerDNS Recursor lowercase all the labels in the query to the authoritative servers but still return the proper case to the client requesting.
+Setting ``lowercase-outgoing`` to ``yes`` makes the PowerDNS Recursor lowercase all the labels in the query to the authoritative servers but still return the proper case to the client requesting.
 
 .. _setting-lua-config-file:
 
@@ -1071,10 +1071,10 @@ recursor log file. The log line looks something like::
 
 If a domain is specified, then each time a newly observed domain is
 detected, the recursor will perform an A record lookup of "<newly
-observed domain>.<lookup domain>". For example, if 'new-domain-lookup'
-is configured as 'nod.powerdns.com', and a new domain 'xyz123.tv' is
+observed domain>.<lookup domain>". For example, if ``new-domain-lookup``
+is configured as ``nod.powerdns.com``, and a new domain ``xyz123.tv`` is
 detected, then an A record lookup will be made for
-'xyz123.tv.nod.powerdns.com'. This feature gives a way to share the
+``xyz123.tv.nod.powerdns.com``. This feature gives a way to share the
 newly observed domain with partners, vendors, or security teams. The
 result of the DNS lookup will be ignored by the recursor.
 
@@ -1127,7 +1127,7 @@ from this directory.
 
 This setting is a list of all domains (and implicitly all subdomains)
 that will never be considered a new domain. For example, if the domain
-'xyz123.tv' is in the list, then 'foo.bar.xyz123.tv' will never be
+``xyz123.tv`` is in the list, then ``foo.bar.xyz123.tv`` will never be
 considered a new domain. One use-case for the whitelist is to never
 reveal details of internal subdomains via the new-domain-lookup
 feature.
@@ -1370,7 +1370,7 @@ The effect of this is far fewer queries to the root-servers.
 
 .. versionchanged:: 4.0.0
 
-    Default is 'yes' now, was 'no' before 4.0.0
+    Default is ``yes`` now, was ``no`` before 4.0.0
 
 .. _setting-security-poll-suffix:
 
@@ -1419,11 +1419,11 @@ Throttle a server that has failed to respond `server-down-max-fails`_ times for 
 -  String
 -  Default: The hostname of the server
 
-The reply given by The PowerDNS recursor to a query for 'id.server' with its hostname, useful for in clusters.
+The reply given by The PowerDNS recursor to a query for ``id.server`` with its hostname, useful for in clusters.
 When a query contains the :rfc:`NSID EDNS0 Option <5001>`, this value is returned in the response as the NSID value.
 
 This setting can be used to override the answer given to these queries.
-Set to "disabled" to disable NSID and 'id.server' answers.
+Set to ``disabled`` to disable NSID and ``id.server`` answers.
 
 Query example (where 192.0.2.14 is your server):
 
@@ -1785,7 +1785,7 @@ Print version of this binary. Useful for checking which version of the PowerDNS 
 -  String
 -  Default: PowerDNS Recursor version number
 
-By default, PowerDNS replies to the 'version.bind' query with its version number.
+By default, PowerDNS replies to the ``version.bind`` query with its version number.
 Security-conscious users may wish to override the reply PowerDNS issues.
 
 .. _setting-webserver:
