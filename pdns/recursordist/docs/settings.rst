@@ -112,14 +112,14 @@ Location of the server logfile (used by the REST API).
 Authoritative zones can transmit a TTL value that is lower than that specified in the parent zone.
 This is called a 'delegation inconsistency'.
 To follow :rfc:`RFC 2181 section 5.2<2181#section-5.2>` and :rfc:`5.4 <2181#section-5.4>` to the letter, enable this feature.
-This will mean a slight deterioration of performance, and it will not solve any problems, but does make the recursor more standards compliant.
+This will mean a slight deterioration of performance, and it will not solve any problems, but does make the recursor more standards-compliant.
 Not recommended unless you have to tick an 'RFC 2181 compliant' box.
 
 .. _setting-auth-zones:
 
 ``auth-zones``
 --------------
--  Comma separated list of 'zonename=filename' pairs
+-  Comma-separated list of 'zonename=filename' pairs
 
 Zones read from these files (in BIND format) are served authoritatively.
 DNSSEC is not supported. Example:
@@ -174,7 +174,7 @@ Change the instance or third string of the metric key. The default is recursor.
 -----------------
 -  IP address
 
-If set to an IP or IPv6 address, will send all available metrics to this server via the carbon protocol, which is used by graphite and metronome. Moreover you can specify more than one server using a comma delimited list, ex: carbon-server=10.10.10.10,10.10.10.20.
+If set to an IP or IPv6 address, will send all available metrics to this server via the carbon protocol, which is used by graphite and metronome. Moreover you can specify more than one server using a comma-delimited list, ex: carbon-server=10.10.10.10,10.10.10.20.
 You may specify an alternate port by appending :port, for example: ``127.0.0.1:2004``.
 See :doc:`metrics`.
 
@@ -234,7 +234,7 @@ When running multiple recursors on the same server, read settings from :file:`re
 - Default: unset
 
 Set CPU affinity for worker threads, asking the scheduler to run those threads on a single CPU, or a set of CPUs.
-This parameter accepts a space separated list of thread-id=cpu-id, or thread-id=cpu-id-1,cpu-id-2,...,cpu-id-N.
+This parameter accepts a space-separated list of thread-id=cpu-id, or thread-id=cpu-id-1,cpu-id-2,...,cpu-id-N.
 For example, to make the worker thread 0 run on CPU id 0 and the worker thread 1 on CPUs 1 and 2::
 
   cpu-map=0=0 1=1,2
@@ -266,7 +266,7 @@ Operate in the background.
 
 ``delegation-only``
 -------------------
--  Domains, comma separated
+-  Domains, comma-separated
 
 Which domains we only accept delegations from (a Verisign special).
 
@@ -276,7 +276,7 @@ Which domains we only accept delegations from (a Verisign special).
 ----------------------------
 .. versionadded:: 4.2.0
 
--  Comma separated list of domain-names
+-  Comma-separated list of domain names
 -  Default: (empty)
 
 When an authoritative server does not answer a query or sends a reply the recursor does not like, it is throttled.
@@ -291,7 +291,7 @@ Any servers' name suffix-matching the supplied names will never be throttled.
 ----------------------------
 .. versionadded:: 4.2.0
 
--  Comma separated list of netmasks
+-  Comma-separated list of netmasks
 -  Default: (empty)
 
 When an authoritative server does not answer a query or sends a reply the recursor does not like, it is throttled.
@@ -419,7 +419,7 @@ Similar behaviour to ``process``, but validate RRSIGs on responses and log bogus
 
 validate
 ^^^^^^^^
-Full blown DNSSEC validation. Send SERVFAIL to clients on bogus responses.
+Full-blown DNSSEC validation. Send SERVFAIL to clients on bogus responses.
 
 .. _setting-dnssec-log-bogus:
 
@@ -435,7 +435,7 @@ Log every DNSSEC validation failure.
 
 ``dont-query``
 --------------
--  Netmasks, comma separated
+-  Netmasks, comma-separated
 -  Default: 127.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 169.254.0.0/16, 192.168.0.0/16, 172.16.0.0/12, ::1/128, fc00::/7, fe80::/10, 0.0.0.0/8, 192.0.0.0/24, 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, 240.0.0.0/4, ::/96, ::ffff:0:0/96, 100::/64, 2001:db8::/32
 
 The DNS is a public database, but sometimes contains delegations to private IP addresses, like for example 127.0.0.1.
@@ -451,7 +451,7 @@ Queries to addresses for zones as configured in any of the settings `forward-zon
 ---------------
 .. versionadded:: 4.2.0
 
--  Comma separated list of netmasks
+-  Comma-separated list of netmasks
 -  Default: 0.0.0.0/0, ::/0, !127.0.0.0/8, !10.0.0.0/8, !100.64.0.0/10, !169.254.0.0/16, !192.168.0.0/16, !172.16.0.0/12, !::1/128, !fc00::/7, !fe80::/10
 
 List of requestor netmasks for which the requestor IP Address should be used as the :rfc:`EDNS Client Subnet <7871>` for outgoing queries. Outgoing queries for requestors that do not match this list will use the `ecs-scope-zero-address`_ instead.
@@ -568,7 +568,7 @@ Lower this if you experience timeouts.
 
 ``edns-subnet-whitelist``
 -------------------------
--  Comma separated list of domain names and netmasks
+-  Comma-separated list of domain names and netmasks
 -  Default: (none)
 
 List of netmasks and domains that :rfc:`EDNS Client Subnet <7871>` should be enabled for in outgoing queries.
@@ -623,7 +623,7 @@ An entry called 'server1.home' will be stored as 'server1.home', regardless of t
 
 ``forward-zones``
 -----------------
--  'zonename=IP' pairs, comma separated
+-  'zonename=IP' pairs, comma-separated
 
 Queries for zones listed here will be forwarded to the IP address listed. i.e.
 
@@ -669,7 +669,7 @@ The DNSSEC notes from `forward-zones`_ apply here as well.
 
 ``forward-zones-recurse``
 -------------------------
--  'zonename=IP' pairs, comma separated
+-  'zonename=IP' pairs, comma-separated
 
 Like regular `forward-zones`_, but forwarded queries have the 'recursion desired' bit set to 1, meaning that this setting is intended to forward queries to other recursive servers.
 
@@ -715,7 +715,7 @@ Indication of how many queries will be averaged to get the average latency repor
 
 ``local-address``
 -----------------
--  IP addresses, comma separated
+-  IP addresses, comma-separated
 -  Default: 127.0.0.1
 
 Local IPv4 or IPv6 addresses to bind to.
@@ -1122,7 +1122,7 @@ from this directory.
 ------------------------
 .. versionadded:: 4.2.0
 
-- List of Domain Names, comma separated
+- List of Domain Names, comma-separated
 - Example: xyz.com, abc.com
 
 This setting is a list of all domains (and implicitly all subdomains)
@@ -1297,7 +1297,7 @@ described in :rfc:`7816`.
 .. versionchanged:: 4.4.0
   IPv6 addresses can be set with this option as well.
 
--  IP addresses, comma separated
+-  IP addresses, comma-separated
 -  Default: 0.0.0.0
 
 Send out local queries from this address, or addresses. By adding multiple
@@ -1312,7 +1312,7 @@ In the default configuration this means that IPv6 is not used for outgoing queri
 .. deprecated:: 4.4.0
   Use :ref:`setting-query-local-address` for IPv4 and IPv6.
 
--  IPv6 addresses, comma separated
+-  IPv6 addresses, comma-separated
 -  Default: unset
 
 Send out local IPv6 queries from this address or addresses.
@@ -1786,7 +1786,7 @@ Print version of this binary. Useful for checking which version of the PowerDNS 
 -  Default: PowerDNS Recursor version number
 
 By default, PowerDNS replies to the 'version.bind' query with its version number.
-Security conscious users may wish to override the reply PowerDNS issues.
+Security-conscious users may wish to override the reply PowerDNS issues.
 
 .. _setting-webserver:
 
@@ -1810,7 +1810,7 @@ IP address for the webserver to listen on.
 
 ``webserver-allow-from``
 ------------------------
--  IP addresses, comma separated
+-  IP addresses, comma-separated
 -  Default: 127.0.0.1,::1
 
 .. versionchanged:: 4.1.0
