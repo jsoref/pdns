@@ -35,6 +35,7 @@ addons:
       - ldnsutils
       - libboost-all-dev
       - libcdb-dev
+      - libcurl4-gnutls-dev
       - libedit-dev
       - libfaketime
       - libfstrm-dev
