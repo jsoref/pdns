@@ -239,7 +239,6 @@ install_auth() {
   run "sudo systemctl restart slapd"
   run "popd"
   run "sudo -u openldap mkdir -p /var/lib/ldap/powerdns"
-  run "sudo ldapadd -Y EXTERNAL -H ldapi:/// -f ./build-scripts/docker/ldap-regress/bootstrap/ldif/powerdns-mdb.ldif"
   run "sudo systemctl stop slapd"
 
   # remote-backend tests requirements
