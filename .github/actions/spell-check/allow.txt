@@ -3407,7 +3407,6 @@ ruleparams
 ruleresult
 Rumu
 runcond
-runing
 runlevel
 runtests
 RUNWRAPPER
