@@ -1,3 +1,4 @@
+ignore$
 (?:^|/)ext/
 (?:^|/)go\.mod$
 (?:^|/)go\.sum$
@@ -33,6 +34,7 @@ SUMS$
 \.lock$
 \.map$
 \.min\..
+\.mmdb$
 \.mp3$
 \.mp4$
 \.nsec3(?:-optout|)$
@@ -43,6 +45,7 @@ SUMS$
 \.psd$
 \.sig$
 \.so$
+\.supp$
 \.svg$
 \.svgz$
 \.tar$
@@ -55,7 +58,12 @@ SUMS$
 \.yml$
 \.zip$
 ^modules/remotebackend/example\.rb$
+^modules/remotebackend/test-remotebackend-keys\.hh$
 ^modules/tinydnsbackend/data\.cdb$
 ^pdns/dnsdistdist/src_js/
 ^pdns/recursordist/html/js/
+^regression-tests\.recursor-dnssec/test_ReadTrustAnchorsFromFile\.py$
 ^\.github/actions/spell-check/
+^modules/tinydnsbackend/data$
+/test-base64_cc\.cc$
+# want to include regression-tests.*/description
