@@ -2973,7 +2973,6 @@ processname
 progname
 PROGRAMLISTING
 programname
-progrm
 progsarray
 promtool
 propol
