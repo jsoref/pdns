@@ -3208,8 +3208,6 @@ redirectresponses
 redistributors
 refcnt
 refcursor
-referals
-refferals
 refuseemptyar
 refusefouran
 refusenoan
