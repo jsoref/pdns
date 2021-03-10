@@ -2323,7 +2323,6 @@ namesseen
 namestocheck
 nametoindex
 nametype
-namq
 nanosleep
 nargs
 narrowbool
