@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_SUITE(test_dnsdist_cc)
 static const uint16_t ECSSourcePrefixV4 = 24;
 static const uint16_t ECSSourcePrefixV6 = 56;
 
-static void validateQuery(const PacketBuffer& packet, bool hasEdns=true, bool hasXPF=false, uint16_t additionals=0, uint16_t answers=0, uint16_t authorities=0)
+static void validateQuery(const PacketBuffer& packet, bool hasEdns=true, bool hasXPF=false, uint16_t additional=0, uint16_t answers=0, uint16_t authorities=0)
 {
   MOADNSParser mdp(true, reinterpret_cast<const char*>(packet.data()), packet.size());
 
@@ -51,7 +51,7 @@ static void validateQuery(const PacketBuffer& packet, bool hasEdns=true, bool ha
   BOOST_CHECK_EQUAL(mdp.d_header.qdcount, 1U);
   BOOST_CHECK_EQUAL(mdp.d_header.ancount, answers);
   BOOST_CHECK_EQUAL(mdp.d_header.nscount, authorities);
-  uint16_t expectedARCount = additionals + (hasEdns ? 1U : 0U) + (hasXPF ? 1U : 0U);
+  uint16_t expectedARCount = additional + (hasEdns ? 1U : 0U) + (hasXPF ? 1U : 0U);
   BOOST_CHECK_EQUAL(mdp.d_header.arcount, expectedARCount);
 }
 
