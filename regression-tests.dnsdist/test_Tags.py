@@ -83,7 +83,7 @@ class TestTags(DNSDistTest):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testQuestionMatchTagOnly(self):
         """
@@ -105,7 +105,7 @@ class TestTags(DNSDistTest):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testResponseNoMatch(self):
         """
@@ -157,7 +157,7 @@ class TestTags(DNSDistTest):
             self.assertTrue(receivedResponse)
             receivedQuery.id = query.id
             self.assertEqual(query, receivedQuery)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testResponseMatchResponseTagMatches(self):
         """
@@ -186,7 +186,7 @@ class TestTags(DNSDistTest):
             self.assertTrue(receivedResponse)
             receivedQuery.id = query.id
             self.assertEqual(query, receivedQuery)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
 class TestSetTagAction(DNSDistTest):
 
@@ -222,7 +222,7 @@ class TestSetTagAction(DNSDistTest):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testSetTagOverwritten(self):
 
@@ -245,7 +245,7 @@ class TestSetTagAction(DNSDistTest):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
 class TestSetTag(DNSDistTest):
 
@@ -288,7 +288,7 @@ class TestSetTag(DNSDistTest):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testSetTagOverwritten(self):
 
@@ -311,4 +311,4 @@ class TestSetTag(DNSDistTest):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))

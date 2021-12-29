@@ -147,23 +147,23 @@ class TestCaching(DNSDistTest):
         name = 'nocache.cache.tests.powerdns.com.'
         numberOfQueries = 10
         query = dns.message.make_query(name, 'AAAA', 'IN')
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     3600,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.AAAA,
                                     '::1')
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         for _ in range(numberOfQueries):
             for method in ("sendUDPQuery", "sendTCPQuery"):
                 sender = getattr(self, method)
-                (receivedQuery, receivedResponse) = sender(query, response)
+                (receivedQuery, receivedResponse) = sender(query, expectedResponse)
                 self.assertTrue(receivedQuery)
                 self.assertTrue(receivedResponse)
                 receivedQuery.id = query.id
-                self.assertEqual(query, receivedQuery)
-                self.assertEqual(receivedResponse, response)
+                self.assertEqual((query, method), (receivedQuery, method))
+                self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         for key in self._responsesCounter:
             value = self._responsesCounter[key]
@@ -179,23 +179,23 @@ class TestCaching(DNSDistTest):
         name = 'nocachevialua.cache.tests.powerdns.com.'
         numberOfQueries = 10
         query = dns.message.make_query(name, 'AAAA', 'IN')
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     3600,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.AAAA,
                                     '::1')
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         for _ in range(numberOfQueries):
             for method in ("sendUDPQuery", "sendTCPQuery"):
                 sender = getattr(self, method)
-                (receivedQuery, receivedResponse) = sender(query, response)
+                (receivedQuery, receivedResponse) = sender(query, expectedResponse)
                 self.assertTrue(receivedQuery)
                 self.assertTrue(receivedResponse)
                 receivedQuery.id = query.id
-                self.assertEqual(query, receivedQuery)
-                self.assertEqual(receivedResponse, response)
+                self.assertEqual((query, method), (receivedQuery, method))
+                self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         for key in self._responsesCounter:
             value = self._responsesCounter[key]
@@ -211,23 +211,23 @@ class TestCaching(DNSDistTest):
         name = 'nocache-response.cache.tests.powerdns.com.'
         numberOfQueries = 10
         query = dns.message.make_query(name, 'AAAA', 'IN')
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     3600,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.AAAA,
                                     '::1')
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         for _ in range(numberOfQueries):
             for method in ("sendUDPQuery", "sendTCPQuery"):
                 sender = getattr(self, method)
-                (receivedQuery, receivedResponse) = sender(query, response)
+                (receivedQuery, receivedResponse) = sender(query, expectedResponse)
                 self.assertTrue(receivedQuery)
                 self.assertTrue(receivedResponse)
                 receivedQuery.id = query.id
-                self.assertEqual(query, receivedQuery)
-                self.assertEqual(receivedResponse, response)
+                self.assertEqual((query, method), (receivedQuery, method))
+                self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         for key in self._responsesCounter:
             value = self._responsesCounter[key]
@@ -2139,29 +2139,29 @@ class TestCachingECSWithoutPoolECS(DNSDistTest):
         ttl = 600
         name = 'cached.cache-ecs-without-pool-ecs.tests.powerdns.com.'
         query = dns.message.make_query(name, 'AAAA', 'IN')
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     ttl,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.AAAA,
                                     '::1')
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         # first query to fill the cache
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
-            (receivedQuery, receivedResponse) = sender(query, response)
+            (receivedQuery, receivedResponse) = sender(query, expectedResponse)
             self.assertTrue(receivedQuery)
             self.assertTrue(receivedResponse)
             receivedQuery.id = query.id
-            self.assertEqual(query, receivedQuery)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual((query, method), (receivedQuery, method))
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         # next queries should hit the cache
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         # we mark the backend as down
         self.sendConsoleCommand("getServer(0):setDown()")
@@ -2171,7 +2171,7 @@ class TestCachingECSWithoutPoolECS(DNSDistTest):
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
-            self.assertEqual(receivedResponse, None)
+            self.assertEqual((receivedResponse, method), (None, method))
 
 class TestCachingECSWithPoolECS(DNSDistTest):
 
@@ -2194,29 +2194,29 @@ class TestCachingECSWithPoolECS(DNSDistTest):
         ttl = 600
         name = 'cached.cache-ecs-with-pool-ecs.tests.powerdns.com.'
         query = dns.message.make_query(name, 'AAAA', 'IN')
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     ttl,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.AAAA,
                                     '::1')
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         # first query to fill the cache
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
-            (receivedQuery, receivedResponse) = sender(query, response)
+            (receivedQuery, receivedResponse) = sender(query, expectedResponse)
             self.assertTrue(receivedQuery)
             self.assertTrue(receivedResponse)
             receivedQuery.id = query.id
-            self.assertEqual(query, receivedQuery)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual((query, method), (receivedQuery, method))
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         # next queries should hit the cache
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         # we mark the backend as down
         self.sendConsoleCommand("getServer(0):setDown()")
@@ -2226,7 +2226,7 @@ class TestCachingECSWithPoolECS(DNSDistTest):
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
 class TestCachingCollisionNoECSParsing(DNSDistTest):
 
@@ -2244,21 +2244,21 @@ class TestCachingCollisionNoECSParsing(DNSDistTest):
         ecso = clientsubnetoption.ClientSubnetOption('10.0.226.63', 32)
         query = dns.message.make_query(name, 'AAAA', 'IN', use_edns=True, options=[ecso], payload=512)
         query.flags = dns.flags.RD
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     3600,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.AAAA,
                                     '::1')
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         # first query should to fill the cache
-        (receivedQuery, receivedResponse) = self.sendUDPQuery(query, response)
+        (receivedQuery, receivedResponse) = self.sendUDPQuery(query, expectedResponse)
         self.assertTrue(receivedQuery)
         self.assertTrue(receivedResponse)
         receivedQuery.id = query.id
         self.assertEqual(query, receivedQuery)
-        self.assertEqual(receivedResponse, response)
+        self.assertEqual(expectedResponse, receivedResponse)
 
         # second query will hash to the same key, triggering a collision which
         # will not be detected because the qname, qtype, qclass and flags will
@@ -2268,7 +2268,7 @@ class TestCachingCollisionNoECSParsing(DNSDistTest):
         query2.flags = dns.flags.RD
         (_, receivedResponse) = self.sendUDPQuery(query2, response=None, useQueue=False)
         receivedResponse.id = response.id
-        self.assertEqual(receivedResponse, response)
+        self.assertEqual(expectedResponse, receivedResponse)
 
 class TestCachingCollisionWithECSParsing(DNSDistTest):
 
@@ -2478,33 +2478,33 @@ class TestCachingScopeZero(DNSDistTest):
                                     dns.rdataclass.IN,
                                     dns.rdatatype.AAAA,
                                     '::1')
-        response = dns.message.make_response(query)
-        response.answer.append(rrset)
+        expectedResponse = dns.message.make_response(query)
+        expectedResponse.answer.append(rrset)
 
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
-            (receivedQuery, receivedResponse) = sender(query, response)
+            (receivedQuery, receivedResponse) = sender(query, expectedResponse)
             receivedQuery.id = expectedQuery.id
             self.checkMessageEDNSWithECS(expectedQuery, receivedQuery)
-            self.checkMessageNoEDNS(receivedResponse, response)
+            self.checkMessageNoEDNS(receivedResponse, expectedResponse)
 
         # next query should hit the cache, nothing special about that
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
-            self.checkMessageNoEDNS(receivedResponse, response)
+            self.checkMessageNoEDNS(receivedResponse, expectedResponse)
 
         query = dns.message.make_query(name, 'AAAA', 'IN')
         query.flags &= dns.flags.RD
-        response = dns.message.make_response(query)
-        response.answer.append(rrset)
+        expectedResponse = dns.message.make_response(query)
+        expectedResponse.answer.append(rrset)
         # next query FROM A DIFFERENT CLIENT since RD is now set should NOT hit the cache
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
-            (receivedQuery, receivedResponse) = sender(query, response)
+            (receivedQuery, receivedResponse) = sender(query, expectedResponse)
             receivedQuery.id = expectedQuery2.id
             self.checkMessageEDNSWithECS(expectedQuery2, receivedQuery)
-            self.checkMessageNoEDNS(receivedResponse, response)
+            self.checkMessageNoEDNS(receivedResponse, expectedResponse)
 
 class TestCachingScopeZeroButNoSubnetcheck(DNSDistTest):
 
@@ -2614,8 +2614,8 @@ class TestCachingAlteredHeader(DNSDistTest):
             self.assertTrue(receivedQuery)
             self.assertTrue(receivedResponse)
             receivedQuery.id = expectedQuery.id
-            self.assertEqual(expectedQuery, receivedQuery)
-            self.assertEqual(receivedResponse, expectedResponse)
+            self.assertEqual((expectedQuery, method), (receivedQuery, method))
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         # next query should hit the cache
         for method in ("sendUDPQuery", "sendTCPQuery"):
@@ -2636,7 +2636,7 @@ class TestCachingAlteredHeader(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(receivedResponse, expectedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
 class TestCachingBackendSettingRD(DNSDistTest):
 
@@ -2679,8 +2679,8 @@ class TestCachingBackendSettingRD(DNSDistTest):
             self.assertTrue(receivedQuery)
             self.assertTrue(receivedResponse)
             receivedQuery.id = expectedQuery.id
-            self.assertEqual(expectedQuery, receivedQuery)
-            self.assertEqual(receivedResponse, expectedResponse)
+            self.assertEqual((query, method), (receivedQuery, method))
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         # exact same query should be cached
         for method in ("sendUDPQuery", "sendTCPQuery"):
@@ -2688,7 +2688,7 @@ class TestCachingBackendSettingRD(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(receivedResponse, expectedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         # same query with RD=1, should NOT hit the cache
         query.flags |= dns.flags.RD
@@ -2705,4 +2705,4 @@ class TestCachingBackendSettingRD(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response)
             self.assertTrue(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(receivedResponse, expectedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))

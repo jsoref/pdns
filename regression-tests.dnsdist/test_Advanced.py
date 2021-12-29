@@ -41,8 +41,8 @@ class TestAdvancedFixupCase(DNSDistTest):
             self.assertTrue(receivedQuery)
             self.assertTrue(receivedResponse)
             receivedQuery.id = query.id
-            self.assertEqual(query, receivedQuery)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((query, method), (receivedQuery, method))
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
 class TestAdvancedACL(DNSDistTest):
 
@@ -65,7 +65,7 @@ class TestAdvancedACL(DNSDistTest):
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
-            self.assertEqual(receivedResponse, None)
+            self.assertEqual((receivedResponse, method), (None, method))
 
 class TestAdvancedStringOnlyServer(DNSDistTest):
 
@@ -79,22 +79,22 @@ class TestAdvancedStringOnlyServer(DNSDistTest):
         """
         name = 'string-only-server.advanced.tests.powerdns.com.'
         query = dns.message.make_query(name, 'A', 'IN')
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     3600,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.A,
                                     '192.0.2.1')
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
-            (receivedQuery, receivedResponse) = sender(query, response)
+            (receivedQuery, receivedResponse) = sender(query, expectedResponse)
             self.assertTrue(receivedQuery)
             self.assertTrue(receivedResponse)
             receivedQuery.id = query.id
-            self.assertEqual(query, receivedQuery)
-            self.assertEqual(response, receivedResponse)
+            self.assertEqual((query, method), (receivedQuery, method))
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
 @unittest.skipIf('SKIP_INCLUDEDIR_TESTS' in os.environ, 'IncludeDir tests are disabled')
 class TestAdvancedIncludeDir(DNSDistTest):
@@ -111,22 +111,22 @@ class TestAdvancedIncludeDir(DNSDistTest):
         """
         name = 'includedir.advanced.tests.powerdns.com.'
         query = dns.message.make_query(name, 'A', 'IN')
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     3600,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.A,
                                     '192.0.2.1')
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
-            (receivedQuery, receivedResponse) = sender(query, response)
+            (receivedQuery, receivedResponse) = sender(query, expectedResponse)
             self.assertTrue(receivedQuery)
             self.assertTrue(receivedResponse)
             receivedQuery.id = query.id
-            self.assertEqual(query, receivedQuery)
-            self.assertEqual(response, receivedResponse)
+            self.assertEqual((query, method), (receivedQuery, method))
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         # this one should be refused
         name = 'notincludedir.advanced.tests.powerdns.com.'
@@ -162,20 +162,20 @@ class TestStatNodeRespRingSince(DNSDistTest):
         """
         name = 'statnodesince.advanced.tests.powerdns.com.'
         query = dns.message.make_query(name, 'A', 'IN')
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     1,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.A,
                                     '127.0.0.1')
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
-        (receivedQuery, receivedResponse) = self.sendUDPQuery(query, response)
+        (receivedQuery, receivedResponse) = self.sendUDPQuery(query, expectedResponse)
         self.assertTrue(receivedQuery)
         self.assertTrue(receivedResponse)
         receivedQuery.id = query.id
         self.assertEqual(query, receivedQuery)
-        self.assertEqual(response, receivedResponse)
+        self.assertEqual(expectedResponse, receivedResponse)
 
         self.sendConsoleCommand("nodesSeen = {}")
         self.sendConsoleCommand("statNodeRespRing(visitor)")
@@ -245,18 +245,18 @@ class TestAdvancedGetLocalPort(DNSDistTest):
         # dnsdist set RA = RD for spoofed responses
         query.flags &= ~dns.flags.RD
 
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     60,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.CNAME,
                                     'port-was-{}.local-port.advanced.tests.powerdns.com.'.format(self._dnsDistPort))
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual((receivedResponse, method), (expectedResponse, method))
 
 class TestAdvancedGetLocalPortOnAnyBind(DNSDistTest):
 
@@ -279,18 +279,18 @@ class TestAdvancedGetLocalPortOnAnyBind(DNSDistTest):
         # dnsdist set RA = RD for spoofed responses
         query.flags &= ~dns.flags.RD
 
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     60,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.CNAME,
                                     'port-was-{}.local-port-any.advanced.tests.powerdns.com.'.format(self._dnsDistPort))
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual((receivedResponse, method), (expectedResponse, method))
 
 class TestAdvancedGetLocalAddressOnAnyBind(DNSDistTest):
 
@@ -316,18 +316,18 @@ class TestAdvancedGetLocalAddressOnAnyBind(DNSDistTest):
         # dnsdist set RA = RD for spoofed responses
         query.flags &= ~dns.flags.RD
 
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
         rrset = dns.rrset.from_text(name,
                                     60,
                                     dns.rdataclass.IN,
                                     dns.rdatatype.CNAME,
                                     'address-was-127-0-0-1.local-address-any.advanced.tests.powerdns.com.')
-        response.answer.append(rrset)
+        expectedResponse.answer.append(rrset)
 
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual((receivedResponse, method), (expectedResponse, method))
 
 class TestAdvancedAllowHeaderOnly(DNSDistTest):
 
@@ -342,17 +342,17 @@ class TestAdvancedAllowHeaderOnly(DNSDistTest):
         """
         name = 'header-only-refused-response.advanced.tests.powerdns.com.'
         query = dns.message.make_query(name, 'A', 'IN')
-        response = dns.message.make_response(query)
-        response.set_rcode(dns.rcode.REFUSED)
-        response.question = []
+        expectedResponse = dns.message.make_response(query)
+        expectedResponse.set_rcode(dns.rcode.REFUSED)
+        expectedResponse.question = []
 
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
-            (receivedQuery, receivedResponse) = sender(query, response)
+            (receivedQuery, receivedResponse) = sender(query, expectedResponse)
             self.assertTrue(receivedQuery)
             receivedQuery.id = query.id
             self.assertEqual(query, receivedQuery)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual(receivedResponse, expectedResponse)
 
     def testHeaderOnlyNoErrorResponse(self):
         """
@@ -360,16 +360,16 @@ class TestAdvancedAllowHeaderOnly(DNSDistTest):
         """
         name = 'header-only-noerror-response.advanced.tests.powerdns.com.'
         query = dns.message.make_query(name, 'A', 'IN')
-        response = dns.message.make_response(query)
-        response.question = []
+        expectedResponse = dns.message.make_response(query)
+        expectedResponse.question = []
 
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
-            (receivedQuery, receivedResponse) = sender(query, response)
+            (receivedQuery, receivedResponse) = sender(query, expectedResponse)
             self.assertTrue(receivedQuery)
             receivedQuery.id = query.id
             self.assertEqual(query, receivedQuery)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual(receivedResponse, expectedResponse)
 
     def testHeaderOnlyNXDResponse(self):
         """
@@ -377,17 +377,17 @@ class TestAdvancedAllowHeaderOnly(DNSDistTest):
         """
         name = 'header-only-nxd-response.advanced.tests.powerdns.com.'
         query = dns.message.make_query(name, 'A', 'IN')
-        response = dns.message.make_response(query)
-        response.set_rcode(dns.rcode.NXDOMAIN)
-        response.question = []
+        expectedResponse = dns.message.make_response(query)
+        expectedResponse.set_rcode(dns.rcode.NXDOMAIN)
+        expectedResponse.question = []
 
         for method in ("sendUDPQuery", "sendTCPQuery"):
             sender = getattr(self, method)
-            (receivedQuery, receivedResponse) = sender(query, response)
+            (receivedQuery, receivedResponse) = sender(query, expectedResponse)
             self.assertTrue(receivedQuery)
             receivedQuery.id = query.id
             self.assertEqual(query, receivedQuery)
-            self.assertEqual(receivedResponse, response)
+            self.assertEqual(receivedResponse, expectedResponse)
 
 class TestAdvancedDropEmptyQueries(DNSDistTest):
 
@@ -435,12 +435,12 @@ class TestProtocols(DNSDistTest):
         """
         name = 'udp.protocols.advanced.tests.powerdns.com.'
         query = dns.message.make_query(name, 'A', 'IN')
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
 
-        (receivedQuery, receivedResponse) = self.sendUDPQuery(query, response)
+        (receivedQuery, receivedResponse) = self.sendUDPQuery(query, expectedResponse)
         receivedQuery.id = query.id
         self.assertEqual(receivedQuery, query)
-        self.assertEqual(receivedResponse, response)
+        self.assertEqual(receivedResponse, expectedResponse)
 
     def testProtocolTCP(self):
         """
@@ -448,9 +448,9 @@ class TestProtocols(DNSDistTest):
         """
         name = 'tcp.protocols.advanced.tests.powerdns.com.'
         query = dns.message.make_query(name, 'A', 'IN')
-        response = dns.message.make_response(query)
+        expectedResponse = dns.message.make_response(query)
 
-        (receivedQuery, receivedResponse) = self.sendTCPQuery(query, response)
+        (receivedQuery, receivedResponse) = self.sendTCPQuery(query, expectedResponse)
         receivedQuery.id = query.id
         self.assertEqual(receivedQuery, query)
-        self.assertEqual(receivedResponse, response)
+        self.assertEqual(receivedResponse, expectedResponse)

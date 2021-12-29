@@ -442,7 +442,7 @@ class TestResponseClearRecordsType(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response)
             receivedQuery.id = query.id
             self.assertEqual(query, receivedQuery)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testCleared(self):
         """
@@ -470,4 +470,4 @@ class TestResponseClearRecordsType(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response)
             receivedQuery.id = query.id
             self.assertEqual(query, receivedQuery)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))

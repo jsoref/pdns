@@ -95,7 +95,7 @@ class TestCDBSimple(CDBTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testCDBQNamePlusTagLookup(self):
         """
@@ -118,7 +118,7 @@ class TestCDBSimple(CDBTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testCDBSuffixLookup(self):
         """

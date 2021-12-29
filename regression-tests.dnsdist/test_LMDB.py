@@ -101,7 +101,7 @@ class TestLMDB(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testLMDBQNamePlusTagLookup(self):
         """
@@ -124,7 +124,7 @@ class TestLMDB(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testLMDBSuffixLookup(self):
         """
@@ -147,7 +147,7 @@ class TestLMDB(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testLMDBQNamePlainText(self):
         """
@@ -170,7 +170,7 @@ class TestLMDB(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
     def testLMDBKeyValueStoreLookupRule(self):
         """
@@ -193,7 +193,7 @@ class TestLMDB(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
 class TestLMDBIPInRange(DNSDistTest):
 
@@ -251,7 +251,7 @@ class TestLMDBIPInRange(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
 class TestLMDBIPNotInRange(DNSDistTest):
 
@@ -309,4 +309,4 @@ class TestLMDBIPNotInRange(DNSDistTest):
             (receivedQuery, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertFalse(receivedQuery)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))

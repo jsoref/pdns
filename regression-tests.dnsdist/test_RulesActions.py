@@ -1276,7 +1276,7 @@ class TestSetRules(DNSDistTest):
 
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         # clear all the rules, we should not be spoofing and get a SERVFAIL from the responder instead
         self.sendConsoleCommand("clearRules()")
@@ -1289,7 +1289,7 @@ class TestSetRules(DNSDistTest):
 
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
         # insert a new spoofing rule
         self.sendConsoleCommand("setRules({ newRuleAction(AllRule(), SpoofAction(\"192.0.2.2\")) })")
@@ -1307,7 +1307,7 @@ class TestSetRules(DNSDistTest):
 
             (_, receivedResponse) = sender(query, response=None, useQueue=False)
             self.assertTrue(receivedResponse)
-            self.assertEqual(expectedResponse, receivedResponse)
+            self.assertEqual((expectedResponse, method), (receivedResponse, method))
 
 class TestAdvancedContinueAction(DNSDistTest):
 
