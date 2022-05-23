@@ -79,7 +79,7 @@ aton
 attr
 atype
 authanswers
-AUTHIP
+authip
 Authoritativedoc
 auths
 authzone
@@ -234,7 +234,7 @@ chown
 Christof
 chroot
 chrooting
-CIDR
+cidr
 classmethod
 clientanswers
 Cloos
@@ -397,7 +397,7 @@ dnsdistdoc
 dnsdomain
 dnsext
 dnsgram
-dnsheader
+DNSHEADER
 dnskey
 dnsmessage
 dnsname
@@ -1250,7 +1250,6 @@ pickwrandom
 pid
 piddir
 pidfile
-pieter
 pilindex
 Pinski
 pipebackend
@@ -1848,7 +1847,6 @@ webserver
 website
 Webspider
 Wegener
-weightparams
 Weimer
 Welzel
 Wessels
