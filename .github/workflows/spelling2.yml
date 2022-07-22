@@ -49,6 +49,8 @@ on:
       - 'opened'
       - 'reopened'
       - 'synchronize'
+  issue_comment:
+    types: [created]
 
 jobs:
   spelling:
@@ -76,6 +78,7 @@ jobs:
         checkout: true
         spell_check_this: check-spelling/spell-check-this@prerelease
         post_comment: 0
+        experimental_apply_changes_via_bot: ${{ github.repository_owner != 'powerdns' && 1 || 0 }}
         use_sarif: 1
         check_commit_messages: title description
         extra_dictionaries:
@@ -105,6 +108,7 @@ jobs:
       uses: check-spelling/check-spelling@prerelease
       with:
         config: .github/actions/spell-check
+        experimental_apply_changes_via_bot: ${{ github.repository_owner != 'powerdns' && 1 || 0 }}
         checkout: true
         spell_check_this: check-spelling/spell-check-this@prerelease
         task: ${{ needs.spelling.outputs.followup }}
@@ -125,6 +129,7 @@ jobs:
         checkout: true
         spell_check_this: check-spelling/spell-check-this@prerelease
         task: ${{ needs.spelling.outputs.followup }}
+        experimental_apply_changes_via_bot: ${{ github.repository_owner != 'powerdns' && 1 || 0 }}
 
   update:
     name: Update PR
@@ -147,5 +152,6 @@ jobs:
       uses: check-spelling/check-spelling@prerelease
       with:
         config: .github/actions/spell-check
+        experimental_apply_changes_via_bot: ${{ github.repository_owner != 'powerdns' && 1 || 0 }}
         checkout: true
         ssh_key: "${{ secrets.CHECK_SPELLING }}"
