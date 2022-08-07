@@ -78,6 +78,18 @@ jobs:
         post_comment: 0
         use_sarif: 1
         check_commit_messages: title description
+        extra_dictionaries:
+          cspell:software-terms/src/software-terms.txt
+          cspell:python/src/python/python-lib.txt
+          cspell:node/node.txt
+          cspell:python/src/common/extra.txt
+          cspell:fullstack/fullstack.txt
+          cspell:html/html.txt
+          cspell:aws/aws.txt
+          cspell:npm/npm.txt
+          cspell:cpp/src/stdlib-cpp.txt
+          cspell:python/src/python/python.txt
+          cspell:django/django.txt
         check_extra_dictionaries: ''
 
   comment-push:
