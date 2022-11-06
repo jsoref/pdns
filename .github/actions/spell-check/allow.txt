@@ -2312,6 +2312,8 @@ Nro
 nrr
 nsa
 nscount
+NSD
+nsd
 nsdname
 nsdomain
 nseconds
