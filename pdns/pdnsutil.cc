@@ -757,6 +757,12 @@ static int checkZone(DNSSECKeeper &dk, UeberBackend &B, const DNSName& zone, con
           continue;
         }
 
+        // RRSIGs are ok for presigned zones, or at least there's nothing
+        // anyone can do about them
+        if( rr.qtype.getCode() == QType::RRSIG && qname.second == QType::NS && dk.isPresigned(zone) ) {
+          continue;
+        }
+
         // the record under inspection is:
         // occluded by a DNAME, or
         // occluded by a delegation, and is not glue or ENTs leading towards that glue
