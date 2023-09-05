@@ -32,7 +32,7 @@ jobs:
     outputs:
       clang-tidy-failed: ${{ steps.clang-tidy-annotations.outputs.failed }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -104,7 +104,7 @@ jobs:
     outputs:
       clang-tidy-failed: ${{ steps.clang-tidy-annotations.outputs.failed }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -176,7 +176,7 @@ jobs:
     outputs:
       clang-tidy-failed: ${{ steps.clang-tidy-annotations.outputs.failed }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -260,7 +260,7 @@ jobs:
         options: >-
           --restart always
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -372,7 +372,7 @@ jobs:
         options: >-
           --restart always
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -396,7 +396,7 @@ jobs:
         ASAN_OPTIONS: detect_leaks=0
       options: --sysctl net.ipv6.conf.all.disable_ipv6=0
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -426,7 +426,7 @@ jobs:
         TSAN_OPTIONS: "halt_on_error=1:suppressions=${{ env.REPO_HOME }}/pdns/recursordist/recursor-tsan.supp"
       options: --sysctl net.ipv6.conf.all.disable_ipv6=0
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -459,7 +459,7 @@ jobs:
       options: --sysctl net.ipv6.conf.all.disable_ipv6=0
     steps:
       # - uses: PowerDNS/pdns/set-ubuntu-mirror@meta
-      - uses: actions/checkout@v3.1.0
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -492,7 +492,7 @@ jobs:
         TSAN_OPTIONS: "halt_on_error=1:suppressions=${{ env.REPO_HOME }}/pdns/recursordist/recursor-tsan.supp"
       options: --sysctl net.ipv6.conf.all.disable_ipv6=0
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -522,7 +522,7 @@ jobs:
         SKIP_INCLUDEDIR_TESTS: yes
       options: --sysctl net.ipv6.conf.all.disable_ipv6=0
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -544,7 +544,7 @@ jobs:
     #   options: --sysctl net.ipv6.conf.all.disable_ipv6=0
     steps:
       - uses: PowerDNS/pdns/set-ubuntu-mirror@meta
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
@@ -592,7 +592,7 @@ jobs:
         run: "sudo snap install jq yq"
       - name: Fail job if any of the previous jobs failed
         run: "for i in `echo '${{ toJSON(needs) }}' | jq '.[].result' | tr -d '\"'`; do if [[ $i == 'failure' ]]; then echo '${{ toJSON(needs) }}'; exit 1; fi; done;"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 5
           submodules: recursive
