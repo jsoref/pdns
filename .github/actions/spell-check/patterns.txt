@@ -58,7 +58,7 @@ DoH
 # Library prefix
 # e.g., `lib`+`archive`, `lib`+`raw`, `lib`+`unwind`
 # (ignores some words that happen to start with `lib`)
-(?:\b|_)[Ll]ib(?:re(?=office)|)(?!era[lt]|ero|erty|rar(?:i(?:an|es)|y))(?=[a-z])
+(?:\b|_)[Ll]ib(?:re(?=office|ssl)|)(?!era[lt]|ero|erty|rar(?:i(?:an|es)|y))(?=[a-z])
 
 # hit-count: 124 file-count: 50
 # Repeated letters
