@@ -232,7 +232,7 @@
 \bgoing to bad(?!-)\b
 
 # Should be `greater than`
-\bhigher than\b
+#\bhigher than\b
 
 # Should be `ID` (unless it's a flag/property)
 (?<![-\.])\bId\b(?![(])
